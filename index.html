@@ -458,51 +458,11 @@ react-dom/cjs/react-dom-client.production.js:
     const _yest = new Date(); _yest.setDate(_yest.getDate()-1);
     const YESTERDAY_STR = toLocaleDateStr(_yest);
 
-    const INIT = [
-      {id:1, date:TODAY_STR,stall:"S01",plate:"品川330あ1234",owner:"田中 太郎", model:"プリウス",       type:"ホリデー車検",       start:8,   end:11,  status:"作業待ち",    memo:"ブレーキパッド要交換",priority:true, workState:"working",startedAt:"08:32",endedAt:null, receptionDate:TODAY_STR,deliveryDate:"2026-03-12",loanCar:"あり",transport:"引取"},
-      {id:2, date:TODAY_STR,stall:"S01",plate:"品川400さ5678",owner:"小林 達也", model:"アクア",         type:"12ヶ月点検",         start:11.5,end:13,  status:"作業待ち",    memo:"",priority:false,workState:"idle",   startedAt:null,   endedAt:null, receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:3, date:TODAY_STR,stall:"S02",plate:"横浜500い5678",owner:"佐藤 花子", model:"N-BOX",          type:"ジョイカル12",       start:9,   end:10.5,status:"連絡待ち",    memo:"",priority:false,workState:"shelved",startedAt:"09:05",endedAt:"10:20", receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"納車"},
-      {id:4, date:TODAY_STR,stall:"S02",plate:"横浜550し1111",owner:"加藤 麻衣", model:"フィット",       type:"一般車検",           start:13,  end:16,  status:"作業待ち",    memo:"",priority:false,workState:"idle",   startedAt:null,   endedAt:null, receptionDate:TODAY_STR,deliveryDate:"2026-03-11",loanCar:"なし",transport:"なし"},
-      {id:5, date:TODAY_STR,stall:"S03",plate:"川崎301う9012",owner:"鈴木 一郎", model:"セレナ",         type:"一般整備",           start:8,   end:12,  status:"部品待ち",    memo:"オルタネーター発注済",priority:true,workState:"shelved",startedAt:"08:10",endedAt:"10:30", receptionDate:TODAY_STR,deliveryDate:"2026-03-14",loanCar:"あり",transport:"引取+納車"},
-      {id:6, date:TODAY_STR,stall:"S03",plate:"川崎200す9012",owner:"松本 隆",   model:"ノート",         type:"ホリデー車検/再入庫", start:13,  end:15.5,status:"作業待ち",    memo:"",priority:false,workState:"idle",   startedAt:null,   endedAt:null, receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:7, date:TODAY_STR,stall:"S04",plate:"多摩400え3456",owner:"高橋 美子", model:"ワゴンR",        type:"中古新規",           start:10,  end:13,  status:"検査・保適待ち",memo:"",priority:false,workState:"idle",startedAt:null,endedAt:null, receptionDate:TODAY_STR,deliveryDate:"2026-03-12",loanCar:"なし",transport:"納車"},
-      {id:8, date:TODAY_STR,stall:"S04",plate:"多摩100せ3456",owner:"井上 由美", model:"アルト",         type:"オイル交換",         start:14,  end:16,  status:"作業待ち",    memo:"",priority:false,workState:"idle",   startedAt:null,   endedAt:null, receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:9, date:TODAY_STR,stall:"S05",plate:"練馬230お7890",owner:"伊藤 健二", model:"CX-5",           type:"10ポイント点検",     start:8,   end:9.5, status:"完成",        memo:"点検完了",priority:false,workState:"shelved",startedAt:"08:00",endedAt:"09:22", receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:10,date:TODAY_STR,stall:"S05",plate:"練馬300そ7890",owner:"木村 浩",   model:"ヴォクシー",     type:"車検後日整備",       start:10,  end:13.5,status:"作業待ち",    memo:"",priority:false,workState:"working",startedAt:"10:08",endedAt:null, receptionDate:TODAY_STR,deliveryDate:"2026-03-13",loanCar:"なし",transport:"なし"},
-      {id:11,date:TODAY_STR,stall:"S06",plate:"世田谷800か2345",owner:"渡辺 純", model:"フォレスター",   type:"一般整備B",          start:8,   end:17,  status:"一時中断",    memo:"右フェンダー修復",priority:false,workState:"shelved",startedAt:"08:00",endedAt:"10:15", receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:12,date:TODAY_STR,stall:"S07",plate:"足立100き6789",owner:"山本 幸子", model:"タント",         type:"故障診断",           start:11,  end:13,  status:"作業待ち",    memo:"O2センサー交換",priority:true,workState:"working",startedAt:"11:03",endedAt:null, receptionDate:TODAY_STR,deliveryDate:"2026-03-11",loanCar:"なし",transport:"引取"},
-      {id:13,date:TODAY_STR,stall:"S07",plate:"江東888く1111",owner:"中村 誠",   model:"アウトランダー", type:"ジョイカル6",        start:14,  end:16,  status:"車検証/来店", memo:"",priority:false,workState:"shelved",startedAt:"13:50",endedAt:"15:40", receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"納車"},
-      {id:14,date:TODAY_STR,stall:"S08",plate:"品川111て2222",owner:"佐々木 勇", model:"ランドクルーザー",type:"中古12検",          start:8.5, end:12,  status:"車検証/郵送", memo:"",priority:false,workState:"shelved",startedAt:"08:35",endedAt:"11:55", receptionDate:TODAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:15,date:TODAY_STR,stall:"S08",plate:"横浜222ち3333",owner:"浜田 奈緒", model:"ステップワゴン", type:"用品取付",           start:13,  end:14.5,status:"洗車待ち",    memo:"",priority:false,workState:"shelved",startedAt:"13:00", endedAt:"14:30", receptionDate:TODAY_STR,deliveryDate:"2026-03-12",loanCar:"あり",transport:"なし"},
-      /* 翌日サンプル */
-      {id:101,date:TOMORROW_STR,stall:"S01",plate:"品川500あ0001",owner:"山田 太一", model:"カローラ",       type:"ホリデー車検",  start:8,   end:11,  status:"作業待ち",  memo:"",priority:false,workState:"idle",   startedAt:null,endedAt:null, receptionDate:TOMORROW_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:102,date:TOMORROW_STR,stall:"S02",plate:"横浜330い0002",owner:"中山 恵子", model:"ヴィッツ",       type:"12ヶ月点検",    start:9,   end:11,  status:"作業待ち",  memo:"",priority:false,workState:"idle",   startedAt:null,endedAt:null, receptionDate:TOMORROW_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:103,date:TOMORROW_STR,stall:"S03",plate:"川崎400う0003",owner:"田村 和夫", model:"ノア",           type:"一般整備",      start:10,  end:14,  status:"作業待ち",  memo:"エンジンオイル交換",priority:false,workState:"idle",startedAt:null,endedAt:null, receptionDate:TOMORROW_STR,deliveryDate:"",loanCar:"なし",transport:"引取"},
-      {id:104,date:TOMORROW_STR,stall:"S04",plate:"多摩100え0004",owner:"清水 良子", model:"シエンタ",       type:"用品取付",      start:13,  end:15,  status:"作業待ち",  memo:"",priority:false,workState:"idle",   startedAt:null,endedAt:null, receptionDate:TOMORROW_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      /* 前日サンプル */
-      {id:201,date:YESTERDAY_STR,stall:"S01",plate:"練馬230お9001",owner:"石田 浩二", model:"アクセラ",      type:"一般車検",      start:8,   end:12,  status:"完成",      memo:"",priority:false,workState:"shelved",startedAt:"08:05",endedAt:"11:50", receptionDate:YESTERDAY_STR,deliveryDate:"",loanCar:"なし",transport:"なし"},
-      {id:202,date:YESTERDAY_STR,stall:"S02",plate:"世田谷500か9002",owner:"村田 美奈",model:"フリード",    type:"ジョイカル12",  start:9.5, end:12,  status:"車検証/来店",memo:"",priority:false,workState:"shelved",startedAt:"09:30",endedAt:"11:45", receptionDate:YESTERDAY_STR,deliveryDate:"",loanCar:"なし",transport:"納車"},
-    ];
+    const INIT = [];
 
-    const RES = [
-      {id:1,date:"2026-03-10",time:"09:00",owner:"小林 達也",model:"アクア",     plate:"品川400さ1234",type:"ホリデー車検", phone:"090-1234-5678",status:"確定"},
-      {id:2,date:"2026-03-10",time:"10:00",owner:"加藤 麻衣",model:"N-BOX",      plate:"横浜550し5678",type:"12ヶ月点検",   phone:"080-2345-6789",status:"確定"},
-      {id:3,date:"2026-03-11",time:"08:30",owner:"松本 隆",  model:"ノート",     plate:"川崎200す9012",type:"一般車検",     phone:"070-3456-7890",status:"仮予約"},
-      {id:4,date:"2026-03-11",time:"13:00",owner:"井上 由美",model:"アルト",     plate:"多摩100せ3456",type:"一般整備",     phone:"090-4567-8901",status:"確定"},
-      {id:5,date:"2026-03-12",time:"09:30",owner:"木村 浩",  model:"ヴォクシー", plate:"練馬300そ7890",type:"ホリデー車検", phone:"080-5678-9012",status:"確定"},
-      {id:6,date:"2026-03-12",time:"14:00",owner:"福田 裕美",model:"ライズ",     plate:"練馬170ぬ5555",type:"ジョイカル12", phone:"090-6789-0123",status:"仮予約"},
-    ];
+    const RES = [];
 
-    const INV = [
-      {id:1,code:"ENG-001",name:"エンジンオイル 5W-30",   stock:24,unit:"L",    min:20,category:"消耗品"},
-      {id:2,code:"BRK-012",name:"ブレーキパッド (F汎用)", stock:7, unit:"セット",min:10,category:"ブレーキ"},
-      {id:3,code:"TIR-205",name:"タイヤ 205/55R16",       stock:16,unit:"本",   min:8, category:"タイヤ"},
-      {id:4,code:"BAT-115",name:"バッテリー 115D26L",      stock:3, unit:"個",   min:5, category:"電装"},
-      {id:5,code:"FLT-AIR",name:"エアフィルター 汎用",     stock:15,unit:"個",   min:10,category:"消耗品"},
-      {id:6,code:"OIL-FLT",name:"オイルフィルター 汎用",   stock:22,unit:"個",   min:15,category:"消耗品"},
-      {id:7,code:"ALT-TOY",name:"オルタネーター トヨタ用", stock:1, unit:"個",   min:2, category:"電装"},
-      {id:8,code:"SHK-FRT",name:"フロントショック 汎用",   stock:4, unit:"本",   min:4, category:"足回り"},
-    ];
+    const INV = [];
 
     const DEST_GROUPS = [
       { label:"完了系", icon:"✅", items:[
