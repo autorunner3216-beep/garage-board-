@@ -703,7 +703,7 @@ react-dom/cjs/react-dom-client.production.js:
 
 
     // ── ステータス一覧 ──
-    function ShelvedList({ shelvedJobs, allJobs, stalls, openReAssign, removeJob, setEditJob, updStatus }) {
+    function ShelvedList({ shelvedJobs, allJobs, stalls, openReAssign, removeJob, setEditJob, updStatus, flashJobId }) {
       const [filt, setFilt] = useState("すべて");
       const [sortOrder, setSortOrder] = useState("new");
       const [groupMode, setGroupMode] = useState("none"); // "none" | "mechanic" | "receptionist"
@@ -753,8 +753,11 @@ react-dom/cjs/react-dom-client.production.js:
       const renderGrid = (jobList) => React.createElement('div', { style: { display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:7 }},
         jobList.map(job => {
           const sc = SC[job.status]||SC["作業待ち"]; const jt = JT[job.type]||JT["一般整備"];
+          const isFlash = flashJobId === job.id;
           return (
             React.createElement('div', { key: job.id,
+              id: `status-card-${job.id}`,
+              className: isFlash ? "search-flash" : "",
               onDoubleClick: () => setEditJob(job),
               style: { background:"#0d1625", border:`1px solid ${sc.accent}55`,
               borderLeft:`3px solid ${sc.accent}`, borderRadius:9, padding:"9px 10px",
@@ -1547,6 +1550,7 @@ react-dom/cjs/react-dom-client.production.js:
                       const isFlash = flashJobId === job.id;
                       return (
                         React.createElement('div', { key: job.id,
+                          id: `job-bar-${job.id}`,
                           className: (working && !isGhost ? "bar-working" : "") + (isFlash ? " search-flash" : ""),
                           style: { position:"absolute", top:6, height:ROW_H-12,
                             left:(job.start-8)*CELL_W+2, width:w-4,
@@ -4088,11 +4092,30 @@ React.createElement('select', {
         setBpDayoff(d);
         try { localStorage.setItem('bp_dayoff', JSON.stringify(d)); } catch {} if (typeof window.fbSet==='function') window.fbSet('bp_dayoff', d);
       };
+      const [bpCompletedLog, setBpCompletedLog] = useState(function(){
+        try { var s = localStorage.getItem('bp_completed_log'); return s ? JSON.parse(s) : []; } catch { return []; }
+      });
+      const saveBpCompletedLog = function(logs) {
+        setBpCompletedLog(logs);
+        try { localStorage.setItem('bp_completed_log', JSON.stringify(logs)); } catch {}
+        if (typeof window.fbSet==='function') window.fbSet('bp_completed_log', logs);
+      };
+      const completeAndLog = function(job) {
+        var log = {
+          id: job.id, plate: job.plate||"", owner: job.owner||"", carModel: job.carModel||"",
+          estimatedAmount: job.estimatedAmount||0, inDate: job.inDate||"", outDate: job.outDate||"",
+          staffName: job.staffName||"", completedAt: today, month: today.slice(0,7),
+          nyukoType: job.nyukoType||"", damage: job.damage||"", memo: job.memo||""
+        };
+        saveBpCompletedLog([...bpCompletedLog, log]);
+        saveBpJobs(bpJobs.filter(function(x){ return x.id !== job.id; }));
+      };
       const [dayoffModal, setDayoffModal] = useState(null); // {date, dateLabel}
       // 表示月 (YYYY-MM)
       const [viewMonth, setViewMonth] = useState(() => today.slice(0,7));
       const [bpView, setBpView] = useState("gantt");
       const [showConfirmedPanel, setShowConfirmedPanel] = useState(false);
+      const [showCompletedLog, setShowCompletedLog] = useState(false);
       const [editingTarget, setEditingTarget] = useState(false);
       const [targetInput, setTargetInput] = useState("");
             const [bpSalesTarget, setBpSalesTarget] = useState(function(){
@@ -4154,7 +4177,8 @@ React.createElement('select', {
         window.fbOn('bp_workers', function(val) { if (Array.isArray(val)) setBpWorkers(val); });
         window.fbOn('bp_dayoff',  function(val) { if (Array.isArray(val)) setBpDayoff(val); });
         window.fbOn('bp_sales_target', function(val) { if (val !== null && !isNaN(Number(val))) setBpSalesTarget(Number(val)); });
-        return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target'].forEach(window.fbOff); };
+        window.fbOn && window.fbOn('bp_completed_log', function(val) { if (Array.isArray(val)) { setBpCompletedLog(val); try { localStorage.setItem('bp_completed_log', JSON.stringify(val)); } catch {} } });
+        return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target','bp_completed_log'].forEach(window.fbOff); };
       }, []);
 
       // 月の日数・開始日
@@ -4255,7 +4279,9 @@ React.createElement('select', {
           /* 月間売上合計 HPゲージ */
           (function(){
             var total = bpJobs.filter(function(j){ return j.counted && j.inDate && j.inDate.startsWith(viewMonth); })
-              .reduce(function(s,j){ return s + (Number(j.estimatedAmount)||0); }, 0);
+              .reduce(function(s,j){ return s + (Number(j.estimatedAmount)||0); }, 0)
+            + bpCompletedLog.filter(function(l){ return l.month === viewMonth; })
+              .reduce(function(s,l){ return s + (Number(l.estimatedAmount)||0); }, 0);
             var pct   = Math.min(total / Math.max(bpSalesTarget, 1) * 100, 100);
             var over  = total >= bpSalesTarget;
             var bonus = total - bpSalesTarget; /* 目標超過額 */
@@ -4608,7 +4634,23 @@ React.createElement('select', {
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:"14px" }}, cnt)
               );
-            })()
+            })(),
+
+            React.createElement('button', {
+              onClick:()=>setShowCompletedLog(v=>!v),
+              style:{ position:"relative",
+                background: showCompletedLog ? "linear-gradient(135deg,#1e3a5f,#3b82f6)" : "linear-gradient(135deg,#0f1e35,#1e3a5f)",
+                border:"1px solid #3b82f688", borderRadius:6, color:"#fff",
+                fontSize:11, padding:"4px 12px", cursor:"pointer",
+                fontWeight:800, whiteSpace:"nowrap",
+                boxShadow: showCompletedLog ? "0 0 14px #3b82f688" : "none",
+                textShadow:"0 1px 2px #00000066" }},
+              "📋 完了ログ",
+              bpCompletedLog.filter(l=>l.month===viewMonth).length > 0 && React.createElement('span', { style:{ position:"absolute", top:-5, right:-5,
+                background:"#3b82f6", color:"#fff", borderRadius:"50%", width:14, height:14, fontSize:8, fontWeight:700,
+                display:"flex", alignItems:"center", justifyContent:"center", lineHeight:"14px" }},
+                bpCompletedLog.filter(l=>l.month===viewMonth).length)
+            )
           )
         ),
 
@@ -5121,13 +5163,13 @@ React.createElement('select', {
                     c.type==="納車" && React.createElement('button', {
                       onClick: function(e) {
                         e.stopPropagation();
-                        saveBpJobs(bpJobs.filter(function(x){ return x.id !== j.id; }));
+                        completeAndLog(j);
                       },
                       style:{ marginTop:6, width:"100%", padding:"5px", borderRadius:5,
                         border:"1px solid #fbbf2466", background:"#78350f",
                         color:"#fde68a", fontSize:10, fontWeight:800, cursor:"pointer",
                         boxShadow:"0 0 8px #f59e0b33" }},
-                      "🏁 引渡完了（完全削除）"
+                      "🏁 引渡完了"
                     )
                   );
                 });
@@ -5249,18 +5291,76 @@ React.createElement('select', {
                     /* 引渡完了ボタン */
                     React.createElement('button', {
                       onClick:function(e){ e.stopPropagation();
-                        saveBpJobs(bpJobs.filter(function(x){ return x.id!==j.id; })); },
+                        completeAndLog(j); },
                       style:{ width:"100%", padding:"5px", borderRadius:5,
                         border:"1px solid #fbbf2466", background:"#78350f",
                         color:"#fde68a", fontSize:10, fontWeight:800, cursor:"pointer",
                         boxShadow:"0 0 8px #f59e0b33" }},
-                      "🏁 引渡完了（完全削除）"
+                      "🏁 引渡完了"
                     )
                   );
                 });
               })()
             )
           ) /* 完成確定済みパネル閉じ */
+
+        , showCompletedLog && React.createElement('div', {
+          style:{ position:"fixed", top:0, right:0, width:420, height:"100vh",
+            background:"#070f1c", borderLeft:"1px solid #1e3a5f",
+            zIndex:1500, display:"flex", flexDirection:"column",
+            boxShadow:"-8px 0 32px rgba(0,0,0,.7)" }},
+          React.createElement('div', { style:{ padding:"16px 20px", borderBottom:"1px solid #1e3a5f",
+            display:"flex", justifyContent:"space-between", alignItems:"center" }},
+            React.createElement('div', { style:{ fontSize:14, fontWeight:800, color:"#60a5fa" }}, "📋 引渡完了ログ"),
+            React.createElement('div', { style:{ display:"flex", gap:8, alignItems:"center" }},
+              React.createElement('span', { style:{ fontSize:11, color:"#64748b" }}, viewMonth),
+              React.createElement('button', { onClick:()=>setShowCompletedLog(false),
+                style:{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}, "✕")
+            )
+          ),
+          React.createElement('div', { style:{ padding:"12px 20px", borderBottom:"1px solid #1e3a5f", background:"#0a1628" }},
+            React.createElement('div', { style:{ display:"flex", justifyContent:"space-between", alignItems:"center" }},
+              React.createElement('span', { style:{ fontSize:11, color:"#94a3b8", fontWeight:600 }}, "今月完了台数"),
+              React.createElement('span', { style:{ fontSize:16, fontWeight:800, color:"#34d399", fontFamily:"'Orbitron',monospace" }},
+                bpCompletedLog.filter(l=>l.month===viewMonth).length, " 台")
+            ),
+            React.createElement('div', { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:4 }},
+              React.createElement('span', { style:{ fontSize:11, color:"#94a3b8", fontWeight:600 }}, "今月完了売上"),
+              React.createElement('span', { style:{ fontSize:16, fontWeight:800, color:"#fbbf24", fontFamily:"'Orbitron',monospace" }},
+                "¥"+bpCompletedLog.filter(l=>l.month===viewMonth).reduce((s,l)=>s+(Number(l.estimatedAmount)||0),0).toLocaleString())
+            )
+          ),
+          React.createElement('div', { style:{ flex:1, overflowY:"auto", padding:"8px 12px" }},
+            bpCompletedLog.filter(l=>l.month===viewMonth).length === 0
+              ? React.createElement('div', { style:{ fontSize:12, color:"#475569", textAlign:"center", padding:"40px 0" }}, "完了ログはありません")
+              : [...bpCompletedLog].filter(l=>l.month===viewMonth).reverse().map((l,i) =>
+                  React.createElement('div', { key:l.id+"-"+i,
+                    style:{ padding:"10px 12px", marginBottom:6, background:"#0d1625", border:"1px solid #1e3a5f", borderRadius:8 }},
+                    React.createElement('div', { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }},
+                      React.createElement('span', { style:{ fontSize:12, fontWeight:800, color:"#38bdf8", fontFamily:"monospace" }}, l.plate),
+                      React.createElement('span', { style:{ fontSize:11, fontWeight:700, color:"#fbbf24", fontFamily:"'Orbitron',monospace" }},
+                        l.estimatedAmount > 0 ? "¥"+Number(l.estimatedAmount).toLocaleString() : "-")
+                    ),
+                    React.createElement('div', { style:{ fontSize:11, color:"#e2e8f0", fontWeight:600, marginBottom:2 }}, l.owner, l.carModel ? " / "+l.carModel : ""),
+                    React.createElement('div', { style:{ display:"flex", gap:8, flexWrap:"wrap" }},
+                      l.inDate && React.createElement('span', { style:{ fontSize:10, color:"#64748b" }}, "入庫: "+l.inDate),
+                      l.outDate && React.createElement('span', { style:{ fontSize:10, color:"#64748b" }}, "完了: "+l.outDate),
+                      l.staffName && React.createElement('span', { style:{ fontSize:10, color:"#10b981" }}, "👷 "+l.staffName),
+                      l.nyukoType && React.createElement('span', { style:{ fontSize:10, color:"#a78bfa" }}, l.nyukoType),
+                      l.completedAt && React.createElement('span', { style:{ fontSize:9, color:"#334155" }}, "引渡: "+l.completedAt)
+                    ),
+                    l.memo && React.createElement('div', { style:{ fontSize:10, color:"#fcd34d", marginTop:3 }}, "📝 "+l.memo)
+                  )
+                )
+          ),
+          React.createElement('div', { style:{ padding:"12px 20px", borderTop:"1px solid #1e3a5f" }},
+            React.createElement('button', {
+              onClick:()=>{ if(window.confirm("今月の完了ログを削除しますか？")) saveBpCompletedLog(bpCompletedLog.filter(l=>l.month!==viewMonth)); },
+              style:{ width:"100%", padding:"8px", borderRadius:6, border:"1px solid #7f1d1d",
+                background:"#1a0a0a", color:"#f87171", fontSize:11, fontWeight:700, cursor:"pointer" }},
+              "🗑 今月のログを削除")
+          )
+        )
 
         ), /* メインエリア閉じ */
 
@@ -5287,7 +5387,6 @@ React.createElement('select', {
         }),
 
         /* ── ストール編集モーダル ── */
-        /* ── BPスタッフ管理モーダル ── */
         showBpStaffModal && React.createElement('div', {
           onClick:()=>setShowBpStaffModal(false),
           style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex",
@@ -5624,6 +5723,13 @@ React.createElement('select', {
       const [resetMonthAt, setResetMonthAt] = useState(null); // ISO文字列 or null
       const [endModal, setEndModal] = useState(null);
       const [roleCards, setRoleCards] = useState([]);
+      const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
+      useEffect(() => {
+        if (boardDate !== roleCardsDate) {
+          setRoleCards([]);
+          setRoleCardsDate(boardDate);
+        }
+      }, [boardDate]);
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
@@ -5750,7 +5856,12 @@ React.createElement('select', {
         setNj({date:TODAY_STR,stall:"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
       };
       const saveEditJob = (id, patch) => {
-        setJobs(p => p.map(j => j.id===id ? {...j,...patch} : j));
+        setJobs(p => p.map(j => {
+          if (j.id !== id) return j;
+          const dateChanged = patch.date && patch.date !== j.date;
+          const reset = dateChanged ? { workState:"idle", startedAt:null, endedAt:null, status:"作業待ち", displayDate:undefined } : {};
+          return { ...j, ...patch, ...reset };
+        }));
         setSel(p => _optionalChain([p, 'optionalAccess', _25 => _25.id])===id ? {...p,...patch} : p);
         setEditJob(null);
       };
@@ -5764,7 +5875,7 @@ React.createElement('select', {
         setJobs(p => p.map(j => j.id===reAssign.jobId ? {
           ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
           end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
-          workState:"idle", startedAt:null, endedAt:null
+          workState:"idle", startedAt:null, endedAt:null, displayDate:undefined
         } : j));
         setReAssign(null);
       };
@@ -6194,11 +6305,30 @@ React.createElement('select', {
                       return (
                         React.createElement('div', { key: job.id,
                           onClick: () => {
-                            setBoardDate(job.date); setSel(job);
-                            const r = document.getElementById("stall-"+job.stall);
-                            if (r) r.scrollIntoView({ behavior:"smooth", block:"center" });
-                            setShowSearchResults(false); setSearchQuery(""); setSearchResults([]); setTab("board");
-                            setFlashJobId(job.id); setTimeout(() => setFlashJobId(null), 4700);
+                            const SHELVE_ON = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+                            const isShelved = SHELVE_ON.has(job.status) || job.workState === "shelved";
+                            setShowSearchResults(false); setSearchQuery(""); setSearchResults([]);
+                            setFlashJobId(job.id);
+                            if (isShelved) {
+                              setTab("shelved");
+                              setTimeout(() => {
+                                const el = document.getElementById("status-card-"+job.id);
+                                if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                              }, 300);
+                            } else {
+                              setBoardDate(job.displayDate || job.date);
+                              setSel(job);
+                              setTab("board");
+                              setTimeout(() => {
+                                const el = document.getElementById("job-bar-"+job.id);
+                                if (el) el.scrollIntoView({ behavior:"smooth", block:"center", inline:"center" });
+                                else {
+                                  const s = document.getElementById("stall-"+job.stall);
+                                  if (s) s.scrollIntoView({ behavior:"smooth", block:"center" });
+                                }
+                              }, 300);
+                            }
+                            setTimeout(() => setFlashJobId(null), 4700);
                           },
                           style: { display:"flex", alignItems:"center", gap:10, padding:"8px 12px",
                             borderTop:"1px solid #1a2540", cursor:"pointer", transition:"background .12s" },
@@ -6653,7 +6783,7 @@ React.createElement('select', {
 
             /* ステータス一覧 */
             , tab==="shelved" && (
-              React.createElement(ShelvedList, { shelvedJobs: shelvedJobs, allJobs: jobs, stalls: stalls, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob, updStatus: updStatus})
+              React.createElement(ShelvedList, { shelvedJobs: shelvedJobs, allJobs: jobs, stalls: stalls, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob, updStatus: updStatus, flashJobId: flashJobId})
             )
 
             , tab==="bp" && (
