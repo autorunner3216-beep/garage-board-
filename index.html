@@ -761,26 +761,26 @@ react-dom/cjs/react-dom-client.production.js:
               display:"flex", flexDirection:"column", gap:5, boxShadow:`0 0 8px ${sc.glow}`,
               cursor:"default" }}
               , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4 }}
-                , React.createElement('div', { style: { fontSize:14, fontWeight:800, color:"#7dd3fc", fontFamily:"monospace", letterSpacing:1 }}, job.plate)
+                , React.createElement('div', { style: { fontSize:11, fontWeight:700, color:"#38bdf8", fontFamily:"monospace", letterSpacing:1 }}, job.plate)
                 , React.createElement('span', { style: { background:sc.bg, border:`1px solid ${sc.accent}`, color:sc.text,
-                  fontSize:11, fontWeight:700, borderRadius:4, padding:"3px 7px", whiteSpace:"nowrap", flexShrink:0 }}, job.workState==="working" ? "作業中" : job.status)
+                  fontSize:8, borderRadius:4, padding:"2px 5px", whiteSpace:"nowrap", flexShrink:0 }}, job.workState==="working" ? "作業中" : job.status)
               )
-              , React.createElement('div', { style: { fontSize:13, fontWeight:700, color:"#e2e8f0", lineHeight:1.5 }}, job.owner, React.createElement('br', null), job.model)
+              , React.createElement('div', { style: { fontSize:10, color:"#64748b", lineHeight:1.4 }}, job.owner, React.createElement('br', null), job.model)
               , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:4 }}
                 , React.createElement('span', { style: { width:6, height:6, borderRadius:"50%", background:jt.badge, display:"inline-block", flexShrink:0 }})
-                , React.createElement('span', { style: { fontSize:11, fontWeight:600, color:"#cbd5e1" }}, job.type)
+                , React.createElement('span', { style: { fontSize:9, color:"#94a3b8" }}, job.type)
               )
-              , React.createElement('div', { style: { fontSize:10, color:"#64748b" }}
+              , React.createElement('div', { style: { fontSize:9, color:"#475569" }}
                 , job.startedAt&&`▶ ${job.startedAt}`, job.endedAt&&` ■ ${job.endedAt}`
               )
-              , React.createElement('div', { style: { fontSize:10, color:"#64748b" }}
+              , React.createElement('div', { style: { fontSize:9, color:"#334155" }}
                 , job.date, " " , (stalls||[]).find(s=>s.id===job.stall)?.name
               )
               , React.createElement(InfoBadges, { job: job})
               , React.createElement('div', { style: { borderTop:"1px solid #1e293b", marginTop:4, paddingTop:6, display:"flex", flexDirection:"column", gap:3 }}
                 , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:6 }}
-                  , React.createElement('span', { style: { fontSize:11, color:"#64748b" }}, "⏱")
-                  , React.createElement('span', { style: { fontSize:12, fontWeight:700, color:"#cbd5e1", fontFamily:"monospace" }},
+                  , React.createElement('span', { style: { fontSize:10, color:"#475569" }}, "⏱")
+                  , React.createElement('span', { style: { fontSize:11, fontWeight:700, color:"#94a3b8", fontFamily:"monospace" }},
                     String(Math.floor(job.start)).padStart(2,"0")+":"+String(Math.round((job.start%1)*60)).padStart(2,"0"),
                     " 〜 ",
                     String(Math.floor(job.end)).padStart(2,"0")+":"+String(Math.round((job.end%1)*60)).padStart(2,"0")
@@ -801,14 +801,14 @@ react-dom/cjs/react-dom-client.production.js:
                   )
                 )
                 , (job.loanCar&&job.loanCar!=="なし" || job.transport&&job.transport!=="なし") && React.createElement('div', { style: { display:"flex", gap:4 }}
-                  , job.loanCar&&job.loanCar!=="なし" && React.createElement('span', { style: { fontSize:10, fontWeight:700, color:"#a855f7", background:"#a855f718", border:"1px solid #a855f744", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, "代車")
-                  , job.transport&&job.transport!=="なし" && React.createElement('span', { style: { fontSize:10, fontWeight:700, color:"#f59e0b", background:"#f59e0b18", border:"1px solid #f59e0b44", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, job.transport)
+                  , job.loanCar&&job.loanCar!=="なし" && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#a855f7", background:"#a855f718", border:"1px solid #a855f744", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, "代車")
+                  , job.transport&&job.transport!=="なし" && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#f59e0b", background:"#f59e0b18", border:"1px solid #f59e0b44", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, job.transport)
                 )
                 , (job.mechanic||job.receptionist) && React.createElement('div', { style: { display:"flex", gap:8 }}
-                  , job.mechanic     && React.createElement('span', { style: { fontSize:11, fontWeight:600, color:"#10b981" }}, "🔧 担当: ", job.mechanic)
-                  , job.receptionist && React.createElement('span', { style: { fontSize:11, fontWeight:600, color:"#06b6d4" }}, "📋 受付: ", job.receptionist)
+                  , job.mechanic     && React.createElement('span', { style: { fontSize:9, color:"#10b981" }}, "🔧 担当: ", job.mechanic)
+                  , job.receptionist && React.createElement('span', { style: { fontSize:9, color:"#06b6d4" }}, "📋 受付: ", job.receptionist)
                 )
-                , job.memo && React.createElement('div', { style: { fontSize:10, color:"#fcd34d", background:"#1a120044", border:"1px solid #fcd34d44", borderRadius:3, padding:"3px 7px", lineHeight:"16px" }}, job.memo)
+                , job.memo && React.createElement('div', { style: { fontSize:8, color:"#fcd34d", background:"#1a120033", border:"1px solid #fcd34d22", borderRadius:3, padding:"2px 5px", lineHeight:"14px" }}, job.memo)
               )
               , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:4, marginTop:2 }}
                 , React.createElement('button', { onClick: () => openReAssign(job), style: {
@@ -4129,6 +4129,8 @@ React.createElement('select', {
         };
       }, []);
       const [editStall, setEditStall] = useState(null);
+      const [showBpStaffModal, setShowBpStaffModal] = useState(false);
+      const [newBpWorkerName, setNewBpWorkerName] = useState("");
       const [dragState, setDragState] = useState(null); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
       const boardRef = useRef(null);
 
@@ -4553,6 +4555,13 @@ React.createElement('select', {
                 fontWeight:800, boxShadow:"0 0 10px #3b82f655, inset 0 1px 0 #bfdbfe33",
                 textShadow:"0 1px 2px #00000055" }}, "＋ 車両追加"),
 
+            React.createElement('button', {
+              onClick:()=>setShowBpStaffModal(true),
+              style:{ background:"linear-gradient(135deg,#065f46,#10b981)", border:"1px solid #34d39988",
+                borderRadius:6, color:"#fff", fontSize:11, padding:"4px 12px", cursor:"pointer",
+                fontWeight:800, whiteSpace:"nowrap", textShadow:"0 1px 2px #00000066" }},
+              "👷 スタッフ管理"),
+
             (function(){
               var confirmedCnt = bpJobs.filter(function(j){ return j.confirmed; }).length;
               return React.createElement('button', {
@@ -4671,11 +4680,12 @@ React.createElement('select', {
                     background: d.str===today ? "#1e3a5f" : d.isWeekend ? "#0a1020" : "transparent",
                     paddingTop:3, paddingBottom:2,
                     transition:"background .1s" }},
+                  React.createElement('div', { style:{ fontSize:11,
+                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#f87171":"#38bdf8") : "#94a3b8",
+                    fontWeight: d.str===today ? 800 : d.isWeekend ? 700 : 500 }}, d.num),
                   React.createElement('div', { style:{ fontSize:10,
-                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#ef4444":"#38bdf8") : "#64748b",
-                    fontWeight: d.str===today ? 700 : 400 }}, d.num),
-                  React.createElement('div', { style:{ fontSize:9,
-                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#ef4444":"#38bdf8") : "#334155" }}, d.dow),
+                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#f87171":"#38bdf8") : "#64748b",
+                    fontWeight: d.isWeekend ? 700 : 400 }}, d.dow),
                   /* 休業スタッフ カラードット + 定休日マーク */
                   (() => {
                     const e = bpDayoff.find(x => x.date === d.str);
@@ -4738,7 +4748,7 @@ React.createElement('select', {
                   ...days.map(d => {
                     const de = bpDayoff.find(x => x.date === d.str);
                     const isTeikyu = de && de.workerIds.includes("__teikyu__");
-                    const bg = isTeikyu ? "rgba(245,158,11,.08)"
+                    const bg = isTeikyu ? "rgba(245,158,11,.18)"
                       : d.str===today ? "rgba(59,130,246,.07)"
                       : d.isWeekend ? "rgba(255,255,255,.015)" : "transparent";
                     return React.createElement('div', { key:d.num,
@@ -4759,8 +4769,10 @@ React.createElement('select', {
                         style:{ position:"absolute",
                           left: (d.num-1)*BP_DAY_W + i*bw, top:0,
                           width:bw, height:"100%",
-                          background:wc.color+"22",
-                          borderLeft: i===0 ? "2px solid "+wc.color+"88" : "none",
+                          background:wc.color+"55",
+                          borderLeft: i===0 ? "3px solid "+wc.color+"cc" : "none",
+                          borderRight: "1px solid "+wc.color+"44",
+                          boxShadow: i===0 ? "inset 2px 0 8px "+wc.color+"33" : "none",
                           pointerEvents:"none" }}));
                     });
                     return acc;
@@ -5275,6 +5287,72 @@ React.createElement('select', {
         }),
 
         /* ── ストール編集モーダル ── */
+        /* ── BPスタッフ管理モーダル ── */
+        showBpStaffModal && React.createElement('div', {
+          onClick:()=>setShowBpStaffModal(false),
+          style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex",
+            alignItems:"center", justifyContent:"center", zIndex:2000 }},
+          React.createElement('div', {
+            onClick:e=>e.stopPropagation(),
+            style:{ background:"#0d1b2e", border:"1px solid #1e3a5f", borderRadius:16,
+              padding:24, width:380, maxHeight:"85vh", overflowY:"auto",
+              boxShadow:"0 24px 64px rgba(0,0,0,.8)" }},
+            React.createElement('div', { style:{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", marginBottom:20 }},
+              React.createElement('div', { style:{ fontSize:14, fontWeight:800, color:"#10b981" }}, "👷 BPスタッフ管理"),
+              React.createElement('button', { onClick:()=>setShowBpStaffModal(false),
+                style:{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}, "✕")
+            ),
+            React.createElement('div', { style:{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }},
+              bpWorkers.length === 0
+                ? React.createElement('div', { style:{ fontSize:12, color:"#475569", textAlign:"center", padding:"20px 0" }}, "スタッフが登録されていません")
+                : bpWorkers.map((w) => {
+                    const wc = BP_WORKER_COLORS[w.colorIdx % BP_WORKER_COLORS.length];
+                    return React.createElement('div', { key:w.id,
+                      style:{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px",
+                        background:"#070f1c", border:`1px solid ${wc.color}44`, borderRadius:8 }},
+                      React.createElement('div', { style:{ width:12, height:12, borderRadius:"50%",
+                        background:wc.color, flexShrink:0, boxShadow:`0 0 6px ${wc.color}88` }}),
+                      React.createElement('span', { style:{ flex:1, fontSize:13, fontWeight:700, color:"#e2e8f0" }}, w.name),
+                      React.createElement('span', { style:{ fontSize:10, color:wc.color, background:wc.color+"18",
+                        border:`1px solid ${wc.color}33`, borderRadius:4, padding:"1px 6px" }}, wc.label),
+                      React.createElement('button', {
+                        onClick:()=>{ saveBpWorkers(bpWorkers.filter(x=>x.id!==w.id)); },
+                        style:{ background:"#7f1d1d", border:"none", borderRadius:5,
+                          color:"#fca5a5", fontSize:12, width:28, height:28,
+                          cursor:"pointer", fontWeight:700 }}, "×")
+                    );
+                  })
+            ),
+            React.createElement('div', { style:{ display:"flex", gap:8 }},
+              React.createElement('input', {
+                value: newBpWorkerName,
+                onChange: e => setNewBpWorkerName(e.target.value),
+                onKeyDown: e => {
+                  if (e.key === "Enter" && newBpWorkerName.trim()) {
+                    const colorIdx = bpWorkers.length % BP_WORKER_COLORS.length;
+                    saveBpWorkers([...bpWorkers, { id:Date.now().toString(), name:newBpWorkerName.trim(), colorIdx }]);
+                    setNewBpWorkerName("");
+                  }
+                },
+                placeholder: "スタッフ名を入力...",
+                style:{ flex:1, background:"#070f1c", border:"1px solid #1e3a5f", borderRadius:8,
+                  color:"#e2e8f0", fontSize:13, padding:"9px 12px", outline:"none" }
+              }),
+              React.createElement('button', {
+                onClick:()=>{
+                  if (!newBpWorkerName.trim()) return;
+                  const colorIdx = bpWorkers.length % BP_WORKER_COLORS.length;
+                  saveBpWorkers([...bpWorkers, { id:Date.now().toString(), name:newBpWorkerName.trim(), colorIdx }]);
+                  setNewBpWorkerName("");
+                },
+                style:{ background:"linear-gradient(135deg,#065f46,#10b981)", border:"none",
+                  borderRadius:8, color:"#fff", fontSize:13, fontWeight:700,
+                  padding:"9px 16px", cursor:"pointer" }}, "追加")
+            )
+          )
+        ),
+
         editStall && React.createElement('div', {
           style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex",
             alignItems:"center", justifyContent:"center", zIndex:2000 }},
