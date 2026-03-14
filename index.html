@@ -6166,12 +6166,12 @@ React.createElement('select', {
                       display:"flex", flexDirection:"column", gap:4 }}
                       /* 1行目：ラベル + 台数 + プログレス */
                       , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:10 }}
-                        , React.createElement('div', { style: { fontSize:9, color:"#64748b", letterSpacing:1.5, fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}, "月間車検完了")
+                        , React.createElement('div', { style: { fontSize:11, color:"#94a3b8", letterSpacing:1.5, fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}, "月間車検完了")
                         , React.createElement('div', { style: { display:"flex", alignItems:"baseline", gap:5, flexShrink:0 }}
                           , React.createElement('span', { style: { fontSize:26, fontWeight:900, color:over?"#fb923c":"#f97316",
                             fontFamily:"'Orbitron',monospace", lineHeight:1,
                             textShadow:over?"0 0 16px rgba(251,146,60,.7)":"0 0 10px rgba(249,115,22,.4)" }}, current)
-                          , React.createElement('span', { style: { fontSize:12, color:"#475569", fontWeight:600 }}, "/ ", target, " 台")
+                          , React.createElement('span', { style: { fontSize:13, color:"#64748b", fontWeight:700 }}, "/ ", target, " 台")
                           , over && React.createElement('span', { style: { fontSize:9, background:"#f9731622", color:"#fb923c",
                             border:"1px solid #f9731644", borderRadius:4, padding:"1px 6px", fontWeight:700 }}, "✓ 達成")
                         )
@@ -6182,7 +6182,7 @@ React.createElement('select', {
                               transition:"width .5s ease", boxShadow:over?"0 0 8px #fbbf2466":"0 0 6px #f9731644" }})
                           )
                           , React.createElement('div', { style: { display:"flex", justifyContent:"flex-end" }}
-                            , React.createElement('span', { style: { fontSize:9, fontWeight:800, color:over?"#fbbf24":"#64748b" }}, Math.round(pct), "%")
+                            , React.createElement('span', { style: { fontSize:10, fontWeight:800, color:over?"#fbbf24":"#94a3b8" }}, Math.round(pct), "%")
                           )
                         )
                       )
@@ -6198,11 +6198,11 @@ React.createElement('select', {
                               borderRadius:6, minWidth:90,
                               boxShadow: revOver?"0 0 14px rgba(251,191,36,.35)":"0 0 12px rgba(59,130,246,.4)" }}
                             , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#fbbf24":"#60a5fa", fontWeight:700, letterSpacing:1 }}, "売上目標")
+                              , React.createElement('span', { style: { fontSize:9, color: revOver?"#fbbf24":"#60a5fa", fontWeight:700, letterSpacing:1 }}, "売上目標")
                               , React.createElement('span', { style: { fontSize:11, fontWeight:800, color: revOver?"#fde68a":"#93c5fd", fontFamily:"'Orbitron',monospace" }}, targets.revenue.toLocaleString())
                             )
                             , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#fbbf24":"#38bdf8", fontWeight:700, letterSpacing:1 }}, "現在売上")
+                              , React.createElement('span', { style: { fontSize:9, color: revOver?"#fbbf24":"#38bdf8", fontWeight:700, letterSpacing:1 }}, "現在売上")
                               , React.createElement('span', { style: { fontSize:13, fontWeight:800,
                                   color: revOver?"#fde68a":"#7dd3fc",
                                   fontFamily:"'Orbitron',monospace",
@@ -6212,9 +6212,9 @@ React.createElement('select', {
                             , React.createElement('div', { style: { height:3, background: revOver?"#78350f":"#1e3a5f", borderRadius:2, overflow:"hidden" }}
                               , React.createElement('div', { style: { height:"100%", width:`${revPct}%`, borderRadius:2,
                                   background: revOver?"linear-gradient(90deg,#f59e0b,#fde68a)":"linear-gradient(90deg,#1d4ed8,#38bdf8)",
-                                  transition:"width .5s ease", boxShadow:"0 0 8px rgba(56,189,248,.5)" }})
+                                  transition:"width .5s ease" }})
                             )
-                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fde68a", fontWeight:800, textAlign:"right", textShadow:"0 0 10px rgba(251,191,36,.8)" }}, "✨ 達成！")
+                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fbbf24", fontWeight:800, textAlign:"right", textShadow:"0 0 8px rgba(251,191,36,.6)" }}, "✓ 達成")
                           );
                         })()
                     )
@@ -6227,7 +6227,7 @@ React.createElement('select', {
                       flex:1, background:"#0a0f1a", border:"1px solid #1e3a5f",
                       borderRadius:10, padding:"8px 16px",
                       display:"flex", flexDirection:"column", justifyContent:"center", gap:4 }}
-                    , React.createElement('div', { style: { fontSize:9, color:"#475569", letterSpacing:2, fontWeight:700 }}, "今月の車検予約")
+                    , React.createElement('div', { style: { fontSize:11, color:"#60a5fa", letterSpacing:2, fontWeight:700 }}, "今月の車検予約")
                     , React.createElement('div', { style: { display:"flex", alignItems:"baseline", gap:6 }}
                       , React.createElement('span', { style: { fontSize:32, fontWeight:900, color:"#38bdf8",
                           fontFamily:"'Orbitron',monospace", lineHeight:1,
@@ -6239,12 +6239,12 @@ React.createElement('select', {
                       flex:1, background:"#0a0f1a", border:"1px solid #1e3a5f33",
                       borderRadius:10, padding:"8px 16px",
                       display:"flex", flexDirection:"column", justifyContent:"center", gap:4 }}
-                    , React.createElement('div', { style: { fontSize:9, color:"#334155", letterSpacing:2, fontWeight:700 }}, "来月の車検予約")
+                    , React.createElement('div', { style: { fontSize:11, color:"#475569", letterSpacing:2, fontWeight:700 }}, "来月の車検予約")
                     , React.createElement('div', { style: { display:"flex", alignItems:"baseline", gap:6 }}
-                      , React.createElement('span', { style: { fontSize:32, fontWeight:900, color:"#64748b",
+                      , React.createElement('span', { style: { fontSize:32, fontWeight:900, color:"#94a3b8",
                           fontFamily:"'Orbitron',monospace", lineHeight:1,
-                          textShadow:"0 0 8px rgba(100,116,139,.4)" }}, statsCounters.nextMonthReserved||0)
-                      , React.createElement('span', { style: { fontSize:12, color:"#334155", fontWeight:600 }}, "台")
+                          textShadow:"0 0 12px rgba(148,163,184,.6)" }}, statsCounters.nextMonthReserved||0)
+                      , React.createElement('span', { style: { fontSize:13, color:"#64748b", fontWeight:700 }}, "台")
                     )
                   )
                 )
