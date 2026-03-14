@@ -5482,7 +5482,6 @@ React.createElement('select', {
       const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
-      const [stallDraft, setStallDraft] = useState([]);
       const [showStatsLog, setShowStatsLog] = useState(null); // null | "inspection" | "sales"
       const [manualLog, setManualLog] = useState(() => {
         try { const s = localStorage.getItem('garage_manuallog'); return s ? JSON.parse(s) : {}; } catch { return {}; }
@@ -6194,28 +6193,28 @@ React.createElement('select', {
                             onClick: () => { setRevenueDraft(currentRevenue); setShowRevenueInput(true); },
                             style: { flexShrink:0, display:"flex", flexDirection:"column", gap:2,
                               padding:"3px 8px", cursor:"pointer",
-                              background: revOver?"#1a1200":"#1a0a2e",
-                              border:`1px solid ${revOver?"#fbbf24":"#a78bfa33"}`,
+                              background: revOver?"#1a1200":"#0c1a2e",
+                              border:`1px solid ${revOver?"#fbbf24":"#3b82f6"}`,
                               borderRadius:6, minWidth:90,
-                              boxShadow: revOver?"0 0 10px rgba(251,191,36,.2)":"none" }}
+                              boxShadow: revOver?"0 0 14px rgba(251,191,36,.35)":"0 0 12px rgba(59,130,246,.4)" }}
                             , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#ca8a04":"#7c3aed", fontWeight:700, letterSpacing:1 }}, "売上目標")
-                              , React.createElement('span', { style: { fontSize:11, fontWeight:800, color: revOver?"#92400e":"#64748b", fontFamily:"'Orbitron',monospace" }}, targets.revenue.toLocaleString())
+                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#fbbf24":"#60a5fa", fontWeight:700, letterSpacing:1 }}, "売上目標")
+                              , React.createElement('span', { style: { fontSize:11, fontWeight:800, color: revOver?"#fde68a":"#93c5fd", fontFamily:"'Orbitron',monospace" }}, targets.revenue.toLocaleString())
                             )
                             , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#fbbf24":"#475569", fontWeight:700, letterSpacing:1 }}, "現在売上")
+                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#fbbf24":"#38bdf8", fontWeight:700, letterSpacing:1 }}, "現在売上")
                               , React.createElement('span', { style: { fontSize:13, fontWeight:800,
-                                  color: revOver?"#fde68a":"#94a3b8",
+                                  color: revOver?"#fde68a":"#7dd3fc",
                                   fontFamily:"'Orbitron',monospace",
-                                  textShadow: revOver?"0 0 10px rgba(251,191,36,.7)":"none" }},
+                                  textShadow: revOver?"0 0 14px rgba(251,191,36,.8)":"0 0 12px rgba(56,189,248,.8)" }},
                                 currentRevenue > 0 ? currentRevenue.toLocaleString() : "---")
                             )
-                            , React.createElement('div', { style: { height:3, background: revOver?"#78350f":"#2d1657", borderRadius:2, overflow:"hidden" }}
+                            , React.createElement('div', { style: { height:3, background: revOver?"#78350f":"#1e3a5f", borderRadius:2, overflow:"hidden" }}
                               , React.createElement('div', { style: { height:"100%", width:`${revPct}%`, borderRadius:2,
-                                  background: revOver?"linear-gradient(90deg,#f59e0b,#fde68a)":"linear-gradient(90deg,#4c1d95,#7c3aed)",
-                                  transition:"width .5s ease" }})
+                                  background: revOver?"linear-gradient(90deg,#f59e0b,#fde68a)":"linear-gradient(90deg,#1d4ed8,#38bdf8)",
+                                  transition:"width .5s ease", boxShadow:"0 0 8px rgba(56,189,248,.5)" }})
                             )
-                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fbbf24", fontWeight:800, textAlign:"right", textShadow:"0 0 8px rgba(251,191,36,.6)" }}, "✓ 達成")
+                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fde68a", fontWeight:800, textAlign:"right", textShadow:"0 0 10px rgba(251,191,36,.8)" }}, "✨ 達成！")
                           );
                         })()
                     )
@@ -6299,7 +6298,7 @@ React.createElement('select', {
             )
 
 
-          , React.createElement('div', { style: { padding:"16px 20px" }}
+          , React.createElement('div', { style: { padding:"16px 20px", maxWidth:1500, margin:"0 auto" }}
             /* フィルターカード */
             , filt!=="すべて" && (
               React.createElement(FilterCards, { filt: filt, jobs: jobs, stalls: stalls, setFilt: setFilt, updStatus: updStatus, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob})
