@@ -761,26 +761,26 @@ react-dom/cjs/react-dom-client.production.js:
               display:"flex", flexDirection:"column", gap:5, boxShadow:`0 0 8px ${sc.glow}`,
               cursor:"default" }}
               , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4 }}
-                , React.createElement('div', { style: { fontSize:11, fontWeight:700, color:"#38bdf8", fontFamily:"monospace", letterSpacing:1 }}, job.plate)
+                , React.createElement('div', { style: { fontSize:14, fontWeight:800, color:"#7dd3fc", fontFamily:"monospace", letterSpacing:1 }}, job.plate)
                 , React.createElement('span', { style: { background:sc.bg, border:`1px solid ${sc.accent}`, color:sc.text,
-                  fontSize:8, borderRadius:4, padding:"2px 5px", whiteSpace:"nowrap", flexShrink:0 }}, job.workState==="working" ? "作業中" : job.status)
+                  fontSize:11, fontWeight:700, borderRadius:4, padding:"3px 7px", whiteSpace:"nowrap", flexShrink:0 }}, job.workState==="working" ? "作業中" : job.status)
               )
-              , React.createElement('div', { style: { fontSize:10, color:"#64748b", lineHeight:1.4 }}, job.owner, React.createElement('br', null), job.model)
+              , React.createElement('div', { style: { fontSize:13, fontWeight:700, color:"#e2e8f0", lineHeight:1.5 }}, job.owner, React.createElement('br', null), job.model)
               , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:4 }}
                 , React.createElement('span', { style: { width:6, height:6, borderRadius:"50%", background:jt.badge, display:"inline-block", flexShrink:0 }})
-                , React.createElement('span', { style: { fontSize:9, color:"#94a3b8" }}, job.type)
+                , React.createElement('span', { style: { fontSize:11, fontWeight:600, color:"#cbd5e1" }}, job.type)
               )
-              , React.createElement('div', { style: { fontSize:9, color:"#475569" }}
+              , React.createElement('div', { style: { fontSize:10, color:"#64748b" }}
                 , job.startedAt&&`▶ ${job.startedAt}`, job.endedAt&&` ■ ${job.endedAt}`
               )
-              , React.createElement('div', { style: { fontSize:9, color:"#334155" }}
+              , React.createElement('div', { style: { fontSize:10, color:"#64748b" }}
                 , job.date, " " , (stalls||[]).find(s=>s.id===job.stall)?.name
               )
               , React.createElement(InfoBadges, { job: job})
               , React.createElement('div', { style: { borderTop:"1px solid #1e293b", marginTop:4, paddingTop:6, display:"flex", flexDirection:"column", gap:3 }}
                 , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:6 }}
-                  , React.createElement('span', { style: { fontSize:10, color:"#475569" }}, "⏱")
-                  , React.createElement('span', { style: { fontSize:11, fontWeight:700, color:"#94a3b8", fontFamily:"monospace" }},
+                  , React.createElement('span', { style: { fontSize:11, color:"#64748b" }}, "⏱")
+                  , React.createElement('span', { style: { fontSize:12, fontWeight:700, color:"#cbd5e1", fontFamily:"monospace" }},
                     String(Math.floor(job.start)).padStart(2,"0")+":"+String(Math.round((job.start%1)*60)).padStart(2,"0"),
                     " 〜 ",
                     String(Math.floor(job.end)).padStart(2,"0")+":"+String(Math.round((job.end%1)*60)).padStart(2,"0")
@@ -801,14 +801,14 @@ react-dom/cjs/react-dom-client.production.js:
                   )
                 )
                 , (job.loanCar&&job.loanCar!=="なし" || job.transport&&job.transport!=="なし") && React.createElement('div', { style: { display:"flex", gap:4 }}
-                  , job.loanCar&&job.loanCar!=="なし" && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#a855f7", background:"#a855f718", border:"1px solid #a855f744", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, "代車")
-                  , job.transport&&job.transport!=="なし" && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#f59e0b", background:"#f59e0b18", border:"1px solid #f59e0b44", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, job.transport)
+                  , job.loanCar&&job.loanCar!=="なし" && React.createElement('span', { style: { fontSize:10, fontWeight:700, color:"#a855f7", background:"#a855f718", border:"1px solid #a855f744", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, "代車")
+                  , job.transport&&job.transport!=="なし" && React.createElement('span', { style: { fontSize:10, fontWeight:700, color:"#f59e0b", background:"#f59e0b18", border:"1px solid #f59e0b44", borderRadius:3, padding:"0 4px", lineHeight:"13px" }}, job.transport)
                 )
                 , (job.mechanic||job.receptionist) && React.createElement('div', { style: { display:"flex", gap:8 }}
-                  , job.mechanic     && React.createElement('span', { style: { fontSize:9, color:"#10b981" }}, "🔧 担当: ", job.mechanic)
-                  , job.receptionist && React.createElement('span', { style: { fontSize:9, color:"#06b6d4" }}, "📋 受付: ", job.receptionist)
+                  , job.mechanic     && React.createElement('span', { style: { fontSize:11, fontWeight:600, color:"#10b981" }}, "🔧 担当: ", job.mechanic)
+                  , job.receptionist && React.createElement('span', { style: { fontSize:11, fontWeight:600, color:"#06b6d4" }}, "📋 受付: ", job.receptionist)
                 )
-                , job.memo && React.createElement('div', { style: { fontSize:8, color:"#fcd34d", background:"#1a120033", border:"1px solid #fcd34d22", borderRadius:3, padding:"2px 5px", lineHeight:"14px" }}, job.memo)
+                , job.memo && React.createElement('div', { style: { fontSize:10, color:"#fcd34d", background:"#1a120044", border:"1px solid #fcd34d44", borderRadius:3, padding:"3px 7px", lineHeight:"16px" }}, job.memo)
               )
               , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:4, marginTop:2 }}
                 , React.createElement('button', { onClick: () => openReAssign(job), style: {
@@ -1103,7 +1103,7 @@ react-dom/cjs/react-dom-client.production.js:
                   isWaiting ? "ストールボードに配置する" : "ボードに戻す")
               )
               , React.createElement('div', { style: { marginBottom:10 }}
-                , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "作業日")
+                , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "作業日")
                 , React.createElement('input', { type:"date", value:ra.date, onChange: e => setRa(p=>({...p,date:e.target.value})),
                   style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                     padding:"8px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
@@ -1115,7 +1115,7 @@ react-dom/cjs/react-dom-client.production.js:
                   {key:"end",   label:"終了予定", opts:HOURS_20.map(t=>[String(t),fmtH(t)])},
                 ].map(f =>
                   React.createElement('div', { key: f.key }
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label)
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
                     , React.createElement('select', { value: ra[f.key], onChange: e => setRa(p=>({...p,[f.key]:e.target.value})),
                       style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                         padding:"7px 6px", color:"#e2e8f0", fontSize:11, outline:"none" }}
@@ -1961,13 +1961,13 @@ react-dom/cjs/react-dom-client.production.js:
           )
           /* 日付 */
           , React.createElement('div', { style: { marginBottom:12 }}
-            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "日付")
+            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "日付")
             , React.createElement('input', { type:"date", value:draft.date,
                 onChange: e => setDraft(p=>({...p, date:e.target.value})), style: inpStyle })
           )
           /* ストール選択 */
           , React.createElement('div', { style: { marginBottom:12 }}
-            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "ストール")
+            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "ストール")
             , React.createElement('div', { style: { display:"flex", flexWrap:"wrap", gap:5 }}
               , React.createElement('button', { onClick: toggleAll, style: btnBase(draft.stallIds.length===stalls.length) },
                   draft.stallIds.length===stalls.length ? "✓ 全て" : "全て選択")
@@ -1977,7 +1977,7 @@ react-dom/cjs/react-dom-client.production.js:
           )
           /* 時間帯 */
           , React.createElement('div', { style: { marginBottom:12 }}
-            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "時間帯")
+            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "時間帯")
             , React.createElement('div', { style: { display:"flex", gap:6 }}
               , PERIODS.map(p => React.createElement('button', { key: p.key, onClick: () => setDraft(d=>({...d, period:p.key})),
                   style: { ...btnBase(draft.period===p.key), flex:1 }}, p.label))
@@ -1985,7 +1985,7 @@ react-dom/cjs/react-dom-client.production.js:
           )
           /* 理由 */
           , React.createElement('div', { style: { marginBottom:16 }}
-            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "理由")
+            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "理由")
             , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap", marginBottom:6 }}
               , REASONS.map(r => React.createElement('button', { key: r, onClick: () => setDraft(p=>({...p, reason:r})),
                   style: btnBase(draft.reason===r, "#f87171") }, r))
@@ -2099,7 +2099,7 @@ react-dom/cjs/react-dom-client.production.js:
             )
             /* 作業種別 */
             , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "作業種別")
+              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "作業種別")
               , JT_GROUPS.map(group => (
                 React.createElement('div', { key: group.label, style: { marginBottom:6 }}
                   , React.createElement('div', { style: { fontSize:9, color:"#334155", marginBottom:3, letterSpacing:1 }}, group.label)
@@ -2118,18 +2118,18 @@ react-dom/cjs/react-dom-client.production.js:
             )
             , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
               , React.createElement('div', {}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "受付担当者")
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付担当者")
                   , React.createElement(StaffInput, { value: draft.receptionist,
                     onChange: v => setDraft(p=>({...p,receptionist:v})), placeholder: "担当者名", list: receptList||staffList, color:"#06b6d4" })
                 )
               , React.createElement('div', {}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "担当メカニック")
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "担当メカニック")
                   , React.createElement(StaffInput, { value: draft.mechanic,
                     onChange: v => setDraft(p=>({...p,mechanic:v})), placeholder: "メカニック名", list: mechList||staffList, color:"#10b981" })
                 )
               , [{key:"receptionDate",label:"受付日"},{key:"deliveryDate",label:"納車予定日"}].map(f=>(
                 React.createElement('div', { key: f.key}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label)
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
                   , React.createElement('input', { type: "date", value: draft[f.key], onChange: e=>setDraft(p=>({...p,[f.key]:e.target.value})),
                     style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                       padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
@@ -2143,7 +2143,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
               , React.createElement('div', { style: { gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}
                   , React.createElement('div', {}
-                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "ストール")
+                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "ストール")
                       , React.createElement('select', { value: draft.stall, onChange: e=>setDraft(p=>({...p,stall:e.target.value})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
@@ -2151,7 +2151,7 @@ react-dom/cjs/react-dom-client.production.js:
                       )
                   )
                   , React.createElement('div', {}
-                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "開始時間")
+                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "開始時間")
                       , React.createElement('select', { value: String(draft.start), onChange: e=>setDraft(p=>({...p,start:parseFloat(e.target.value)})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
@@ -2159,7 +2159,7 @@ react-dom/cjs/react-dom-client.production.js:
                       )
                   )
                   , React.createElement('div', {}
-                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "終了時間")
+                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "終了時間")
                       , React.createElement('select', { value: String(draft.end), onChange: e=>setDraft(p=>({...p,end:parseFloat(e.target.value)})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
@@ -2169,7 +2169,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
             )
             , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "代車")
+              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "代車")
               , React.createElement('div', { style: { display:"flex", gap:6 }}
                 , ["なし","あり"].map(v=>(
                   React.createElement('button', { key: v, onClick: ()=>setDraft(p=>({...p,loanCar:v})),
@@ -2182,7 +2182,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
             )
             , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "引取 / 納車"  )
+              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "引取 / 納車"  )
               , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap" }}
                 , ["なし","引取","納車","引取+納車"].map(v=>(
                   React.createElement('button', { key: v, onClick: ()=>setDraft(p=>({...p,transport:v})),
@@ -2196,7 +2196,7 @@ react-dom/cjs/react-dom-client.production.js:
             )
             /* 新規・既存 */
            , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "顧客区分")
+              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "顧客区分")
               , React.createElement('div', { style: { display:"flex", gap:6 }}
                 , [["existing","既存客"],["new","新規客"],["newcar","車両のみ新規"]].map(([v,l]) =>
                   React.createElement('button', { key: v, onClick: () => setDraft(p=>({...p,isNew:v})),
@@ -2210,7 +2210,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
             )
            , React.createElement('div', { style: { marginBottom:16 }}
-              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "メモ")
+              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "メモ")
               , React.createElement('input', { value: draft.memo, onChange: e=>setDraft(p=>({...p,memo:e.target.value})),
                 placeholder: "特記事項",
                 style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
@@ -5482,6 +5482,7 @@ React.createElement('select', {
       const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
+      const [stallDraft, setStallDraft] = useState([]);
       const [showStatsLog, setShowStatsLog] = useState(null); // null | "inspection" | "sales"
       const [manualLog, setManualLog] = useState(() => {
         try { const s = localStorage.getItem('garage_manuallog'); return s ? JSON.parse(s) : {}; } catch { return {}; }
@@ -6214,7 +6215,7 @@ React.createElement('select', {
                                   background: revOver?"linear-gradient(90deg,#f59e0b,#fde68a)":"linear-gradient(90deg,#1d4ed8,#38bdf8)",
                                   transition:"width .5s ease" }})
                             )
-                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fbbf24", fontWeight:800, textAlign:"right", textShadow:"0 0 8px rgba(251,191,36,.6)" }}, "✓ 達成")
+                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fde68a", fontWeight:800, textAlign:"right", textShadow:"0 0 10px rgba(251,191,36,.8)" }}, "✨ 達成！")
                           );
                         })()
                     )
@@ -6298,7 +6299,7 @@ React.createElement('select', {
             )
 
 
-          , React.createElement('div', { style: { padding:"16px 20px", maxWidth:1500, margin:"0 auto" }}
+          , React.createElement('div', { style: { padding:"16px 20px" }}
             /* フィルターカード */
             , filt!=="すべて" && (
               React.createElement(FilterCards, { filt: filt, jobs: jobs, stalls: stalls, setFilt: setFilt, updStatus: updStatus, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob})
@@ -7296,7 +7297,7 @@ React.createElement('select', {
                   , React.createElement('button', { onClick: () => setShowRevenueInput(false), style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18 }}, "✕")
                 )
                 , React.createElement('div', { style: { marginBottom:16 }}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "今月の整備売上金額")
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "今月の整備売上金額")
                   , React.createElement('input', { type:"number", min:"0", step:"1000", autoFocus:true,
                     value: revenueDraft,
                     onChange: e => setRevenueDraft(Math.max(0, parseInt(e.target.value)||0)),
@@ -7357,24 +7358,24 @@ React.createElement('select', {
                 )
                 , [{key:"owner",label:"オーナー名",ph:"田中 太郎"},{key:"plate",label:"ナンバープレート",ph:"品川330あ1234"},{key:"model",label:"車種",ph:"トヨタ プリウス"}].map(f => (
                   React.createElement('div', { key: f.key, style: { marginBottom:12 }}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label, React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label, React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement('input', { value: nj[f.key], onChange: e => updateNj(p=>({...p,[f.key]:e.target.value})), placeholder: f.ph,
-                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
-                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box" }})
+                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
+                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box" }})
                   )
                 ))
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1968}}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "入庫日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "入庫日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement('input', { type: "date", value: nj.date, onChange: e => updateNj(p=>({...p,date:e.target.value})),
-                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
-                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
+                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
+                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                   )
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1974}}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "納車予定日")
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "納車予定日")
                     , React.createElement('input', { type: "date", value: nj.deliveryDate, onChange: e => updateNj(p=>({...p,deliveryDate:e.target.value})),
-                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
-                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
+                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
+                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                   )
                 )
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}
@@ -7384,7 +7385,7 @@ React.createElement('select', {
                     {key:"end",  label:"終了予定",  opts:HOURS_20.map(t=>[String(t),fmtH(t)])},
                   ].map(f => (
                     React.createElement('div', { key: f.key}
-                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label)
+                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
                       , React.createElement('select', { value: nj[f.key], onChange: e => updateNj(p=>({...p,[f.key]:e.target.value})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none" }}
@@ -7394,11 +7395,11 @@ React.createElement('select', {
                   ))
                 )
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:8, letterSpacing:1 }}, "作業種別", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:8, letterSpacing:1, fontWeight:600 }}, "作業種別", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                   , JT_GROUPS.map(group => (
                     React.createElement('div', { key: group.label, style: { marginBottom:8 }}
-                      , React.createElement('div', { style: { fontSize:9, color:"#334155", letterSpacing:1, marginBottom:5,
-                        borderLeft:"2px solid #1e3a5f", paddingLeft:6 }}, group.label)
+                      , React.createElement('div', { style: { fontSize:11, color:"#64748b", letterSpacing:1, marginBottom:5, fontWeight:700,
+                        borderLeft:"2px solid #3b82f6", paddingLeft:6 }}, group.label)
                       , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap" }}
                         , group.items.map(item => (
                            React.createElement('button', { key: item.key, onClick: () => updateNj(p=>({...p,type:item.key})), style: {
@@ -7417,19 +7418,19 @@ React.createElement('select', {
                  )
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
                   , React.createElement('div', {}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "受付日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement('input', { type: "date", value: nj.receptionDate, onChange: e => updateNj(p=>({...p,receptionDate:e.target.value})),
-                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
-                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
+                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
+                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                   )
                   , React.createElement('div', {}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "受付担当者", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付担当者", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement(StaffInput, { value: nj.receptionist,
                       onChange: v => updateNj(p=>({...p,receptionist:v})), placeholder: "担当者名", list: receptList, color:"#06b6d4" })
                   )
                 )
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "担当メカニック")
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "担当メカニック")
                   , React.createElement(StaffInput, { value: nj.mechanic,
                     onChange: v => updateNj(p=>({...p,mechanic:v})), placeholder: "メカニック名", list: mechList, color:"#10b981" })
                 )
@@ -7437,7 +7438,7 @@ React.createElement('select', {
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
                   /* 代車 */
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2028}}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "代車")
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "代車")
                     , React.createElement('div', { style: { display:"flex", gap:5 }}
                       , ["なし","あり"].map(v => (
                         React.createElement('button', { key: v, onClick: () => updateNj(p=>({...p,loanCar:v})),
@@ -7452,7 +7453,7 @@ React.createElement('select', {
                   )
                   /* 引取・納車 */
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2043}}
-                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "引取 / 納車"  )
+                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "引取 / 納車"  )
                     , React.createElement('div', { style: { display:"flex", gap:4, flexWrap:"wrap" }}
                       , ["なし","引取","納車","引取+納車"].map(v => (
                         React.createElement('button', { key: v, onClick: () => updateNj(p=>({...p,transport:v})),
@@ -7468,7 +7469,7 @@ React.createElement('select', {
                 )
                 /* 新規・既存 */
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "顧客区分", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "顧客区分", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                   , React.createElement('div', { style: { display:"flex", gap:6 }}
                     , [["existing","既存客"],["new","新規客"],["newcar","車両のみ新規"]].map(([v,l]) =>
                       React.createElement('button', { key: v, onClick: () => updateNj(p=>({...p,isNew:v})),
@@ -7484,7 +7485,7 @@ React.createElement('select', {
                 )
                 /* メモ */
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "メモ")
+                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "メモ")
                   , React.createElement('input', { value: nj.memo, onChange: e => updateNj(p=>({...p,memo:e.target.value})), placeholder: "特記事項があれば入力",
                     style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                       padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box" }})
