@@ -2251,7 +2251,7 @@ react-dom/cjs/react-dom-client.production.js:
       const [itemTargets, setItemTargets] = useState(() => {
         try { const s = localStorage.getItem('garage_item_targets'); return s ? JSON.parse(s) : {}; } catch { return {}; }
       });
-      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} }; if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v);
+      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v); };
       // ── Sales Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
