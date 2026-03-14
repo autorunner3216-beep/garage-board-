@@ -2251,7 +2251,7 @@ react-dom/cjs/react-dom-client.production.js:
       const [itemTargets, setItemTargets] = useState(() => {
         try { const s = localStorage.getItem('garage_item_targets'); return s ? JSON.parse(s) : {}; } catch { return {}; }
       });
-      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v); };
+      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} }; if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v);
       // ── Sales Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
@@ -5482,6 +5482,7 @@ React.createElement('select', {
       const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
+      const [stallDraft, setStallDraft] = useState([]);
       const [showStatsLog, setShowStatsLog] = useState(null); // null | "inspection" | "sales"
       const [manualLog, setManualLog] = useState(() => {
         try { const s = localStorage.getItem('garage_manuallog'); return s ? JSON.parse(s) : {}; } catch { return {}; }
@@ -6298,7 +6299,7 @@ React.createElement('select', {
             )
 
 
-          , React.createElement('div', { style: { padding:"16px 20px", maxWidth:1500, margin:"0 auto" }}
+          , React.createElement('div', { style: { padding:"16px 20px" }}
             /* フィルターカード */
             , filt!=="すべて" && (
               React.createElement(FilterCards, { filt: filt, jobs: jobs, stalls: stalls, setFilt: setFilt, updStatus: updStatus, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob})
