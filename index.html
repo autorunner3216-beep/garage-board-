@@ -1144,7 +1144,7 @@ react-dom/cjs/react-dom-client.production.js:
     // ── ロールカードパネル ──
     const ROLE_TYPES = [
       { key:"inspector", label:"検査員",    color:"#3b82f6", bg:"#0e2444" },
-      { key:"hsub",      label:"Hサブ",     color:"#a855f7", bg:"#1a0e2a" },
+      { key:"hsub",      label:"Hサブ",     color:"#ef4444", bg:"#2a0a0a", borderColor:"#ffffff" },
       { key:"kensa",     label:"検査・保適", color:"#f59e0b", bg:"#2a1a08" },
       { key:"delivery",  label:"納車準備",  color:"#22c55e", bg:"#0a2018" },
       { key:"noentry",   label:"入庫不可",  color:"#f43f5e", bg:"#2a0a14" },
@@ -1158,6 +1158,14 @@ react-dom/cjs/react-dom-client.production.js:
       { key:"telcall",   label:"TELコール", color:"#4ade80", bg:"#0a1e10" },
       { key:"nyuken",    label:"入検",      color:"#e879f9", bg:"#1e0a2a" },
     ];
+    // バー用の濃いbg
+    const ROLE_BAR_BG = {
+      inspector: "#1e3a5f", hsub: "#7f1d1d", kensa: "#78350f",
+      delivery: "#14532d", noentry: "#881337", pickup: "#164e63",
+      rest: "#1e293b", help: "#7f1d1d", bp: "#713f12",
+      office: "#334155", estimate: "#0c4a6e", tire: "#7c2d12",
+      telcall: "#14532d", nyuken: "#701a75"
+    };
 
     // ── ガントボード ──
     function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob }) {
@@ -1498,10 +1506,11 @@ react-dom/cjs/react-dom-client.production.js:
                       return (
                         React.createElement('div', { key: card.id, style: { position:"absolute", top:2, height:ROW_H-4,
                           left:(card.start-8)*CELL_W+2, width:w-4,
-                          background:rt.bg, border:`1px solid ${rt.color}88`,
-                          borderLeft:`3px solid ${rt.color}`,
+                          background: ROLE_BAR_BG[card.type] || rt.bg,
+                          border:`2px solid ${rt.borderColor||rt.color}`,
+                          borderLeft:`4px solid ${rt.borderColor||rt.color}`,
                           borderRadius:6, zIndex:4, overflow:"hidden",
-                          boxShadow:`0 0 8px ${rt.color}44`, display:"flex", alignItems:"stretch" }}
+                          boxShadow:`0 0 12px ${rt.color}66`, display:"flex", alignItems:"stretch" }}
                           /* 左リサイズハンドル */
                           , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
                             roleCardDragRef.current={type:"resizeL",cardId:card.id,startX:e.clientX,origCard:{...card}};
@@ -1526,7 +1535,12 @@ react-dom/cjs/react-dom-client.production.js:
                               )
                             )
                             , React.createElement('span', { onMouseDown: e=>e.stopPropagation(), onClick: e=>{ e.stopPropagation(); setRoleCards(p=>p.filter(c2=>c2.id!==card.id)); },
-                              style: { fontSize:10, color:"#475569", cursor:"pointer", flexShrink:0, paddingLeft:4, lineHeight:1 }}, "✕")
+                              style: { fontSize:13, fontWeight:900, color:"#ffffff", cursor:"pointer", flexShrink:0,
+                                paddingLeft:4, lineHeight:1, textShadow:"0 0 6px rgba(0,0,0,.8)",
+                                opacity:0.8 },
+                              onMouseEnter: e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.color="#fca5a5"; },
+                              onMouseLeave: e=>{ e.currentTarget.style.opacity="0.8"; e.currentTarget.style.color="#ffffff"; }
+                            }, "✕")
                           )
                           /* 右リサイズハンドル */
                           , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
@@ -3276,6 +3290,7 @@ React.createElement('select', {
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
       const [resizeDrag, setResizeDrag] = useState(null); // {loanId, side:'L'|'R', origDate}
+      const [moveDrag, setMoveDrag] = useState(null);
 
       useEffect(() => { localStorage.setItem('loancar_cars',  JSON.stringify(lcCars));  if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars); }, [lcCars]);
       useEffect(() => { localStorage.setItem('loancar_loans', JSON.stringify(lcLoans)); if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_loans', lcLoans); }, [lcLoans]);
@@ -3294,9 +3309,9 @@ React.createElement('select', {
       }, []);
 
       useEffect(() => {
-        document.body.style.cursor = dragState ? 'col-resize' : resizeDrag ? 'ew-resize' : '';
-        document.body.style.userSelect = (dragState||resizeDrag) ? 'none' : '';
-      }, [!!dragState, !!resizeDrag]);
+        document.body.style.cursor = moveDrag ? 'grabbing' : dragState ? 'col-resize' : resizeDrag ? 'ew-resize' : '';
+        document.body.style.userSelect = (dragState||resizeDrag||moveDrag) ? 'none' : '';
+      }, [!!dragState, !!resizeDrag, !!moveDrag]);
 
       useEffect(() => {
         const onUp = () => {
@@ -3349,6 +3364,41 @@ React.createElement('select', {
         window.addEventListener('mousemove', onMove);
         return () => window.removeEventListener('mousemove', onMove);
       }, [resizeDrag, days, daysInMonth]);
+
+      useEffect(() => {
+        if (!moveDrag) return;
+        const onMove = e => {
+          if (!gridRef.current) return;
+          const rect = gridRef.current.getBoundingClientRect();
+          const dx = e.clientX - moveDrag.startX;
+          const dy = e.clientY - moveDrag.startY;
+          const gridW = rect.width - LEFT_W;
+          const dayW = gridW / daysInMonth;
+          const daysDelta = Math.round(dx / dayW);
+          const rowDelta = Math.round(dy / ROW_H);
+          if (daysDelta === 0 && rowDelta === 0) return;
+          setLcLoans(p => p.map(l => {
+            if (l.id !== moveDrag.loanId) return l;
+            const newStart = bpAddDays(moveDrag.origStart, daysDelta);
+            const newEnd   = bpAddDays(moveDrag.origEnd,   daysDelta);
+            let newCarId = l.carId;
+            if (rowDelta !== 0) {
+              const carIds = lcCars.map(c => c.id);
+              const origIdx = carIds.indexOf(moveDrag.origCarId);
+              const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + rowDelta));
+              newCarId = carIds[newIdx];
+            }
+            return { ...l, startDate: newStart, endDate: newEnd, carId: newCarId };
+          }));
+        };
+        const onUp = () => setMoveDrag(null);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+      }, [moveDrag, daysInMonth, lcCars]);
 
       const prevMonth = () => {
         let y = viewY, m = viewM - 1;
@@ -3632,7 +3682,13 @@ React.createElement('select', {
                           background: returned ? '#334155' : jc.bg,
                           color: returned ? '#94a3b8' : jc.badge }}, loan.jobType),
 
-                        React.createElement('div', { style:{ minWidth:0, flex:1 }},
+                        React.createElement('div', {
+                          style:{ minWidth:0, flex:1, cursor: moveDrag ? 'grabbing' : 'grab' },
+                          onMouseDown: (function(l, carId){ return function(e) {
+                            e.stopPropagation(); e.preventDefault();
+                            setMoveDrag({ loanId:l.id, startX:e.clientX, startY:e.clientY,
+                              origStart:l.startDate, origEnd:l.endDate, origCarId:carId });
+                          }; })(loan, car.id)},
                           React.createElement('div', { style:{
                             fontSize:12, fontWeight:800,
                             color: returned ? '#94a3b8' : '#f1f5f9',
@@ -4204,15 +4260,21 @@ React.createElement('select', {
         if (!dragState) return;
         const onMove = e => {
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
           const dx = clientX - dragState.startX;
+          const dy = clientY - dragState.startY;
           const daysDelta = Math.round(dx / BP_DAY_W);
-          if (daysDelta === 0) return;
+          const stallDelta = dragState.type === "move" ? Math.round(dy / BP_ROW_H) : 0;
+          if (daysDelta === 0 && stallDelta === 0) return;
           setBpJobs(prev => prev.map(j => {
             if (j.id !== dragState.jobId) return j;
             if (dragState.type === "move") {
               const newIn  = bpAddDays(dragState.origIn,  daysDelta);
               const newOut = bpAddDays(dragState.origOut, daysDelta);
-              return { ...j, inDate: newIn, outDate: newOut };
+              const stallIds = bpStalls.map(s => s.id);
+              const newIdx = Math.max(0, Math.min(stallIds.length - 1, dragState.origStallIdx + stallDelta));
+              const newStall = stallIds[newIdx];
+              return { ...j, inDate: newIn, outDate: newOut, stall: newStall };
             } else if (dragState.type === "resizeR") {
               const newOut = bpAddDays(dragState.origOut, daysDelta);
               if (newOut <= j.inDate) return j;
@@ -4675,7 +4737,7 @@ React.createElement('select', {
                 borderRadius:6, padding:"2px 8px", flexShrink:0,
                 boxShadow: isToday ? "0 0 8px "+color+"44" : "none" }},
               React.createElement('span', { style:{ fontSize:9, fontWeight:800, color: isToday?"#ef4444":"#64748b" }},
-                isToday ? "本日" : date.slice(5).replace("-","/")),
+                isToday ? "予約" : date.slice(5).replace("-","/")),
               React.createElement('span', { style:{ fontSize:9, color:color, fontWeight:700 }},
                 type==="nyuko" ? "入庫" : "納車"),
               React.createElement('span', { style:{ fontSize:10, color:"#e2e8f0", fontWeight:600 }}, j.owner||j.plate||"—")
@@ -4898,8 +4960,10 @@ React.createElement('select', {
                           cursor: dragState ? "grabbing" : "grab",
                           display:"flex", flexDirection:"column", justifyContent:"space-between" },
                         onMouseDown:e=>{ e.stopPropagation();
-                          setDragState({jobId:job.id, type:"move", startX:e.clientX,
-                            origIn:job.inDate, origOut:job.outDate}); },
+                          const stallIdx = bpStalls.findIndex(s => s.id === stall.id);
+                          setDragState({jobId:job.id, type:"move", startX:e.clientX, startY:e.clientY,
+                            origIn:job.inDate, origOut:job.outDate, origStall:stall.id,
+                            origStallIdx:stallIdx}); },
                         onClick:e=>{ if(!dragState) setModalJob({...job}); }},
 
                         /* ── 上段: ナンバー ＋ オーナー名 ── */
@@ -5614,6 +5678,11 @@ React.createElement('select', {
       const [showLoanTomorrow, setShowLoanTomorrow] = useState(false);
       const [showDeadline, setShowDeadline] = useState(false);
       const [showMemo, setShowMemo] = useState(false);
+      const [showTodayLog, setShowTodayLog] = useState(false);
+      const [todayLog, setTodayLog] = useState(() => {
+        try { const s = localStorage.getItem('garage_today_log'); return s ? JSON.parse(s) : []; } catch { return []; }
+      });
+      const saveTodayLog = v => { setTodayLog(v); try { localStorage.setItem('garage_today_log', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_today_log', v); };
       const [memoText, setMemoText] = useState(() => {
         try { const s = localStorage.getItem('garage_memo_'+TODAY_STR); return s||""; } catch { return ""; }
       });
@@ -5702,11 +5771,12 @@ React.createElement('select', {
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
         window.fbOn('garage_current_revenue', function(val) { if (val !== null && val !== undefined) setCurrentRevenue(Number(val)); });
+        window.fbOn('garage_today_log', function(val) { if (Array.isArray(val)) { setTodayLog(val); try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {} } });
         window.fbOn('garage_memo_' + TODAY_STR, function(val) { if (typeof val === 'string') setMemoText(val); });
         return () => {
           ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
-           'garage_memo_'+TODAY_STR].forEach(window.fbOff);
+           'garage_today_log', 'garage_memo_'+TODAY_STR].forEach(window.fbOff);
         };
       }, []);
 
@@ -5845,13 +5915,21 @@ React.createElement('select', {
           return;
         }
         setAddError([]);
-        setJobs(p => [...p, { id:Date.now(), date:nj.date||boardDate, stall:nj.stall,
+        const newJobId = Date.now();
+        setJobs(p => [...p, { id:newJobId, date:nj.date||boardDate, stall:nj.stall,
           owner:nj.owner, plate:nj.plate, model:nj.model, type:nj.type,
           start:parseFloat(nj.start), end:parseFloat(nj.start)+(["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label) ? 1 : 2/3),
           status:asWaiting ? "当日来店/預かり" : "作業待ち", memo:nj.memo, priority:nj.priority,
           workState:"idle", startedAt:null, endedAt:null,
           receptionDate:nj.receptionDate, receptionist:nj.receptionist, mechanic:nj.mechanic||"", deliveryDate:nj.deliveryDate,
           loanCar:nj.loanCar, transport:nj.transport, isNew:nj.isNew }]);
+        // 本日ログに追記
+        const logEntry = { id:newJobId, registeredAt:TODAY_STR,
+          registeredTime:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
+          plate:nj.plate, owner:nj.owner, model:nj.model, type:nj.type,
+          mechanic:nj.mechanic||"", receptionist:nj.receptionist,
+          date:nj.date||boardDate, deliveryDate:nj.deliveryDate };
+        saveTodayLog([...todayLog, logEntry]);
         setShowAdd(false);
         setNj({date:TODAY_STR,stall:"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
       };
@@ -6710,11 +6788,36 @@ React.createElement('select', {
                         lineHeight:"14px", boxShadow:"0 0 6px "+badgeColor+"88" }}, alertJobs.length)
                     );
                   })()
+                  /* 本日ログボタン */
+                  , (()=>{
+                    const todayCount = todayLog.filter(l => l.registeredAt === TODAY_STR).length;
+                    return React.createElement('button', {
+                      onClick:()=>{ var next=!showTodayLog; setShowTodayLog(next); if(next){ setShowMemo(false); setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); } },
+                      style:{ position:"relative", flexShrink:0,
+                        background: showTodayLog ? "linear-gradient(135deg,#0c2a3a,#0e4d6e)" : "linear-gradient(135deg,#06111e,#0a1a2e)",
+                        border: showTodayLog ? "1px solid #38bdf888" : "1px solid #1e3a5f55",
+                        borderRadius:5, color: showTodayLog ? "#7dd3fc" : "#38bdf8",
+                        fontSize:11, fontWeight:700, cursor:"pointer",
+                        width:42, height:42, display:"flex", flexDirection:"column",
+                        alignItems:"center", justifyContent:"center",
+                        gap:1, padding:0, lineHeight:1.1,
+                        boxShadow: showTodayLog ? "0 0 10px #38bdf844" : "none" }},
+                      "📋",
+                      React.createElement('span', { style:{ fontSize:7, fontWeight:800, whiteSpace:"nowrap" }}, "予約ログ"),
+                      todayCount > 0 && React.createElement('span', { style:{
+                        position:"absolute", top:-4, right:-4,
+                        background:"#3b82f6", color:"#fff", borderRadius:"50%",
+                        width:14, height:14, fontSize:8, fontWeight:700,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        lineHeight:"14px" }}, todayCount)
+                    );
+                  })()
+
                   /* メモパッドボタン */
                   , (()=>{
                     var hasMemo = memoText.trim().length > 0;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showMemo; setShowMemo(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); } },
+                      onClick:()=>{ var next=!showMemo; setShowMemo(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); setShowTodayLog(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showMemo ? "linear-gradient(135deg,#3b2a00,#78350f)" : "linear-gradient(135deg,#0d0a00,#1a1000)",
                         border: showMemo ? "1px solid #f59e0b88" : "1px solid #3a2a0055",
@@ -7343,6 +7446,92 @@ React.createElement('select', {
               )
             );
           })()
+
+          /* 本日ログパネル */
+          , showTodayLog && React.createElement('div', { style:{
+              position:"fixed", top:108, right:0, bottom:0, width:380, zIndex:197,
+              background:"#06111e", borderLeft:"2px solid #1e3a5f88",
+              display:"flex", flexDirection:"column",
+              boxShadow:"-4px 0 20px rgba(0,0,0,0.6)" }},
+            /* ヘッダー */
+            React.createElement('div', { style:{
+              padding:"10px 14px",
+              background:"linear-gradient(135deg,#0a1628,#0d1e3a)",
+              borderBottom:"1px solid #1e3a5f", flexShrink:0 }},
+              React.createElement('div', { style:{ display:"flex", alignItems:"center", marginBottom:4 }},
+                React.createElement('span', { style:{ fontSize:13, fontWeight:900, color:"#60a5fa", flex:1 }}, "📋 予約ログ"),
+                React.createElement('button', { onClick:function(){setShowTodayLog(false);},
+                  style:{ background:"none", border:"none", color:"#475569", fontSize:14, cursor:"pointer" }}, "✕")
+              ),
+              React.createElement('div', { style:{ display:"flex", gap:6 }},
+                /* 日付別リセットボタン */
+                (() => {
+                  const dates = [...new Set(todayLog.map(l => l.registeredAt))].sort().reverse();
+                  return dates.map(d =>
+                    React.createElement('button', { key:d,
+                      onClick:()=>{ if(window.confirm(d+"の"+todayLog.filter(l=>l.registeredAt===d).length+"件を削除しますか？")) saveTodayLog(todayLog.filter(l=>l.registeredAt!==d)); },
+                      style:{ fontSize:9, fontWeight:700, padding:"3px 7px", borderRadius:4,
+                        background:"#1a2540", border:"1px solid #2a3a52",
+                        color:"#64748b", cursor:"pointer" }},
+                      "🗑 "+d.slice(5))
+                  );
+                })(),
+                /* オールリセット */
+                todayLog.length > 0 && React.createElement('button', {
+                  onClick:()=>{ if(window.confirm("全ての本日ログ("+todayLog.length+"件)を削除しますか？")) saveTodayLog([]); },
+                  style:{ fontSize:9, fontWeight:700, padding:"3px 7px", borderRadius:4,
+                    background:"#1a0a0a", border:"1px solid #7f1d1d",
+                    color:"#f87171", cursor:"pointer", marginLeft:"auto" }},
+                  "🗑 全削除")
+              )
+            ),
+            /* ログ一覧 */
+            React.createElement('div', { style:{ flex:1, overflowY:"auto", padding:"8px 10px" }},
+              todayLog.length === 0
+                ? React.createElement('div', { style:{ textAlign:"center", color:"#334155", fontSize:12, padding:"40px 0" }}, "本日の登録はありません")
+                : (() => {
+                    const dates = [...new Set(todayLog.map(l => l.registeredAt))].sort().reverse();
+                    return dates.map(d => {
+                      const dayLogs = todayLog.filter(l => l.registeredAt === d).reverse();
+                      return React.createElement('div', { key:d, style:{ marginBottom:16 }},
+                        /* 日付ヘッダー */
+                        React.createElement('div', { style:{ fontSize:11, fontWeight:800, color:"#38bdf8",
+                          borderBottom:"1px solid #1e3a5f", paddingBottom:4, marginBottom:6,
+                          display:"flex", justifyContent:"space-between", alignItems:"center" }},
+                          React.createElement('span', null, d === TODAY_STR ? "📅 本日 ("+d+")" : "📅 "+d),
+                          React.createElement('span', { style:{ fontSize:10, color:"#475569" }}, dayLogs.length+"件")
+                        ),
+                        /* カード */
+                        dayLogs.map((l, i) => {
+                          const fullJob = jobs.find(j => j.id === l.id);
+                          return React.createElement('div', { key:l.id+"-"+i,
+                            onDoubleClick: () => { if(fullJob){ setEditJob(fullJob); setShowTodayLog(false); } },
+                            title: fullJob ? "ダブルクリックで編集" : "",
+                            style:{ background:"#0d1625", border:"1px solid #1e3a5f",
+                              borderRadius:7, padding:"8px 10px", marginBottom:5,
+                              cursor: fullJob ? "pointer" : "default" }},
+                            React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }},
+                              React.createElement('span', { style:{ fontSize:9, color:"#64748b" }}, l.registeredTime),
+                              React.createElement('span', { style:{ fontSize:12, fontWeight:800, color:"#7dd3fc", fontFamily:"monospace" }}, l.plate),
+                              React.createElement('span', { style:{ fontSize:11, fontWeight:600, color:"#e2e8f0" }}, l.owner)
+                            ),
+                            React.createElement('div', { style:{ fontSize:10, color:"#94a3b8", marginBottom:2 }}, l.model||""),
+                            React.createElement('div', { style:{ display:"flex", gap:5, flexWrap:"wrap" }},
+                              l.type && React.createElement('span', { style:{ fontSize:9, padding:"1px 5px", borderRadius:3,
+                                background:"#0d1b2e", color:"#93c5fd", border:"1px solid #1e3a5f" }}, l.type),
+                              l.mechanic && React.createElement('span', { style:{ fontSize:9, color:"#10b981" }}, "🔧 "+l.mechanic),
+                              l.receptionist && React.createElement('span', { style:{ fontSize:9, color:"#06b6d4" }}, "📋 "+l.receptionist),
+                              l.date && React.createElement('span', { style:{ fontSize:9, color:"#60a5fa" }}, "入庫:"+l.date.slice(5)),
+                              l.deliveryDate && React.createElement('span', { style:{ fontSize:9, color:"#fbbf24" }}, "納車:"+l.deliveryDate.slice(5)),
+                              !fullJob && React.createElement('span', { style:{ fontSize:8, color:"#475569", fontStyle:"italic" }}, "削除済み")
+                            )
+                          );
+                        })
+                      );
+                    });
+                  })()
+            )
+          )
 
           /* メモパッドパネル */
           , showMemo && React.createElement('div', { style:{
