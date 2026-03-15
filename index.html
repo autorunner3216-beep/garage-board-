@@ -1158,13 +1158,12 @@ react-dom/cjs/react-dom-client.production.js:
       { key:"telcall",   label:"TELコール", color:"#4ade80", bg:"#0a1e10" },
       { key:"nyuken",    label:"入検",      color:"#e879f9", bg:"#1e0a2a" },
     ];
-    // バー用の濃いbg
     const ROLE_BAR_BG = {
-      inspector: "#1e3a5f", hsub: "#7f1d1d", kensa: "#78350f",
-      delivery: "#14532d", noentry: "#881337", pickup: "#164e63",
-      rest: "#1e293b", help: "#7f1d1d", bp: "#713f12",
-      office: "#334155", estimate: "#0c4a6e", tire: "#7c2d12",
-      telcall: "#14532d", nyuken: "#701a75"
+      inspector:"#1e3a5f", hsub:"#7f1d1d", kensa:"#78350f",
+      delivery:"#14532d", noentry:"#881337", pickup:"#164e63",
+      rest:"#1e293b", help:"#7f1d1d", bp:"#713f12",
+      office:"#334155", estimate:"#0c4a6e", tire:"#7c2d12",
+      telcall:"#14532d", nyuken:"#701a75"
     };
 
     // ── ガントボード ──
@@ -1510,7 +1509,7 @@ react-dom/cjs/react-dom-client.production.js:
                           border:`2px solid ${rt.borderColor||rt.color}`,
                           borderLeft:`4px solid ${rt.borderColor||rt.color}`,
                           borderRadius:6, zIndex:4, overflow:"hidden",
-                          boxShadow:`0 0 12px ${rt.color}66`, display:"flex", alignItems:"stretch" }}
+                          boxShadow:`0 0 8px ${rt.color}44`, display:"flex", alignItems:"stretch" }}
                           /* 左リサイズハンドル */
                           , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
                             roleCardDragRef.current={type:"resizeL",cardId:card.id,startX:e.clientX,origCard:{...card}};
@@ -1536,8 +1535,7 @@ react-dom/cjs/react-dom-client.production.js:
                             )
                             , React.createElement('span', { onMouseDown: e=>e.stopPropagation(), onClick: e=>{ e.stopPropagation(); setRoleCards(p=>p.filter(c2=>c2.id!==card.id)); },
                               style: { fontSize:13, fontWeight:900, color:"#ffffff", cursor:"pointer", flexShrink:0,
-                                paddingLeft:4, lineHeight:1, textShadow:"0 0 6px rgba(0,0,0,.8)",
-                                opacity:0.8 },
+                                paddingLeft:4, lineHeight:1, textShadow:"0 0 6px rgba(0,0,0,.8)", opacity:0.8 },
                               onMouseEnter: e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.color="#fca5a5"; },
                               onMouseLeave: e=>{ e.currentTarget.style.opacity="0.8"; e.currentTarget.style.color="#ffffff"; }
                             }, "✕")
@@ -2269,7 +2267,7 @@ react-dom/cjs/react-dom-client.production.js:
       const [itemTargets, setItemTargets] = useState(() => {
         try { const s = localStorage.getItem('garage_item_targets'); return s ? JSON.parse(s) : {}; } catch { return {}; }
       });
-      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} }; if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v);
+      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v); };
       // ── Sales Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
@@ -3394,10 +3392,7 @@ React.createElement('select', {
         const onUp = () => setMoveDrag(null);
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
-        return () => {
-          window.removeEventListener('mousemove', onMove);
-          window.removeEventListener('mouseup', onUp);
-        };
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
       }, [moveDrag, daysInMonth, lcCars]);
 
       const prevMonth = () => {
@@ -3592,7 +3587,28 @@ React.createElement('select', {
                         color:'#cbd5e1', fontWeight:700, fontSize:11,
                         letterSpacing:'0.05em',
                         whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }},
-                        car.plate || '—')
+                        car.plate || '—'),
+                      car.shaken && (function(){
+                        var today = new Date(); today.setHours(0,0,0,0);
+                        var exp = new Date(car.shaken + 'T00:00:00');
+                        var diffMs = exp - today;
+                        var diffDays = Math.ceil(diffMs / 86400000);
+                        var diffMonths = Math.round(diffDays / 30);
+                        if (diffDays < 0) return React.createElement('span', { style:{
+                          fontSize:9, fontWeight:800, color:'#fca5a5', background:'#450a0a',
+                          border:'1px solid #ef444466', borderRadius:4, padding:'1px 5px' }},
+                          '⚠ 車検切れ');
+                        if (diffDays <= 30) return React.createElement('span', { style:{
+                          fontSize:9, fontWeight:800, color:'#fde68a', background:'#78350f',
+                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px',
+                          boxShadow:'0 0 6px rgba(251,191,36,.4)' }},
+                          '🔔 車検まで'+diffDays+'日');
+                        if (diffDays <= 60) return React.createElement('span', { style:{
+                          fontSize:9, fontWeight:800, color:'#fdba74', background:'#431407',
+                          border:'1px solid #f9731644', borderRadius:4, padding:'1px 5px' }},
+                          '⚠ 車検まで'+diffMonths+'ヶ月');
+                        return null;
+                      })()
                     )
                   ),
 
@@ -3888,6 +3904,33 @@ React.createElement('select', {
               )
             ),
 
+            /* 車検警告 */
+            (function(){
+              var car = lcCars.find(function(c){ return c.id === loanModal.carId; });
+              if (!car || !car.shaken) return null;
+              var today = new Date(); today.setHours(0,0,0,0);
+              var exp = new Date(car.shaken + 'T00:00:00');
+              var diffDays = Math.ceil((exp - today) / 86400000);
+              var diffMonths = Math.round(diffDays / 30);
+              if (diffDays < 0) return React.createElement('div', { style:{
+                marginBottom:14, padding:'10px 14px', borderRadius:8,
+                background:'#450a0a', border:'1px solid #ef444466',
+                fontSize:12, fontWeight:700, color:'#fca5a5' }},
+                '⚠ この車両は車検が切れています！');
+              if (diffDays <= 30) return React.createElement('div', { style:{
+                marginBottom:14, padding:'10px 14px', borderRadius:8,
+                background:'#78350f', border:'1px solid #fbbf2466',
+                fontSize:12, fontWeight:700, color:'#fde68a',
+                boxShadow:'0 0 8px rgba(251,191,36,.3)' }},
+                '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
+              if (diffDays <= 60) return React.createElement('div', { style:{
+                marginBottom:14, padding:'10px 14px', borderRadius:8,
+                background:'#431407', border:'1px solid #f9731644',
+                fontSize:12, fontWeight:700, color:'#fdba74' }},
+                '⚠ この車両は車検まで約'+diffMonths+'ヶ月です。ご注意ください。');
+              return null;
+            })(),
+
             /* 案件種別 */
             React.createElement('div', { style:{ marginBottom:14 }},
               React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:'#94a3b8', display:'block', marginBottom:6 }}, '案件種別'),
@@ -4097,6 +4140,15 @@ React.createElement('select', {
                           boxShadow:active?'0 0 6px '+dc+'55':'none',
                           transition:'all .15s' }}, dn);
                     })
+                  ),
+                  React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginTop:4 }},
+                    React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:'#94a3b8', whiteSpace:'nowrap' }}, '🔍 車検満了日'),
+                    React.createElement('input', { type:'date',
+                      value: car.shaken || '',
+                      onChange: e => setCarDraft(p => p.map((c,i) => i===idx ? {...c, shaken:e.target.value} : c)),
+                      style:{ flex:1, background:'#0f172a', border:'1px solid #334155',
+                        borderRadius:8, color:'#f1f5f9', padding:'6px 10px',
+                        fontSize:12, boxSizing:'border-box', colorScheme:'dark' }})
                   )
                 ),
                 React.createElement('button', {
@@ -4737,7 +4789,7 @@ React.createElement('select', {
                 borderRadius:6, padding:"2px 8px", flexShrink:0,
                 boxShadow: isToday ? "0 0 8px "+color+"44" : "none" }},
               React.createElement('span', { style:{ fontSize:9, fontWeight:800, color: isToday?"#ef4444":"#64748b" }},
-                isToday ? "予約" : date.slice(5).replace("-","/")),
+                isToday ? "本日" : date.slice(5).replace("-","/")),
               React.createElement('span', { style:{ fontSize:9, color:color, fontWeight:700 }},
                 type==="nyuko" ? "入庫" : "納車"),
               React.createElement('span', { style:{ fontSize:10, color:"#e2e8f0", fontWeight:600 }}, j.owner||j.plate||"—")
@@ -4966,23 +5018,34 @@ React.createElement('select', {
                             origStallIdx:stallIdx}); },
                         onClick:e=>{ if(!dragState) setModalJob({...job}); }},
 
-                        /* ── 上段: ナンバー ＋ オーナー名 ── */
-                        React.createElement('div', { style:{ display:"flex", alignItems:"baseline", gap:5, overflow:"hidden" }},
+                        /* ── 上段: ナンバー ＋ オーナー名 ＋ 納車予定日 ── */
+                        React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5, overflow:"hidden" }},
                           React.createElement('span', { style:{ fontSize:12, fontWeight:900,
                             color:"#f1f5f9", whiteSpace:"nowrap", flexShrink:0, lineHeight:1.2 }},
                             job.plate || "(未入力)"),
                           React.createElement('span', { style:{ fontSize:10, fontWeight:600,
                             color:sc.accent, whiteSpace:"nowrap", overflow:"hidden",
                             textOverflow:"ellipsis", flexShrink:1 }},
-                            job.owner || "")
+                            job.owner || ""),
+                          job.noshaDate && React.createElement('span', { style:{
+                            fontSize:11, fontWeight:800, flexShrink:0,
+                            color:"#fde68a", background:"#78350f",
+                            border:"1px solid #fbbf2466", borderRadius:5,
+                            padding:"1px 6px", whiteSpace:"nowrap",
+                            boxShadow:"0 0 6px rgba(251,191,36,.4)" }},
+                            "🚗 "+job.noshaDate.slice(5)+(job.noshaAmPm?" "+job.noshaAmPm:"")+(job.noshaTime?" "+job.noshaTime:""))
                         ),
 
-                        /* ── 中段: ステータス ＋ 種別 ＋ 担当 ── */
+                        /* ── 中段: ステータス ＋ 車種 ＋ 種別 ＋ 担当 ── */
                         React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:3, overflow:"hidden" }},
                           React.createElement('span', { style:{ fontSize:8, padding:"1px 4px", borderRadius:3,
                             fontWeight:700, background:sc.bar, color:sc.text,
                             border:"1px solid "+sc.accent+"88", flexShrink:0, whiteSpace:"nowrap" }},
                             job.status || "入庫待ち"),
+                          job.carModel && React.createElement('span', { style:{ fontSize:9, fontWeight:600,
+                            color:"#cbd5e1", flexShrink:1,
+                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }},
+                            job.carModel),
                           job.type && React.createElement('span', { style:{ fontSize:8, padding:"1px 4px",
                             borderRadius:3, color:"#93c5fd", background:"#0d1b2e",
                             border:"1px solid #1e3a5f55", flexShrink:1,
@@ -5026,10 +5089,6 @@ React.createElement('select', {
                           job.hikitori==="あり" && React.createElement('span', { style:{ fontSize:8,
                             padding:"0px 4px", borderRadius:3, flexShrink:0,
                             color:"#a855f7", background:"#1a0a2a" }}, "引取"),
-                          job.noshaDate && React.createElement('span', { style:{ fontSize:8, padding:"0px 4px",
-                            borderRadius:3, flexShrink:0, background:"#1a1200", color:"#fbbf24",
-                            whiteSpace:"nowrap" }},
-                            "🚗"+job.noshaDate.slice(5)+(job.noshaAmPm?" "+job.noshaAmPm:"")),
                           job.estimatedAmount > 0 && React.createElement('span', { style:{ fontSize:8,
                             padding:"0px 4px", borderRadius:3, flexShrink:0,
                             background:"#1a1200", color:"#fbbf24" }},
@@ -5923,7 +5982,6 @@ React.createElement('select', {
           workState:"idle", startedAt:null, endedAt:null,
           receptionDate:nj.receptionDate, receptionist:nj.receptionist, mechanic:nj.mechanic||"", deliveryDate:nj.deliveryDate,
           loanCar:nj.loanCar, transport:nj.transport, isNew:nj.isNew }]);
-        // 本日ログに追記
         const logEntry = { id:newJobId, registeredAt:TODAY_STR,
           registeredTime:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
           plate:nj.plate, owner:nj.owner, model:nj.model, type:nj.type,
@@ -6788,7 +6846,7 @@ React.createElement('select', {
                         lineHeight:"14px", boxShadow:"0 0 6px "+badgeColor+"88" }}, alertJobs.length)
                     );
                   })()
-                  /* 本日ログボタン */
+                  /* 予約ログボタン */
                   , (()=>{
                     const todayCount = todayLog.filter(l => l.registeredAt === TODAY_STR).length;
                     return React.createElement('button', {
@@ -7447,83 +7505,61 @@ React.createElement('select', {
             );
           })()
 
-          /* 本日ログパネル */
+          /* 予約ログパネル */
           , showTodayLog && React.createElement('div', { style:{
               position:"fixed", top:108, right:0, bottom:0, width:380, zIndex:197,
               background:"#06111e", borderLeft:"2px solid #1e3a5f88",
               display:"flex", flexDirection:"column",
               boxShadow:"-4px 0 20px rgba(0,0,0,0.6)" }},
-            /* ヘッダー */
-            React.createElement('div', { style:{
-              padding:"10px 14px",
-              background:"linear-gradient(135deg,#0a1628,#0d1e3a)",
+            React.createElement('div', { style:{ padding:"10px 14px", background:"linear-gradient(135deg,#0a1628,#0d1e3a)",
               borderBottom:"1px solid #1e3a5f", flexShrink:0 }},
               React.createElement('div', { style:{ display:"flex", alignItems:"center", marginBottom:4 }},
                 React.createElement('span', { style:{ fontSize:13, fontWeight:900, color:"#60a5fa", flex:1 }}, "📋 予約ログ"),
                 React.createElement('button', { onClick:function(){setShowTodayLog(false);},
                   style:{ background:"none", border:"none", color:"#475569", fontSize:14, cursor:"pointer" }}, "✕")
               ),
-              React.createElement('div', { style:{ display:"flex", gap:6 }},
-                /* 日付別リセットボタン */
-                (() => {
-                  const dates = [...new Set(todayLog.map(l => l.registeredAt))].sort().reverse();
-                  return dates.map(d =>
-                    React.createElement('button', { key:d,
-                      onClick:()=>{ if(window.confirm(d+"の"+todayLog.filter(l=>l.registeredAt===d).length+"件を削除しますか？")) saveTodayLog(todayLog.filter(l=>l.registeredAt!==d)); },
-                      style:{ fontSize:9, fontWeight:700, padding:"3px 7px", borderRadius:4,
-                        background:"#1a2540", border:"1px solid #2a3a52",
-                        color:"#64748b", cursor:"pointer" }},
-                      "🗑 "+d.slice(5))
-                  );
-                })(),
-                /* オールリセット */
-                todayLog.length > 0 && React.createElement('button', {
-                  onClick:()=>{ if(window.confirm("全ての本日ログ("+todayLog.length+"件)を削除しますか？")) saveTodayLog([]); },
-                  style:{ fontSize:9, fontWeight:700, padding:"3px 7px", borderRadius:4,
-                    background:"#1a0a0a", border:"1px solid #7f1d1d",
-                    color:"#f87171", cursor:"pointer", marginLeft:"auto" }},
+              React.createElement('div', { style:{ display:"flex", gap:6, flexWrap:"wrap" }},
+                (()=>{ const dates=[...new Set(todayLog.map(l=>l.registeredAt))].sort().reverse();
+                  return dates.map(d=>React.createElement('button',{key:d,
+                    onClick:()=>{if(window.confirm(d+"の"+todayLog.filter(l=>l.registeredAt===d).length+"件を削除しますか？"))saveTodayLog(todayLog.filter(l=>l.registeredAt!==d));},
+                    style:{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:4,background:"#1a2540",border:"1px solid #2a3a52",color:"#64748b",cursor:"pointer"}},
+                    "🗑 "+d.slice(5))); })(),
+                todayLog.length>0 && React.createElement('button',{
+                  onClick:()=>{if(window.confirm("全ての予約ログ("+todayLog.length+"件)を削除しますか？"))saveTodayLog([]);},
+                  style:{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:4,background:"#1a0a0a",border:"1px solid #7f1d1d",color:"#f87171",cursor:"pointer",marginLeft:"auto"}},
                   "🗑 全削除")
               )
             ),
-            /* ログ一覧 */
             React.createElement('div', { style:{ flex:1, overflowY:"auto", padding:"8px 10px" }},
-              todayLog.length === 0
-                ? React.createElement('div', { style:{ textAlign:"center", color:"#334155", fontSize:12, padding:"40px 0" }}, "本日の登録はありません")
-                : (() => {
-                    const dates = [...new Set(todayLog.map(l => l.registeredAt))].sort().reverse();
-                    return dates.map(d => {
-                      const dayLogs = todayLog.filter(l => l.registeredAt === d).reverse();
-                      return React.createElement('div', { key:d, style:{ marginBottom:16 }},
-                        /* 日付ヘッダー */
-                        React.createElement('div', { style:{ fontSize:11, fontWeight:800, color:"#38bdf8",
-                          borderBottom:"1px solid #1e3a5f", paddingBottom:4, marginBottom:6,
-                          display:"flex", justifyContent:"space-between", alignItems:"center" }},
-                          React.createElement('span', null, d === TODAY_STR ? "📅 本日 ("+d+")" : "📅 "+d),
-                          React.createElement('span', { style:{ fontSize:10, color:"#475569" }}, dayLogs.length+"件")
+              todayLog.length===0
+                ? React.createElement('div',{style:{textAlign:"center",color:"#334155",fontSize:12,padding:"40px 0"}},"登録はありません")
+                : (()=>{
+                    const dates=[...new Set(todayLog.map(l=>l.registeredAt))].sort().reverse();
+                    return dates.map(d=>{
+                      const dayLogs=todayLog.filter(l=>l.registeredAt===d).reverse();
+                      return React.createElement('div',{key:d,style:{marginBottom:16}},
+                        React.createElement('div',{style:{fontSize:11,fontWeight:800,color:"#38bdf8",borderBottom:"1px solid #1e3a5f",paddingBottom:4,marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+                          React.createElement('span',null,d===TODAY_STR?"📅 本日 ("+d+")":"📅 "+d),
+                          React.createElement('span',{style:{fontSize:10,color:"#475569"}},dayLogs.length+"件")
                         ),
-                        /* カード */
-                        dayLogs.map((l, i) => {
-                          const fullJob = jobs.find(j => j.id === l.id);
-                          return React.createElement('div', { key:l.id+"-"+i,
-                            onDoubleClick: () => { if(fullJob){ setEditJob(fullJob); setShowTodayLog(false); } },
-                            title: fullJob ? "ダブルクリックで編集" : "",
-                            style:{ background:"#0d1625", border:"1px solid #1e3a5f",
-                              borderRadius:7, padding:"8px 10px", marginBottom:5,
-                              cursor: fullJob ? "pointer" : "default" }},
-                            React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }},
-                              React.createElement('span', { style:{ fontSize:9, color:"#64748b" }}, l.registeredTime),
-                              React.createElement('span', { style:{ fontSize:12, fontWeight:800, color:"#7dd3fc", fontFamily:"monospace" }}, l.plate),
-                              React.createElement('span', { style:{ fontSize:11, fontWeight:600, color:"#e2e8f0" }}, l.owner)
+                        dayLogs.map((l,i)=>{
+                          const fullJob=jobs.find(j=>j.id===l.id);
+                          return React.createElement('div',{key:l.id+"-"+i,
+                            onDoubleClick:()=>{if(fullJob){setEditJob(fullJob);setShowTodayLog(false);}},
+                            style:{background:"#0d1625",border:"1px solid #1e3a5f",borderRadius:7,padding:"8px 10px",marginBottom:5,cursor:fullJob?"pointer":"default"}},
+                            React.createElement('div',{style:{display:"flex",alignItems:"center",gap:6,marginBottom:3}},
+                              React.createElement('span',{style:{fontSize:9,color:"#64748b"}},l.registeredTime),
+                              React.createElement('span',{style:{fontSize:12,fontWeight:800,color:"#7dd3fc",fontFamily:"monospace"}},l.plate),
+                              React.createElement('span',{style:{fontSize:11,fontWeight:600,color:"#e2e8f0"}},l.owner)
                             ),
-                            React.createElement('div', { style:{ fontSize:10, color:"#94a3b8", marginBottom:2 }}, l.model||""),
-                            React.createElement('div', { style:{ display:"flex", gap:5, flexWrap:"wrap" }},
-                              l.type && React.createElement('span', { style:{ fontSize:9, padding:"1px 5px", borderRadius:3,
-                                background:"#0d1b2e", color:"#93c5fd", border:"1px solid #1e3a5f" }}, l.type),
-                              l.mechanic && React.createElement('span', { style:{ fontSize:9, color:"#10b981" }}, "🔧 "+l.mechanic),
-                              l.receptionist && React.createElement('span', { style:{ fontSize:9, color:"#06b6d4" }}, "📋 "+l.receptionist),
-                              l.date && React.createElement('span', { style:{ fontSize:9, color:"#60a5fa" }}, "入庫:"+l.date.slice(5)),
-                              l.deliveryDate && React.createElement('span', { style:{ fontSize:9, color:"#fbbf24" }}, "納車:"+l.deliveryDate.slice(5)),
-                              !fullJob && React.createElement('span', { style:{ fontSize:8, color:"#475569", fontStyle:"italic" }}, "削除済み")
+                            React.createElement('div',{style:{fontSize:10,color:"#94a3b8",marginBottom:2}},l.model||""),
+                            React.createElement('div',{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+                              l.type&&React.createElement('span',{style:{fontSize:9,padding:"1px 5px",borderRadius:3,background:"#0d1b2e",color:"#93c5fd",border:"1px solid #1e3a5f"}},l.type),
+                              l.mechanic&&React.createElement('span',{style:{fontSize:9,color:"#10b981"}},"🔧 "+l.mechanic),
+                              l.receptionist&&React.createElement('span',{style:{fontSize:9,color:"#06b6d4"}},"📋 "+l.receptionist),
+                              l.date&&React.createElement('span',{style:{fontSize:9,color:"#60a5fa"}},"入庫:"+l.date.slice(5)),
+                              l.deliveryDate&&React.createElement('span',{style:{fontSize:9,color:"#fbbf24"}},"納車:"+l.deliveryDate.slice(5)),
+                              !fullJob&&React.createElement('span',{style:{fontSize:8,color:"#475569",fontStyle:"italic"}},"削除済み")
                             )
                           );
                         })
