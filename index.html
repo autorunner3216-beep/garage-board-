@@ -3285,9 +3285,10 @@ React.createElement('select', {
       const [showCarEdit, setShowCarEdit] = useState(false);
       const [loanModal, setLoanModal] = useState(null);
       const [loanDetail, setLoanDetail] = useState(null);
+      const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
-      const [resizeDrag, setResizeDrag] = useState(null); // {loanId, side:'L'|'R', origDate}
+      const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
 
       useEffect(() => { localStorage.setItem('loancar_cars',  JSON.stringify(lcCars));  if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars); }, [lcCars]);
@@ -3497,6 +3498,24 @@ React.createElement('select', {
             color:'#fff', fontSize:12, padding:'7px 14px',
             cursor:'pointer', fontWeight:700 }}, '⚙ 車両管理'),
 
+          /* 部門フィルター */
+          React.createElement('div', { style:{ display:'flex', gap:4, alignItems:'center' }},
+            [null, '整備', 'BP', '車販'].map(function(dept){
+              const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#f59e0b' };
+              const active = deptFilter === dept;
+              const col = dept ? colors[dept] : '#94a3b8';
+              return React.createElement('button', { key:String(dept),
+                onClick:()=>setDeptFilter(dept),
+                style:{ padding:'5px 10px', borderRadius:6, fontSize:11, fontWeight:700,
+                  cursor:'pointer', border:'1px solid '+(active ? col : '#334155'),
+                  background: active ? col+'33' : 'transparent',
+                  color: active ? col : '#475569',
+                  boxShadow: active ? '0 0 8px '+col+'55' : 'none',
+                  transition:'all .15s' }},
+                dept || 'すべて');
+            })
+          ),
+
           React.createElement('button', { onClick:()=>setLoanModal({ carId:'', startDate:TODAY, endDate:TODAY, owner:'', memo:'' }), style:{
             background:'#2563eb', border:'none', borderRadius:8,
             color:'#fff', fontSize:13, padding:'7px 16px',
@@ -3544,7 +3563,7 @@ React.createElement('select', {
                   padding:'80px 0', textAlign:'center',
                   color:'#475569', fontSize:14 }},
                   '⚙ 「車両管理」ボタンで代車を登録してください')
-              : lcCars.map((car, ri) => {
+              : lcCars.filter(car => !deptFilter || car.dept === deptFilter).map((car, ri) => {
                 const carLoans = lcLoans.filter(l => l.carId===car.id);
                 const isOut = carLoans.some(l => l.startDate<=TODAY && !l.returnedDate && l.endDate>=TODAY);
                 const hasOverdue = carLoans.some(l => isOverdue(l));
@@ -3591,8 +3610,7 @@ React.createElement('select', {
                       car.shaken && (function(){
                         var today = new Date(); today.setHours(0,0,0,0);
                         var exp = new Date(car.shaken + 'T00:00:00');
-                        var diffMs = exp - today;
-                        var diffDays = Math.ceil(diffMs / 86400000);
+                        var diffDays = Math.ceil((exp - today) / 86400000);
                         var diffMonths = Math.round(diffDays / 30);
                         if (diffDays < 0) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fca5a5', background:'#450a0a',
@@ -3600,8 +3618,7 @@ React.createElement('select', {
                           '⚠ 車検切れ');
                         if (diffDays <= 30) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fde68a', background:'#78350f',
-                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px',
-                          boxShadow:'0 0 6px rgba(251,191,36,.4)' }},
+                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px' }},
                           '🔔 車検まで'+diffDays+'日');
                         if (diffDays <= 60) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fdba74', background:'#431407',
@@ -3904,7 +3921,6 @@ React.createElement('select', {
               )
             ),
 
-            /* 車検警告 */
             (function(){
               var car = lcCars.find(function(c){ return c.id === loanModal.carId; });
               if (!car || !car.shaken) return null;
@@ -3920,8 +3936,7 @@ React.createElement('select', {
               if (diffDays <= 30) return React.createElement('div', { style:{
                 marginBottom:14, padding:'10px 14px', borderRadius:8,
                 background:'#78350f', border:'1px solid #fbbf2466',
-                fontSize:12, fontWeight:700, color:'#fde68a',
-                boxShadow:'0 0 8px rgba(251,191,36,.3)' }},
+                fontSize:12, fontWeight:700, color:'#fde68a' }},
                 '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
               if (diffDays <= 60) return React.createElement('div', { style:{
                 marginBottom:14, padding:'10px 14px', borderRadius:8,
@@ -5830,12 +5845,11 @@ React.createElement('select', {
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
         window.fbOn('garage_current_revenue', function(val) { if (val !== null && val !== undefined) setCurrentRevenue(Number(val)); });
-        window.fbOn('garage_today_log', function(val) { if (Array.isArray(val)) { setTodayLog(val); try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {} } });
         window.fbOn('garage_memo_' + TODAY_STR, function(val) { if (typeof val === 'string') setMemoText(val); });
         return () => {
           ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
-           'garage_today_log', 'garage_memo_'+TODAY_STR].forEach(window.fbOff);
+           'garage_memo_'+TODAY_STR].forEach(window.fbOff);
         };
       }, []);
 
