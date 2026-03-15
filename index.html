@@ -3285,7 +3285,7 @@ React.createElement('select', {
       const [showCarEdit, setShowCarEdit] = useState(false);
       const [loanModal, setLoanModal] = useState(null);
       const [loanDetail, setLoanDetail] = useState(null);
-      const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
+      const [deptFilter, setDeptFilter] = useState(null);
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
       const [resizeDrag, setResizeDrag] = useState(null);
@@ -3498,7 +3498,6 @@ React.createElement('select', {
             color:'#fff', fontSize:12, padding:'7px 14px',
             cursor:'pointer', fontWeight:700 }}, '⚙ 車両管理'),
 
-          /* 部門フィルター */
           React.createElement('div', { style:{ display:'flex', gap:4, alignItems:'center' }},
             [null, '整備', 'BP', '車販'].map(function(dept){
               const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#f59e0b' };
@@ -3614,16 +3613,13 @@ React.createElement('select', {
                         var diffMonths = Math.round(diffDays / 30);
                         if (diffDays < 0) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fca5a5', background:'#450a0a',
-                          border:'1px solid #ef444466', borderRadius:4, padding:'1px 5px' }},
-                          '⚠ 車検切れ');
+                          border:'1px solid #ef444466', borderRadius:4, padding:'1px 5px' }}, '⚠ 車検切れ');
                         if (diffDays <= 30) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fde68a', background:'#78350f',
-                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px' }},
-                          '🔔 車検まで'+diffDays+'日');
+                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px' }}, '🔔 車検まで'+diffDays+'日');
                         if (diffDays <= 60) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fdba74', background:'#431407',
-                          border:'1px solid #f9731644', borderRadius:4, padding:'1px 5px' }},
-                          '⚠ 車検まで'+diffMonths+'ヶ月');
+                          border:'1px solid #f9731644', borderRadius:4, padding:'1px 5px' }}, '⚠ 車検まで'+diffMonths+'ヶ月');
                         return null;
                       })()
                     )
@@ -3928,21 +3924,9 @@ React.createElement('select', {
               var exp = new Date(car.shaken + 'T00:00:00');
               var diffDays = Math.ceil((exp - today) / 86400000);
               var diffMonths = Math.round(diffDays / 30);
-              if (diffDays < 0) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#450a0a', border:'1px solid #ef444466',
-                fontSize:12, fontWeight:700, color:'#fca5a5' }},
-                '⚠ この車両は車検が切れています！');
-              if (diffDays <= 30) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#78350f', border:'1px solid #fbbf2466',
-                fontSize:12, fontWeight:700, color:'#fde68a' }},
-                '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
-              if (diffDays <= 60) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#431407', border:'1px solid #f9731644',
-                fontSize:12, fontWeight:700, color:'#fdba74' }},
-                '⚠ この車両は車検まで約'+diffMonths+'ヶ月です。ご注意ください。');
+              if (diffDays < 0) return React.createElement('div', { style:{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:'#450a0a', border:'1px solid #ef444466', fontSize:12, fontWeight:700, color:'#fca5a5' }}, '⚠ この車両は車検が切れています！');
+              if (diffDays <= 30) return React.createElement('div', { style:{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:'#78350f', border:'1px solid #fbbf2466', fontSize:12, fontWeight:700, color:'#fde68a' }}, '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
+              if (diffDays <= 60) return React.createElement('div', { style:{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:'#431407', border:'1px solid #f9731644', fontSize:12, fontWeight:700, color:'#fdba74' }}, '⚠ この車両は車検まで約'+diffMonths+'ヶ月です。ご注意ください。');
               return null;
             })(),
 
@@ -5793,10 +5777,10 @@ React.createElement('select', {
       });
       const saveBlockDays = list => { setBlockDays(list); try { localStorage.setItem('garage_blockdays', JSON.stringify(list)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_blockdays', list); };
       const [receptList, setReceptList] = useState(() => {
-        try { const s = localStorage.getItem('garage_recept'); return s ? JSON.parse(s) : ["田中","佐藤"]; } catch { return ["田中","佐藤"]; }
+        try { const s = localStorage.getItem('garage_recept'); return s ? JSON.parse(s) : []; } catch { return []; }
       });
       const [mechList, setMechList] = useState(() => {
-        try { const s = localStorage.getItem('garage_mech'); return s ? JSON.parse(s) : ["鈴木","高橋"]; } catch { return ["鈴木","高橋"]; }
+        try { const s = localStorage.getItem('garage_mech'); return s ? JSON.parse(s) : []; } catch { return []; }
       });
       const saveReceptList = list => { setReceptList(list); try { localStorage.setItem('garage_recept', JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_recept', list); };
       const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
@@ -5839,8 +5823,8 @@ React.createElement('select', {
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
-        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) setReceptList(val); });
-        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) setMechList(val); });
+        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) { setReceptList(val); try { localStorage.setItem('garage_recept', JSON.stringify(val)); } catch {} } });
+        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) { setMechList(val); try { localStorage.setItem('garage_mech', JSON.stringify(val)); } catch {} } });
         window.fbOn('garage_manuallog', function(val) { if (val && typeof val === 'object') setManualLog(val); });
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
