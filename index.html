@@ -3291,8 +3291,20 @@ React.createElement('select', {
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
 
-      useEffect(() => { localStorage.setItem('loancar_cars',  JSON.stringify(lcCars));  if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars); }, [lcCars]);
-      useEffect(() => { localStorage.setItem('loancar_loans', JSON.stringify(lcLoans)); if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_loans', lcLoans); }, [lcLoans]);
+      const _lcInitialized = React.useRef(false);
+      useEffect(() => {
+        if (!_lcInitialized.current) { _lcInitialized.current = true; return; }
+        if (_lcFbIncoming.current) return;
+        localStorage.setItem('loancar_cars', JSON.stringify(lcCars));
+        if (typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars);
+      }, [lcCars]);
+      const _lcLoansInitialized = React.useRef(false);
+      useEffect(() => {
+        if (!_lcLoansInitialized.current) { _lcLoansInitialized.current = true; return; }
+        if (_lcFbIncoming.current) return;
+        localStorage.setItem('loancar_loans', JSON.stringify(lcLoans));
+        if (typeof window.fbSet==='function') window.fbSet('loancar_loans', lcLoans);
+      }, [lcLoans]);
 
       // ── LoanCar Firebase リアルタイム同期 ──
       const _lcFbIncoming = React.useRef(false);
@@ -4207,6 +4219,26 @@ React.createElement('select', {
         try { localStorage.setItem('bp_completed_log', JSON.stringify(logs)); } catch {}
         if (typeof window.fbSet==='function') window.fbSet('bp_completed_log', logs);
       };
+      // 計上月選択肢（過去12ヶ月〜来月）
+      const getMonthOptions = function() {
+        var opts = [];
+        var now = new Date(today);
+        for (var i = 12; i >= -1; i--) {
+          var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          opts.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+        }
+        return opts;
+      };
+
+      // 計上確認モーダルを開く
+      const openCompleteModal = function(job) {
+        setCompleteModal({
+          job: job,
+          month: today.slice(0,7),
+          amount: job.estimatedAmount || 0
+        });
+      };
+
       const completeAndLog = function(job) {
         var log = {
           id: job.id, plate: job.plate||"", owner: job.owner||"", carModel: job.carModel||"",
@@ -4217,6 +4249,7 @@ React.createElement('select', {
         saveBpCompletedLog([...bpCompletedLog, log]);
         saveBpJobs(bpJobs.filter(function(x){ return x.id !== job.id; }));
       };
+      const [completeModal, setCompleteModal] = useState(null); // {job, month, amount}
       const [dayoffModal, setDayoffModal] = useState(null); // {date, dateLabel}
       // 表示月 (YYYY-MM)
       const [viewMonth, setViewMonth] = useState(() => today.slice(0,7));
@@ -5281,17 +5314,17 @@ React.createElement('select', {
                       j.memo && React.createElement('span', { style:{ fontSize:9, color:"#fbbf24" }}, "📝 "+j.memo)
                     ),
 
-                    /* 引渡完了ボタン（納車カードのみ） */
+                    /* 完了・計上ボタン（納車カードのみ） */
                     c.type==="納車" && React.createElement('button', {
                       onClick: function(e) {
                         e.stopPropagation();
-                        completeAndLog(j);
+                        openCompleteModal(j);
                       },
                       style:{ marginTop:6, width:"100%", padding:"5px", borderRadius:5,
                         border:"1px solid #fbbf2466", background:"#78350f",
                         color:"#fde68a", fontSize:10, fontWeight:800, cursor:"pointer",
                         boxShadow:"0 0 8px #f59e0b33" }},
-                      "🏁 引渡完了"
+                      "🏁 完了・計上"
                     )
                   );
                 });
@@ -5410,21 +5443,108 @@ React.createElement('select', {
                       j.memo && React.createElement('span', { style:{ fontSize:9, color:"#fbbf24" }}, "📝 "+j.memo)
                     ),
 
-                    /* 引渡完了ボタン */
+                    /* 完了・計上ボタン */
                     React.createElement('button', {
                       onClick:function(e){ e.stopPropagation();
-                        completeAndLog(j); },
+                        openCompleteModal(j); },
                       style:{ width:"100%", padding:"5px", borderRadius:5,
                         border:"1px solid #fbbf2466", background:"#78350f",
                         color:"#fde68a", fontSize:10, fontWeight:800, cursor:"pointer",
                         boxShadow:"0 0 8px #f59e0b33" }},
-                      "🏁 引渡完了"
+                      "🏁 完了・計上"
                     )
                   );
                 });
               })()
             )
           ) /* 完成確定済みパネル閉じ */
+
+        /* 完了・計上 確認モーダル */
+        , completeModal && React.createElement('div', {
+          onClick: () => setCompleteModal(null),
+          style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.8)",
+            display:"flex", alignItems:"center", justifyContent:"center", zIndex:3000 }},
+          React.createElement('div', {
+            onClick: e => e.stopPropagation(),
+            style:{ background:"#0d1625", border:"1px solid #1e3a5f",
+              borderRadius:16, padding:28, width:360,
+              boxShadow:"0 24px 64px rgba(0,0,0,.8)" }},
+
+            /* ヘッダー */
+            React.createElement('div', { style:{ fontSize:15, fontWeight:900, color:"#fde68a",
+              marginBottom:20, display:"flex", alignItems:"center", justifyContent:"space-between" }},
+              "💰 完了・計上",
+              React.createElement('button', { onClick:()=>setCompleteModal(null),
+                style:{ background:"none", border:"none", color:"#475569", fontSize:18, cursor:"pointer" }}, "✕")
+            ),
+
+            /* 車両情報 */
+            React.createElement('div', { style:{ background:"#070f1c", borderRadius:8, padding:"10px 14px",
+              marginBottom:16, border:"1px solid #1e3a5f" }},
+              React.createElement('div', { style:{ fontSize:12, fontWeight:800, color:"#7dd3fc", marginBottom:3 }},
+                completeModal.job.plate + (completeModal.job.owner ? "　" + completeModal.job.owner : "")),
+              React.createElement('div', { style:{ fontSize:11, color:"#94a3b8" }},
+                completeModal.job.carModel || "")
+            ),
+
+            /* 計上月 */
+            React.createElement('div', { style:{ marginBottom:14 }},
+              React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:"#94a3b8",
+                display:"block", marginBottom:6 }}, "📅 計上月"),
+              React.createElement('select', {
+                value: completeModal.month,
+                onChange: e => setCompleteModal(p => ({...p, month: e.target.value})),
+                style:{ width:"100%", background:"#0f172a", border:"1px solid #334155",
+                  borderRadius:8, color:"#f1f5f9", padding:"9px 12px", fontSize:13,
+                  colorScheme:"dark" }},
+                getMonthOptions().map(m => {
+                  const [y, mo] = m.split('-');
+                  return React.createElement('option', { key:m, value:m },
+                    y + "年" + parseInt(mo) + "月" + (m === today.slice(0,7) ? "（今月）" : ""));
+                })
+              )
+            ),
+
+            /* 金額 */
+            React.createElement('div', { style:{ marginBottom:24 }},
+              React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:"#94a3b8",
+                display:"block", marginBottom:6 }}, "💴 計上金額"),
+              React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:6 }},
+                React.createElement('span', { style:{ color:"#94a3b8", fontSize:13 }}, "¥"),
+                React.createElement('input', {
+                  type:"number",
+                  value: completeModal.amount,
+                  onChange: e => setCompleteModal(p => ({...p, amount: parseInt(e.target.value)||0})),
+                  style:{ flex:1, background:"#0f172a", border:"1px solid #334155",
+                    borderRadius:8, color:"#f1f5f9", padding:"9px 12px", fontSize:13,
+                    boxSizing:"border-box" }})
+              )
+            ),
+
+            /* 確定ボタン */
+            React.createElement('button', {
+              onClick: () => {
+                var job = completeModal.job;
+                var log = {
+                  id: job.id, plate: job.plate||"", owner: job.owner||"", carModel: job.carModel||"",
+                  estimatedAmount: completeModal.amount,
+                  inDate: job.inDate||"", outDate: job.outDate||"",
+                  staffName: job.staffName||"", completedAt: today,
+                  month: completeModal.month,
+                  nyukoType: job.nyukoType||"", damage: job.damage||"", memo: job.memo||""
+                };
+                saveBpCompletedLog([...bpCompletedLog, log]);
+                saveBpJobs(bpJobs.filter(function(x){ return x.id !== job.id; }));
+                setCompleteModal(null);
+              },
+              style:{ width:"100%", background:"linear-gradient(135deg,#78350f,#92400e)",
+                border:"1px solid #fbbf2466", borderRadius:10,
+                color:"#fde68a", fontSize:14, fontWeight:800, padding:"13px",
+                cursor:"pointer", boxShadow:"0 0 12px #f59e0b44" }},
+              "✅ 確定"
+            )
+          )
+        )
 
         , showCompletedLog && React.createElement('div', {
           style:{ position:"fixed", top:0, right:0, width:420, height:"100vh",
@@ -5818,7 +5938,7 @@ React.createElement('select', {
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_stalls', function(val) {
-          if (val && Array.isArray(val)) { _fbIncoming.current = true; setStalls(val); setTimeout(() => { _fbIncoming.current = false; }, 50); }
+          if (val && Array.isArray(val)) { _fbIncoming.current = true; setStalls(val); try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
@@ -5837,9 +5957,19 @@ React.createElement('select', {
         };
       }, []);
 
-      // jobs/stalls変更をFirebaseへ書き込み
-      React.useEffect(() => { if (_fbIncoming.current || typeof window.fbSet !== 'function') return; window.fbSet('garage_jobs', jobs, 400); }, [jobs]);
-      React.useEffect(() => { if (_fbIncoming.current || typeof window.fbSet !== 'function') return; window.fbSet('garage_stalls', stalls, 400); }, [stalls]);
+      // jobs/stalls変更をFirebaseへ書き込み（初回スキップ）
+      const _jobsInitialized = React.useRef(false);
+      React.useEffect(() => {
+        if (!_jobsInitialized.current) { _jobsInitialized.current = true; return; }
+        if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
+        window.fbSet('garage_jobs', jobs, 400);
+      }, [jobs]);
+      const _stallsInitialized = React.useRef(false);
+      React.useEffect(() => {
+        if (!_stallsInitialized.current) { _stallsInitialized.current = true; return; }
+        if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
+        window.fbSet('garage_stalls', stalls, 400);
+      }, [stalls]);
 
       const [showRevenueInput, setShowRevenueInput] = useState(false);
       const [revenueDraft, setRevenueDraft] = useState(0);
