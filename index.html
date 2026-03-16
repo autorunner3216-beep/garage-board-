@@ -1,36 +1,399 @@
 <!DOCTYPE html>
+<!--
+================================================================================
+  GARAGE SMB BOARD v6 - チェックリスト（修正時に必ず全項目確認すること）
+  最終更新: 2026-03-16
+================================================================================
+
+【必須チェックスクリプト】
+新しいチャットで作業する際は、アップロードされたindex.htmlに対して
+以下のPythonスクリプトを実行して全項目✅を確認してから納品すること。
+
+checks = {
+    # ===== バグ修正 =====
+    '販売ブラックアウト修正(saveItemTargets)': '} }; if' not in content,
+
+    # ===== スタッフ名 =====
+    'スタッフFirebase同期(recept)': "localStorage.setItem('garage_recept'" in content,
+    'スタッフFirebase同期(mech)':   "localStorage.setItem('garage_mech'" in content,
+    'スタッフデフォルト値空':        '"田中","佐藤"' not in content,
+
+    # ===== Firebase安全保護 =====
+    '代車初回書込み防止(_lcInitialized)':       '_lcInitialized' in content,
+    'BPstalls/workersFirebase同期':             "localStorage.setItem('bp_stalls'" in content,
+    'garage_stalls_localStorage保存':           "localStorage.setItem('garage_stalls'" in content,
+    'jobs初回書込み防止(_jobsInitialized)':     '_jobsInitialized' in content,
+    'stalls初回書込み防止(_stallsInitialized)': '_stallsInitialized' in content,
+
+    # ===== BP札表示 =====
+    'BP札納車予定日(🚗ゴールド)': "'🚗 \"+job.noshaDate" in content,
+    'BP札車種(carModel)':         'job.carModel && React.createElement' in content,
+    'BP着工OK/NGバッジ':          '着工OK' in content,
+
+    # ===== ストールボード札 =====
+    'ストールボード車種表示':   'job.model && React.createElement' in content,
+    'ストールボード納車日表示': 'job.deliveryDate.slice(5)' in content,
+
+    # ===== ドラッグ =====
+    'BP上下ドラッグ(origStallIdx)': 'origStallIdx' in content,
+    'BP上下ドラッグ(stallDelta)':   'stallDelta' in content,
+    '代車上下ドラッグ(moveDrag)':   'moveDrag' in content,
+    '代車上下ドラッグ(origCarId)':  'origCarId' in content,
+
+    # ===== BP完了ログ =====
+    'BP完了ログ(bpCompletedLog)':        'bpCompletedLog' in content,
+    'BP完了ログボタン':                   '完了ログ' in content,
+    '引渡完了後売上維持(completeAndLog)': 'completeAndLog' in content,
+
+    # ===== 完了・計上モーダル =====
+    '完了・計上モーダル(completeModal)':   'completeModal' in content,
+    '完了・計上ボタン名':                   '完了・計上' in content,
+    '計上月選択(getMonthOptions)':         'getMonthOptions' in content,
+    '計上金額(estimatedAmount自動入力)':    'completeModal.amount' in content,
+
+    # ===== 検索機能 =====
+    '検索→ステータス一覧(status-card-)': 'status-card-' in content,
+    '検索→ガントボード(job-bar-)':       'job-bar-' in content,
+    '検索isShelved判定':                  'isShelved' in content,
+    'ShelvedListにflashJobId':            'flashJobId: flashJobId' in content,
+    '検索完了案件除外':                    '!j.completed &&' in content,
+
+    # ===== ROLES =====
+    'ROLE_BAR_BG(貼ったバー濃く)':  'ROLE_BAR_BG' in content,
+    'HサブROLE赤白(borderColor白)': 'borderColor:"#ffffff"' in content,
+    'ROLE×ボタン白':                 'color:"#ffffff", cursor:"pointer"' in content,
+
+    # ===== 予約ログ =====
+    '予約ログ(showTodayLog)':  'showTodayLog' in content,
+    '予約ログFirebase同期':     'garage_today_log' in content,
+    '予約ログ入庫登録時追記':    'saveTodayLog([...todayLog' in content,
+
+    # ===== 代車管理 =====
+    '代車車検満了日(car.shaken)':    'car.shaken' in content,
+    '代車車検バッジ表示':             '車検まで' in content,
+    '代車貸出時車検警告':             'ご注意ください' in content,
+    '代車部門フィルター(deptFilter)': 'deptFilter' in content,
+    '代車フィルター(すべて)':          'すべて' in content,
+
+    # ===== その他機能 =====
+    'stallDraft宣言':                     'stallDraft, setStallDraft' in content,
+    'ストールボタン修正(maxWidth削除)':    'padding:"16px 20px" }}' in content,
+    'ROLEカード翌日リセット(roleCardsDate)':'roleCardsDate' in content,
+    '入庫日変更リセット(dateChanged)':     'dateChanged' in content,
+    'confirmReAssign_displayDate':         'displayDate:undefined' in content,
+    'BP👷スタッフ管理ボタン':             'showBpStaffModal' in content,
+    '月リセット確認ダイアログ':            'confirm(' in content,
+}
+
+================================================================================
+  Firebase URL: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
+  GitHub URL:   https://github.com/autorunner3216-beep/garage-board-
+  公開URL:      https://autorunner3216-beep.github.io/garage-board-/
+================================================================================
+-->
 <html lang="ja">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Garage SMB Board v6</title><style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    /* ══ MATRIX LOGIN ══ */
-    @keyframes mx-glow{0%,100%{text-shadow:0 0 7px #00ff41,0 0 20px #00ff4188;}50%{text-shadow:0 0 14px #00ff41,0 0 40px #00ff41bb;}}
-    @keyframes mx-pulse{0%,100%{box-shadow:0 0 0 1px #00ff4122,0 0 40px #00ff410a;}50%{box-shadow:0 0 0 1px #00ff4155,0 0 80px #00ff4118;}}
-    @keyframes mx-fadein{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
-    @keyframes mx-scan{0%{top:-4px;opacity:0;}5%{opacity:1;}95%{opacity:1;}100%{top:100%;opacity:0;}}
-    #login-screen{position:fixed;inset:0;background:#000802;display:flex;align-items:center;justify-content:center;z-index:99999;overflow:hidden;}
-    #login-screen.hidden{display:none;}
-    #login-canvas{position:absolute;inset:0;pointer-events:none;}
-    #login-box{position:relative;z-index:2;background:rgba(0,10,2,0.93);border:1px solid #00ff4133;padding:50px 46px 42px;width:400px;display:flex;flex-direction:column;gap:22px;align-items:center;animation:mx-pulse 3s ease-in-out infinite,mx-fadein .7s ease-out;overflow:hidden;}
-    #login-box::before{content:'';position:absolute;left:0;right:0;height:3px;top:-4px;background:linear-gradient(90deg,transparent,#00ff4133,#00ff4166,#00ff4133,transparent);animation:mx-scan 3s linear infinite;pointer-events:none;}
-    .mx-corner{position:absolute;width:22px;height:22px;pointer-events:none;}
-    .mx-tl{top:-1px;left:-1px;border-top:2px solid #00ff41;border-left:2px solid #00ff41;}
-    .mx-tr{top:-1px;right:-1px;border-top:2px solid #00ff41;border-right:2px solid #00ff41;}
-    .mx-bl{bottom:-1px;left:-1px;border-bottom:2px solid #00ff41;border-left:2px solid #00ff41;}
-    .mx-br{bottom:-1px;right:-1px;border-bottom:2px solid #00ff41;border-right:2px solid #00ff41;}
-    #login-title{font-size:26px;font-weight:900;color:#00ff41;letter-spacing:4px;font-family:'Courier New',monospace;animation:mx-glow 2.5s ease-in-out infinite;text-transform:uppercase;white-space:nowrap;}
-    #login-sub{font-size:11px;color:#00ff41aa;letter-spacing:5px;font-family:'Courier New',monospace;}
-    #login-div{width:100%;height:1px;background:linear-gradient(90deg,transparent,#00ff4155,#00ff4199,#00ff4155,transparent);}
-    #login-lbl{font-size:11px;color:#00ff41bb;letter-spacing:4px;font-family:'Courier New',monospace;width:100%;}
-    #login-input{width:100%;background:rgba(0,20,5,0.95);border:1px solid #00ff4144;color:#00ff41;padding:14px 20px;font-size:22px;outline:none;letter-spacing:10px;text-align:center;box-sizing:border-box;font-family:'Courier New',monospace;transition:all .2s;caret-color:#00ff41;}
-    #login-input:focus{border-color:#00ff41;box-shadow:0 0 0 1px #00ff4144,0 0 25px #00ff4115;}
-    #login-input::placeholder{color:#00ff4133;letter-spacing:6px;font-size:16px;}
-    #login-btn{width:100%;background:transparent;border:1px solid #00ff41;border-bottom:2px solid #00ff41;color:#00ff41;font-size:18px;font-weight:900;padding:18px;cursor:pointer;letter-spacing:10px;font-family:'Courier New',monospace;text-transform:uppercase;transition:all .15s;}
-    #login-btn:hover{background:#00ff4115;box-shadow:0 0 40px #00ff4133;color:#afffaf;}
-    #login-btn:active{transform:scale(0.98);}
-    #login-err{width:100%;font-size:10px;color:#ff4141;text-align:center;display:none;letter-spacing:3px;font-family:'Courier New',monospace;padding:10px;border:1px solid #ff414133;background:rgba(255,65,65,0.06);}
-    #login-foot{text-align:center;font-size:9px;color:#00ff4133;letter-spacing:4px;font-family:'Courier New',monospace;}
 
+    /* ── ログイン画面（マトリックス風） ── */
+    @keyframes login-glow-pulse {
+      0%,100% { text-shadow: 0 0 10px #00ff41, 0 0 30px #00ff4177, 0 0 60px #00ff4144; }
+      50%      { text-shadow: 0 0 20px #00ff41, 0 0 50px #00ff41aa, 0 0 90px #00ff4166; }
+    }
+    @keyframes login-border-pulse {
+      0%,100% { box-shadow: 0 0 0 1px #00ff4133, 0 0 30px #00ff4111; }
+      50%      { box-shadow: 0 0 0 1px #00ff4166, 0 0 60px #00ff4122; }
+    }
+    @keyframes login-fadeup {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    #login-screen {
+      position: fixed; inset: 0; background: #000;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 99999; overflow: hidden;
+    }
+    #login-screen.hidden { display: none; }
+    #login-matrix-canvas {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    #login-box {
+      position: relative; z-index: 2;
+      background: rgba(0,8,0,0.9);
+      border: 1px solid #00ff4144;
+      border-radius: 4px;
+      padding: 52px 44px 44px;
+      width: 380px;
+      display: flex; flex-direction: column; gap: 20px; align-items: center;
+      animation: login-border-pulse 3s ease-in-out infinite, login-fadeup .6s ease-out;
+      backdrop-filter: blur(4px);
+    }
+    #login-box::before { content:''; position:absolute; top:-1px; left:-1px; width:20px; height:20px; border-top:2px solid #00ff41; border-left:2px solid #00ff41; }
+    #login-box::after  { content:''; position:absolute; bottom:-1px; right:-1px; width:20px; height:20px; border-bottom:2px solid #00ff41; border-right:2px solid #00ff41; }
+    #login-logo-area { text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; }
+    #login-logo-icon { font-size:34px; filter:drop-shadow(0 0 12px #00ff41); }
+    #login-title {
+      font-size: 28px; font-weight: 900; color: #00ff41;
+      letter-spacing: 5px; font-family: 'Courier New', monospace;
+      animation: login-glow-pulse 2.5s ease-in-out infinite;
+    }
+    #login-subtitle { font-size: 9px; color: #00ff4155; letter-spacing: 7px; font-family: monospace; }
+    #login-divider { width:100%; height:1px; background:linear-gradient(90deg,transparent,#00ff4133,transparent); }
+    #login-label { font-size:9px; color:#00ff4144; letter-spacing:5px; font-family:monospace; }
+    #login-input {
+      width: 100%; background: rgba(0,15,0,0.9); border: 1px solid #00ff4133;
+      border-radius: 2px; color: #00ff41; padding: 13px 20px;
+      font-size: 20px; outline: none; letter-spacing: 8px;
+      text-align: center; box-sizing: border-box; font-family: monospace;
+      transition: all .2s;
+    }
+    #login-input:focus { border-color: #00ff41; box-shadow: 0 0 0 1px #00ff4133, 0 0 20px #00ff4111; }
+    #login-input::placeholder { color: #00ff4122; letter-spacing: 4px; }
+    #login-btn {
+      width: 100%; background: transparent; border: 1px solid #00ff41;
+      color: #00ff41; font-size: 11px; font-weight: 800; padding: 15px;
+      cursor: pointer; letter-spacing: 6px; font-family: monospace;
+      transition: all .2s;
+    }
+    #login-btn:hover { background: #00ff4111; box-shadow: 0 0 30px #00ff4133; color:#afffaf; }
+    #login-error {
+      font-size: 10px; color: #f87171; text-align: center; display: none;
+      letter-spacing: 3px; font-family: monospace;
+      padding: 8px; border: 1px solid #f8717133; background: rgba(248,113,113,0.05);
+    }
+    #login-footer { text-align:center; font-size:9px; color:#00ff4122; letter-spacing:3px; font-family:monospace; }6 - チェックリスト（修正時に必ず全項目確認すること）
+  最終更新: 2026-03-16
+================================================================================
+
+【必須チェックスクリプト】
+新しいチャットで作業する際は、アップロードされたindex.htmlに対して
+以下のPythonスクリプトを実行して全項目✅を確認してから納品すること。
+
+checks = {
+    # ===== バグ修正 =====
+    '販売ブラックアウト修正(saveItemTargets)': '} }; if' not in content,
+
+    # ===== スタッフ名 =====
+    'スタッフFirebase同期(recept)': "localStorage.setItem('garage_recept'" in content,
+    'スタッフFirebase同期(mech)':   "localStorage.setItem('garage_mech'" in content,
+    'スタッフデフォルト値空':        '"田中","佐藤"' not in content,
+
+    # ===== Firebase安全保護 =====
+    '代車初回書込み防止(_lcInitialized)':       '_lcInitialized' in content,
+    'BPstalls/workersFirebase同期':             "localStorage.setItem('bp_stalls'" in content,
+    'garage_stalls_localStorage保存':           "localStorage.setItem('garage_stalls'" in content,
+    'jobs初回書込み防止(_jobsInitialized)':     '_jobsInitialized' in content,
+    'stalls初回書込み防止(_stallsInitialized)': '_stallsInitialized' in content,
+
+    # ===== BP札表示 =====
+    'BP札納車予定日(🚗ゴールド)': "'🚗 \"+job.noshaDate" in content,
+    'BP札車種(carModel)':         'job.carModel && React.createElement' in content,
+    'BP着工OK/NGバッジ':          '着工OK' in content,
+
+    # ===== ストールボード札 =====
+    'ストールボード車種表示':   'job.model && React.createElement' in content,
+    'ストールボード納車日表示': 'job.deliveryDate.slice(5)' in content,
+
+    # ===== ドラッグ =====
+    'BP上下ドラッグ(origStallIdx)': 'origStallIdx' in content,
+    'BP上下ドラッグ(stallDelta)':   'stallDelta' in content,
+    '代車上下ドラッグ(moveDrag)':   'moveDrag' in content,
+    '代車上下ドラッグ(origCarId)':  'origCarId' in content,
+
+    # ===== BP完了ログ =====
+    'BP完了ログ(bpCompletedLog)':        'bpCompletedLog' in content,
+    'BP完了ログボタン':                   '完了ログ' in content,
+    '引渡完了後売上維持(completeAndLog)': 'completeAndLog' in content,
+
+    # ===== 完了・計上モーダル =====
+    '完了・計上モーダル(completeModal)':   'completeModal' in content,
+    '完了・計上ボタン名':                   '完了・計上' in content,
+    '計上月選択(getMonthOptions)':         'getMonthOptions' in content,
+    '計上金額(estimatedAmount自動入力)':    'completeModal.amount' in content,
+
+    # ===== 検索機能 =====
+    '検索→ステータス一覧(status-card-)': 'status-card-' in content,
+    '検索→ガントボード(job-bar-)':       'job-bar-' in content,
+    '検索isShelved判定':                  'isShelved' in content,
+    'ShelvedListにflashJobId':            'flashJobId: flashJobId' in content,
+    '検索完了案件除外':                    '!j.completed &&' in content,
+
+    # ===== ROLES =====
+    'ROLE_BAR_BG(貼ったバー濃く)':  'ROLE_BAR_BG' in content,
+    'HサブROLE赤白(borderColor白)': 'borderColor:"#ffffff"' in content,
+    'ROLE×ボタン白':                 'color:"#ffffff", cursor:"pointer"' in content,
+
+    # ===== 予約ログ =====
+    '予約ログ(showTodayLog)':  'showTodayLog' in content,
+    '予約ログFirebase同期':     'garage_today_log' in content,
+    '予約ログ入庫登録時追記':    'saveTodayLog([...todayLog' in content,
+
+    # ===== 代車管理 =====
+    '代車車検満了日(car.shaken)':    'car.shaken' in content,
+    '代車車検バッジ表示':             '車検まで' in content,
+    '代車貸出時車検警告':             'ご注意ください' in content,
+    '代車部門フィルター(deptFilter)': 'deptFilter' in content,
+    '代車フィルター(すべて)':          'すべて' in content,
+
+    # ===== その他機能 =====
+    'stallDraft宣言':                     'stallDraft, setStallDraft' in content,
+    'ストールボタン修正(maxWidth削除)':    'padding:"16px 20px" }}' in content,
+    'ROLEカード翌日リセット(roleCardsDate)':'roleCardsDate' in content,
+    '入庫日変更リセット(dateChanged)':     'dateChanged' in content,
+    'confirmReAssign_displayDate':         'displayDate:undefined' in content,
+    'BP👷スタッフ管理ボタン':             'showBpStaffModal' in content,
+    '月リセット確認ダイアログ':            'confirm(' in content,
+}
+
+================================================================================
+  Firebase URL: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
+  GitHub URL:   https://github.com/autorunner3216-beep/garage-board-
+  公開URL:      https://autorunner3216-beep.github.io/garage-board-/
+================================================================================
+-->
+<html lang="ja">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Garage SMB Board v6</title><style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── ログイン画面 ── */
+    @keyframes login-bg-move {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes login-scan {
+      0% { transform: translateY(-100%); opacity: 0; }
+      10% { opacity: 0.4; }
+      90% { opacity: 0.4; }
+      100% { transform: translateY(100vh); opacity: 0; }
+    }
+    @keyframes login-glow-pulse {
+      0%,100% { text-shadow: 0 0 10px #38bdf8, 0 0 30px #38bdf8aa, 0 0 60px #38bdf866; }
+      50% { text-shadow: 0 0 20px #38bdf8, 0 0 50px #38bdf8cc, 0 0 90px #38bdf899; }
+    }
+    @keyframes login-border-pulse {
+      0%,100% { box-shadow: 0 0 0 1px #38bdf844, 0 0 30px #38bdf822, inset 0 0 30px rgba(56,189,248,0.03); }
+      50% { box-shadow: 0 0 0 1px #38bdf888, 0 0 60px #38bdf844, inset 0 0 50px rgba(56,189,248,0.06); }
+    }
+    @keyframes login-line-blink {
+      0%,100% { opacity: 1; } 50% { opacity: 0; }
+    }
+    @keyframes login-fadeup {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    #login-screen {
+      position: fixed; inset: 0;
+      background: #020710;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 99999; flex-direction: column; overflow: hidden;
+    }
+    #login-screen.hidden { display: none; }
+    #login-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+    #login-scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, #38bdf866, #38bdf8cc, #38bdf866, transparent);
+      animation: login-scan 4s linear infinite;
+      pointer-events: none;
+    }
+    #login-box {
+      position: relative;
+      background: rgba(6,14,28,0.92);
+      border: 1px solid #38bdf833;
+      border-radius: 4px;
+      padding: 52px 44px 44px;
+      width: 400px;
+      display: flex; flex-direction: column; gap: 24px;
+      animation: login-border-pulse 3s ease-in-out infinite, login-fadeup .6s ease-out;
+      backdrop-filter: blur(20px);
+    }
+    /* 角のデコレーション */
+    #login-box::before, #login-box::after {
+      content: ''; position: absolute;
+      width: 16px; height: 16px;
+      border-color: #38bdf8; border-style: solid;
+    }
+    #login-box::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+    #login-box::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+    #login-logo-area {
+      text-align: center; display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+    }
+    #login-logo-icon {
+      font-size: 36px; margin-bottom: 4px;
+      filter: drop-shadow(0 0 12px #38bdf8);
+    }
+    #login-title {
+      font-size: 32px; font-weight: 900; color: #38bdf8;
+      letter-spacing: 6px; font-family: 'Orbitron', monospace;
+      animation: login-glow-pulse 2.5s ease-in-out infinite;
+      text-transform: uppercase;
+    }
+    #login-subtitle {
+      font-size: 10px; color: #38bdf888; letter-spacing: 8px;
+      font-family: monospace; text-transform: uppercase;
+      margin-top: 2px;
+    }
+    #login-divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, #38bdf844, transparent);
+      margin: -8px 0;
+    }
+    #login-label {
+      font-size: 9px; color: #38bdf877; letter-spacing: 4px;
+      font-family: monospace; text-transform: uppercase;
+      text-align: center;
+    }
+    #login-input {
+      width: 100%; background: rgba(0,20,40,0.8);
+      border: 1px solid #38bdf844;
+      border-radius: 3px; color: #38bdf8; padding: 14px 20px;
+      font-size: 22px; outline: none; letter-spacing: 8px;
+      text-align: center; box-sizing: border-box;
+      font-family: monospace;
+      transition: all .2s;
+    }
+    #login-input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px #38bdf844, 0 0 20px #38bdf822;
+      background: rgba(0,30,60,0.9);
+    }
+    #login-input::placeholder { color: #38bdf833; letter-spacing: 4px; }
+    #login-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid #38bdf8;
+      border-radius: 3px; color: #38bdf8;
+      font-size: 12px; font-weight: 800; padding: 16px;
+      cursor: pointer; letter-spacing: 6px;
+      font-family: monospace; text-transform: uppercase;
+      box-shadow: 0 0 20px #38bdf822, inset 0 0 20px #38bdf808;
+      transition: all .2s; position: relative; overflow: hidden;
+    }
+    #login-btn:hover {
+      background: #38bdf811;
+      box-shadow: 0 0 40px #38bdf844, inset 0 0 30px #38bdf811;
+      color: #fff; border-color: #7dd3fc;
+    }
+    #login-error {
+      font-size: 10px; color: #f87171; text-align: center;
+      display: none; letter-spacing: 3px; font-family: monospace;
+      padding: 8px; border: 1px solid #f8717133;
+      background: rgba(248,113,113,0.05); border-radius: 3px;
+    }
+    #login-footer {
+      text-align: center; font-size: 9px; color: #1e3a5f;
+      letter-spacing: 2px; font-family: monospace;
+    }
     body { background: #060b14; color: #e2e8f0; font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0a0f1a; }
@@ -254,108 +617,81 @@
   </script>
 </head>
 <body>
-
-  <!-- ══ MATRIX LOGIN ══ -->
+  <!-- ログイン画面 -->
   <div id="login-screen">
-    <canvas id="login-canvas"></canvas>
+    <canvas id="login-matrix-canvas"></canvas>
     <div id="login-box">
-      <div class="mx-corner mx-tl"></div>
-      <div class="mx-corner mx-tr"></div>
-      <div class="mx-corner mx-bl"></div>
-      <div class="mx-corner mx-br"></div>
-      <div id="login-title">AutoRunner MB</div>
-      <div id="login-sub">MANAGEMENT BOARD SYSTEM</div>
-      <div id="login-div"></div>
-      <div id="login-lbl">// ACCESS CODE REQUIRED</div>
+      <div id="login-logo-area">
+        <div id="login-logo-icon">🚗</div>
+        <div id="login-title">AutoRunner MB</div>
+        <div id="login-subtitle">MANAGEMENT BOARD SYSTEM</div>
+      </div>
+      <div id="login-divider"></div>
+      <div id="login-label">// ACCESS CODE REQUIRED</div>
       <input id="login-input" type="password" placeholder="· · · · · · · ·"
-        onkeydown="if(event.key==='Enter')document.getElementById('login-btn').click()"/>
-      <div id="login-err">⚠ ACCESS DENIED — INVALID CODE</div>
-      <button id="login-btn" onclick="doLogin()">ENTER</button>
-      <div id="login-foot">AUTHORIZED PERSONNEL ONLY</div>
+        onkeydown="if(event.key==='Enter') document.getElementById('login-btn').click()"/>
+      <div id="login-error">⚠ ACCESS DENIED — INVALID CODE</div>
+      <button id="login-btn" onclick="doLogin()">[ ENTER THE SYSTEM ]</button>
+      <div id="login-footer">AUTHORIZED PERSONNEL ONLY</div>
     </div>
   </div>
+
   <script>
-    (function(){
-      var cv=document.getElementById('login-canvas');
-      var cx=cv.getContext('2d');
-      function resize(){cv.width=innerWidth;cv.height=innerHeight;}
-      resize();window.addEventListener('resize',resize);
-      var cols,drops;
-      function init(){cols=Math.floor(cv.width/16);drops=Array(cols).fill(1);}
-      init();
-      var ch='ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789';
-      var tid=setInterval(function(){
-        cx.fillStyle='rgba(0,0,0,0.05)';cx.fillRect(0,0,cv.width,cv.height);
-        for(var i=0;i<drops.length;i++){
-          cx.fillStyle=drops[i]*16<40?'#c0ffc0':'#00ff41';
-          cx.font='14px Courier New';
-          cx.fillText(ch[Math.floor(Math.random()*ch.length)],i*16,drops[i]*16);
-          if(drops[i]*16>cv.height&&Math.random()>0.975)drops[i]=0;
+    (function() {
+      var canvas = document.getElementById('login-matrix-canvas');
+      var ctx = canvas.getContext('2d');
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      var cols, drops;
+      function initDrops() {
+        cols = Math.floor(canvas.width / 16);
+        drops = Array(cols).fill(1);
+      }
+      initDrops();
+      var chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ0123456789ABCDEF';
+      var matrixTimer = setInterval(function() {
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        for (var i=0; i<drops.length; i++) {
+          var ch = chars[Math.floor(Math.random()*chars.length)];
+          ctx.fillStyle = drops[i]*16 < 40 ? '#afffaf' : '#00ff41';
+          ctx.font = '14px Courier New';
+          ctx.fillText(ch, i*16, drops[i]*16);
+          if (drops[i]*16 > canvas.height && Math.random() > 0.975) drops[i]=0;
           drops[i]++;
         }
-      },45);
-      var PWD='auto8821';
-      var TODAY=new Date().toISOString().slice(0,10);
-      function checkAuth(){
-        if(localStorage.getItem('garage_auth_date')===TODAY){
+      }, 50);
+      window._stopMatrix = function() { clearInterval(matrixTimer); };
+
+    (function() {
+      var PWD = 'auto8821';
+      var TODAY = new Date().toISOString().slice(0,10);
+
+      function checkAuth() {
+        var saved = localStorage.getItem('garage_auth_date');
+        if (saved === TODAY) {
           document.getElementById('login-screen').classList.add('hidden');
-          clearInterval(tid);
         }
       }
-      window.doLogin=function(){
-        var v=document.getElementById('login-input').value;
-        if(v===PWD){
-          localStorage.setItem('garage_auth_date',TODAY);
-          document.getElementById('login-err').style.display='none';
-          document.getElementById('login-box').style.transition='opacity 0.4s';
-          document.getElementById('login-box').style.opacity='0';
-          setTimeout(function(){document.getElementById('login-box').style.display='none';},400);
-          var target='AUTORUNNER MB';
-          var progress=0;
-          clearInterval(tid);
-          var autoTid=setInterval(function(){
-            progress+=0.012;
-            cx.fillStyle='rgba(0,0,0,'+Math.max(0.001,0.05-progress*0.01)+')';
-            cx.fillRect(0,0,cv.width,cv.height);
-            var cx2=cv.width/2,cy2=cv.height/2;
-            for(var i=0;i<drops.length;i++){
-              var useTarget=Math.random()<Math.min(progress*0.5,1);
-              var letter=useTarget?target[Math.floor(Math.random()*target.length)]:ch[Math.floor(Math.random()*ch.length)];
-              var x=i*16,y=drops[i]*16;
-              if(progress>1.5){var pull=Math.min((progress-1.5)*0.08,0.6);x=x+(cx2-x)*pull;y=y+(cy2-y)*pull;}
-              if(useTarget&&progress>2){var w=Math.min((progress-2)*0.6,1);cx.fillStyle='rgb('+Math.floor(w*255)+',255,'+Math.floor(65+w*190)+')';cx.font='bold 14px Courier New';}
-              else{cx.fillStyle=useTarget?'#00ff41':'#00ff4144';cx.font='13px Courier New';}
-              cx.fillText(letter,x,y);
-              drops[i]+=1+progress;
-              if(drops[i]*16>cv.height)drops[i]=0;
-            }
-            if(progress>1.5){
-              var alpha=Math.min((progress-1.5)*0.3,1);
-              var size=40+(progress-1.5)*20;
-              cx.save();cx.globalAlpha=alpha;
-              cx.font='bold '+Math.floor(size)+'px Courier New';
-              cx.textAlign='center';cx.textBaseline='middle';
-              cx.shadowColor='#00ff41';cx.shadowBlur=20+Math.min((progress-1.5)*0.5,1)*40;
-              cx.fillStyle=progress>3?'rgb('+Math.floor((progress-3)*128)+',255,'+Math.floor(65+(progress-3)*60)+')':'#00ff41';
-              cx.fillText('AUTORUNNER MB',cx2,cy2);
-              cx.restore();
-            }
-            if(progress>4.5&&!window._fadingOut){
-              window._fadingOut=true;clearInterval(autoTid);
-              var flash=document.createElement('div');
-              flash.style.cssText='position:fixed;inset:0;background:#fff;z-index:99998;opacity:0;transition:opacity 0.25s;pointer-events:none;';
-              document.body.appendChild(flash);
-              setTimeout(function(){flash.style.opacity='0.9';},30);
-              setTimeout(function(){flash.style.opacity='0';flash.style.transition='opacity 0.7s';document.getElementById('login-screen').style.transition='opacity 0.7s';document.getElementById('login-screen').style.opacity='0';},350);
-              setTimeout(function(){document.getElementById('login-screen').classList.add('hidden');document.getElementById('login-screen').style.opacity='';document.body.removeChild(flash);window._fadingOut=false;},1100);
-            }
-          },30);
-        }else{
-          document.getElementById('login-err').style.display='block';
-          document.getElementById('login-input').value='';
+
+      window.doLogin = function() {
+        var val = document.getElementById('login-input').value;
+        if (val === PWD) {
+          localStorage.setItem('garage_auth_date', TODAY);
+          document.getElementById('login-screen').classList.add('hidden');
+          document.getElementById('login-error').style.display = 'none';
+          if (window._stopMatrix) window._stopMatrix();
+        } else {
+          document.getElementById('login-error').style.display = 'block';
+          document.getElementById('login-input').value = '';
           document.getElementById('login-input').focus();
         }
       };
+
       checkAuth();
     })();
   </script>
@@ -460,14 +796,14 @@ react-dom/cjs/react-dom-client.production.js:
     const MIN_DUR = 1/3;
 
     const INIT_STALLS = [
-      {id:"S01",name:"S-01",mechanic:""},
-      {id:"S02",name:"S-02",mechanic:""},
-      {id:"S03",name:"S-03",mechanic:""},
-      {id:"S04",name:"S-04",mechanic:""},
-      {id:"S05",name:"S-05",mechanic:""},
-      {id:"S06",name:"S-06",mechanic:""},
-      {id:"S07",name:"S-07",mechanic:""},
-      {id:"S08",name:"S-08",mechanic:""},
+      {id:"S01",name:"S-01",mechanic:"山田"},
+      {id:"S02",name:"S-02",mechanic:"鈴木"},
+      {id:"S03",name:"S-03",mechanic:"高橋"},
+      {id:"S04",name:"S-04",mechanic:"渡辺"},
+      {id:"S05",name:"S-05",mechanic:"中村"},
+      {id:"S06",name:"S-06",mechanic:"伊藤"},
+      {id:"S07",name:"S-07",mechanic:"加藤"},
+      {id:"S08",name:"S-08",mechanic:"松本"},
     ];
 
     const STATUSES = ["作業待ち","当日来店/預かり","連絡待ち","部品待ち","一時中断","検査・保適待ち","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
@@ -1797,10 +2133,14 @@ react-dom/cjs/react-dom-client.production.js:
                                   color:"#e2e8f0", whiteSpace:"nowrap", flexShrink:1, minWidth:0, overflow:"hidden", textOverflow:"clip" }},
                                 (job.plate&&job.plate.match(/\d{4}/)||[""])[0])
                               , w > 90 && job.model && React.createElement('span', { style: { fontSize:7, fontWeight:600,
-                                  color:"#94a3b8", whiteSpace:"nowrap", flexShrink:1, overflow:"hidden", textOverflow:"ellipsis" }}, job.model)
+                                  color:"#94a3b8", whiteSpace:"nowrap", flexShrink:1,
+                                  overflow:"hidden", textOverflow:"ellipsis" }},
+                                job.model)
                               , w > 110 && job.deliveryDate && React.createElement('span', { style: { fontSize:7, fontWeight:700,
-                                  color:"#fbbf24", background:"#78350f44", border:"1px solid #fbbf2433", borderRadius:3,
-                                  padding:"0 3px", flexShrink:0, whiteSpace:"nowrap" }}, "🚗"+job.deliveryDate.slice(5))
+                                  color:"#fbbf24", background:"#78350f44",
+                                  border:"1px solid #fbbf2433", borderRadius:3,
+                                  padding:"0 3px", flexShrink:0, whiteSpace:"nowrap" }},
+                                "🚗"+job.deliveryDate.slice(5))
                               , working && job.startedAt && React.createElement('span', { style: { fontSize:6, color:"#10b98166", flexShrink:0, marginLeft:"auto" }}, "▶", job.startedAt)
                               , done && job.endedAt && React.createElement('span', { style: { fontSize:6, color:"#33415566", flexShrink:0, marginLeft:"auto" }}, "✓", job.endedAt)
                             )
@@ -3421,15 +3761,11 @@ React.createElement('select', {
       });
       const [viewMonth, setViewMonth] = useState(() => TODAY.slice(0,7));
       const [showCarEdit, setShowCarEdit] = useState(false);
-      const [selectedCarIdx, setSelectedCarIdx] = useState(null);
       const [loanModal, setLoanModal] = useState(null);
       const [loanDetail, setLoanDetail] = useState(null);
-      const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
+      const [deptFilter, setDeptFilter] = useState(null);
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
-      const receptList = React.useMemo(function(){
-        try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
-      }, []);
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
 
@@ -3594,7 +3930,7 @@ React.createElement('select', {
       // ジョブタイプ色
       function jobColor(type) {
         if (type==='BP') return { main:'#8b5cf6', light:'#ede9fe', bg:'#2e1065', badge:'#c4b5fd' };
-        if (type==='車販') return { main:'#ef4444', light:'#fef2f2', bg:'#7f1d1d', badge:'#fca5a5' };
+        if (type==='車販') return { main:'#f59e0b', light:'#fef3c7', bg:'#78350f', badge:'#fcd34d' };
         return { main:'#3b82f6', light:'#dbeafe', bg:'#1e3a8a', badge:'#93c5fd' };
       }
 
@@ -3652,10 +3988,9 @@ React.createElement('select', {
             color:'#fff', fontSize:12, padding:'7px 14px',
             cursor:'pointer', fontWeight:700 }}, '⚙ 車両管理'),
 
-          /* 部門フィルター */
           React.createElement('div', { style:{ display:'flex', gap:4, alignItems:'center' }},
             [null, '整備', 'BP', '車販'].map(function(dept){
-              const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#ef4444' };
+              const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#f59e0b' };
               const active = deptFilter === dept;
               const col = dept ? colors[dept] : '#94a3b8';
               return React.createElement('button', { key:String(dept),
@@ -3768,16 +4103,13 @@ React.createElement('select', {
                         var diffMonths = Math.round(diffDays / 30);
                         if (diffDays < 0) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fca5a5', background:'#450a0a',
-                          border:'1px solid #ef444466', borderRadius:4, padding:'1px 5px' }},
-                          '⚠ 車検切れ');
+                          border:'1px solid #ef444466', borderRadius:4, padding:'1px 5px' }}, '⚠ 車検切れ');
                         if (diffDays <= 30) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fde68a', background:'#78350f',
-                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px' }},
-                          '🔔 車検まで'+diffDays+'日');
+                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px' }}, '🔔 車検まで'+diffDays+'日');
                         if (diffDays <= 60) return React.createElement('span', { style:{
                           fontSize:9, fontWeight:800, color:'#fdba74', background:'#431407',
-                          border:'1px solid #f9731644', borderRadius:4, padding:'1px 5px' }},
-                          '⚠ 車検まで'+diffMonths+'ヶ月');
+                          border:'1px solid #f9731644', borderRadius:4, padding:'1px 5px' }}, '⚠ 車検まで'+diffMonths+'ヶ月');
                         return null;
                       })()
                     )
@@ -3888,12 +4220,7 @@ React.createElement('select', {
                             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
                             lineHeight:1.2 }},
                             returned ? '✓ 返却済' : loan.undecided ? '📅 未定' : '〜'+loan.endDate.slice(5)+
-                            (loan.carModel ? ' · '+loan.carModel : '')+(loan.plate ? ' '+loan.plate : '')),
-                          loan.staffName ? React.createElement('div', { style:{
-                            fontSize:9, color:'#7dd3fc',
-                            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                            lineHeight:1.2 }},
-                            '📋 '+loan.staffName) : null
+                            (loan.carModel ? ' · '+loan.carModel : '')+(loan.plate ? ' '+loan.plate : ''))
                         ),
 
                         /* 右リサイズハンドル */
@@ -3985,9 +4312,9 @@ React.createElement('select', {
                     car.plate),
                   car && car.dept && React.createElement('span', { style:{
                     fontSize:10, fontWeight:800, padding:'2px 7px', borderRadius:4,
-                    background: car.dept==='整備'?'#10b98122': car.dept==='BP'?'#3b82f622':'#ef444422',
-                    color: car.dept==='整備'?'#10b981': car.dept==='BP'?'#60a5fa':'#ef4444',
-                    border:'1px solid '+(car.dept==='整備'?'#10b98155': car.dept==='BP'?'#3b82f655':'#ef444455') }},
+                    background: car.dept==='整備'?'#10b98122': car.dept==='BP'?'#3b82f622':'#f59e0b22',
+                    color: car.dept==='整備'?'#10b981': car.dept==='BP'?'#60a5fa':'#fbbf24',
+                    border:'1px solid '+(car.dept==='整備'?'#10b98155': car.dept==='BP'?'#3b82f655':'#f59e0b55') }},
                     car.dept)
                 )
               ),
@@ -3999,17 +4326,13 @@ React.createElement('select', {
                 React.createElement('div', { style:{ fontSize:10, fontWeight:700, color:'#475569', letterSpacing:1, marginBottom:8 }}, 'お客様'),
                 React.createElement('div', { style:{ fontSize:15, fontWeight:800, color:'#f1f5f9', marginBottom:6 }},
                   loan.owner || '—'),
-                loan.carModel || loan.plate ? React.createElement('div', { style:{ display:'flex', gap:8, marginBottom: loan.staffName?6:0 }},
+                loan.carModel || loan.plate ? React.createElement('div', { style:{ display:'flex', gap:8 }},
                   loan.carModel && React.createElement('span', { style:{ fontSize:12, color:'#94a3b8',
                     background:'#1e293b', border:'1px solid #334155', borderRadius:5, padding:'2px 8px' }},
                     loan.carModel),
                   loan.plate && React.createElement('span', { style:{ fontSize:12, fontWeight:700, color:'#cbd5e1',
                     background:'#1e293b', border:'1px solid #334155', borderRadius:5, padding:'2px 8px', letterSpacing:'0.04em' }},
                     loan.plate)
-                ) : null,
-                loan.staffName ? React.createElement('div', { style:{ marginTop:6, display:'flex', alignItems:'center', gap:5 }},
-                  React.createElement('span', { style:{ fontSize:10, color:'#64748b' }}, '📋'),
-                  React.createElement('span', { style:{ fontSize:12, fontWeight:700, color:'#7dd3fc' }}, loan.staffName)
                 ) : null
               ),
 
@@ -4091,21 +4414,9 @@ React.createElement('select', {
               var exp = new Date(car.shaken + 'T00:00:00');
               var diffDays = Math.ceil((exp - today) / 86400000);
               var diffMonths = Math.round(diffDays / 30);
-              if (diffDays < 0) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#450a0a', border:'1px solid #ef444466',
-                fontSize:12, fontWeight:700, color:'#fca5a5' }},
-                '⚠ この車両は車検が切れています！');
-              if (diffDays <= 30) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#78350f', border:'1px solid #fbbf2466',
-                fontSize:12, fontWeight:700, color:'#fde68a' }},
-                '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
-              if (diffDays <= 60) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#431407', border:'1px solid #f9731644',
-                fontSize:12, fontWeight:700, color:'#fdba74' }},
-                '⚠ この車両は車検まで約'+diffMonths+'ヶ月です。ご注意ください。');
+              if (diffDays < 0) return React.createElement('div', { style:{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:'#450a0a', border:'1px solid #ef444466', fontSize:12, fontWeight:700, color:'#fca5a5' }}, '⚠ この車両は車検が切れています！');
+              if (diffDays <= 30) return React.createElement('div', { style:{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:'#78350f', border:'1px solid #fbbf2466', fontSize:12, fontWeight:700, color:'#fde68a' }}, '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
+              if (diffDays <= 60) return React.createElement('div', { style:{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:'#431407', border:'1px solid #f9731644', fontSize:12, fontWeight:700, color:'#fdba74' }}, '⚠ この車両は車検まで約'+diffMonths+'ヶ月です。ご注意ください。');
               return null;
             })(),
 
@@ -4139,22 +4450,6 @@ React.createElement('select', {
                 style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
                   borderRadius:8, color:'#f1f5f9', padding:'9px 12px',
                   fontSize:13, boxSizing:'border-box' }})
-            ),
-
-            /* 担当スタッフ */
-            React.createElement('div', { style:{ marginBottom:14 }},
-              React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:'#94a3b8', display:'block', marginBottom:6 }}, '担当スタッフ'),
-              React.createElement('select', {
-                value:loanModal.staffName||'',
-                onChange:e=>setLoanModal(p=>({...p,staffName:e.target.value})),
-                style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
-                  borderRadius:8, color:loanModal.staffName?'#f1f5f9':'#64748b',
-                  padding:'9px 12px', fontSize:13, boxSizing:'border-box', colorScheme:'dark' }},
-                React.createElement('option', { value:'' }, '-- 未選択 --'),
-                receptList.map(function(name){
-                  return React.createElement('option', { key:name, value:name }, name);
-                })
-              )
             ),
 
             /* 車種・ナンバー */
@@ -4283,7 +4578,7 @@ React.createElement('select', {
 
         /* ── 車両管理モーダル ── */
         showCarEdit && React.createElement('div', {
-          onClick:()=>{ setShowCarEdit(false); setSelectedCarIdx(null); },
+          onClick:()=>setShowCarEdit(false),
           style:{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)',
             display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }},
 
@@ -4298,7 +4593,7 @@ React.createElement('select', {
               fontSize:16, fontWeight:900, color:'#22d3ee',
               marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between' }},
               '⚙ 代車車両管理',
-              React.createElement('button', { onClick:()=>{ setShowCarEdit(false); setSelectedCarIdx(null); }, style:{
+              React.createElement('button', { onClick:()=>setShowCarEdit(false), style:{
                 background:'none', border:'none', color:'#64748b',
                 fontSize:20, cursor:'pointer' }}, '✕')
             ),
@@ -4306,35 +4601,9 @@ React.createElement('select', {
             carDraft.map((car,idx) =>
               React.createElement('div', { key:car.id, style:{
                 display:'flex', gap:8, alignItems:'center', marginBottom:8 }},
-                React.createElement('div', { style:{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, minWidth:28 }},
-                  React.createElement('div', { style:{ fontSize:9, color:'#475569' }}, idx+1),
-                  React.createElement('button', {
-                    onClick: () => {
-                      if (selectedCarIdx === null) {
-                        setSelectedCarIdx(idx);
-                      } else if (selectedCarIdx === idx) {
-                        setSelectedCarIdx(null);
-                      } else {
-                        setCarDraft(p => {
-                          var a = [...p];
-                          var moved = a.splice(selectedCarIdx, 1)[0];
-                          a.splice(idx, 0, moved);
-                          return a;
-                        });
-                        setSelectedCarIdx(null);
-                      }
-                    },
-                    style:{
-                      width:28, height:28, borderRadius:6, border:'none', cursor:'pointer',
-                      fontSize:14, fontWeight:900,
-                      background: selectedCarIdx === idx ? '#d97706' : selectedCarIdx !== null ? '#1e3a5f' : '#1e293b',
-                      color: selectedCarIdx === idx ? '#fff' : selectedCarIdx !== null ? '#7dd3fc' : '#475569',
-                      boxShadow: selectedCarIdx === idx ? '0 0 8px #d9770688' : 'none',
-                      transition: 'all .15s'
-                    }},
-                    selectedCarIdx === idx ? '★' : selectedCarIdx !== null ? '→' : '☰'
-                  )
-                ),
+                React.createElement('span', { style:{
+                  fontSize:12, fontWeight:800, color:'#64748b',
+                  minWidth:24, textAlign:'center' }}, idx+1),
                 React.createElement('div', { style:{ flex:1, display:'flex', flexDirection:'column', gap:5 }},
                   React.createElement('input', {
                     value:car.name,
@@ -4349,7 +4618,7 @@ React.createElement('select', {
                     style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
                       borderRadius:8, color:'#f1f5f9', padding:'9px 12px', fontSize:13, boxSizing:'border-box' }}),
                   React.createElement('div', { style:{ display:'flex', gap:5 }},
-                    [['整備','#10b981'],['BP','#3b82f6'],['車販','#ef4444']].map(function(pair){
+                    [['整備','#10b981'],['BP','#3b82f6'],['車販','#f59e0b']].map(function(pair){
                       var dn=pair[0], dc=pair[1], active=car.dept===dn;
                       return React.createElement('button', { key:dn,
                         onClick:function(){ setCarDraft(function(p){ return p.map(function(c,i){ return i===idx?Object.assign({},c,{dept:active?null:dn}):c; }); }); },
@@ -4429,12 +4698,16 @@ React.createElement('select', {
         if (typeof window.fbSet==='function') window.fbSet('bp_completed_log', logs);
       };
       const getMonthOptions = function() {
-        var opts=[]; var now=new Date(today);
-        for(var i=12;i>=-1;i--){ var d=new Date(now.getFullYear(),now.getMonth()-i,1); opts.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+        var opts = [];
+        var now = new Date(today);
+        for (var i = 12; i >= -1; i--) {
+          var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          opts.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+        }
         return opts;
       };
       const openCompleteModal = function(job) {
-        setCompleteModal({job:job, month:today.slice(0,7), amount:job.estimatedAmount||0});
+        setCompleteModal({ job: job, month: today.slice(0,7), amount: job.estimatedAmount || 0 });
       };
       const completeAndLog = function(job) {
         var log = {
@@ -4491,10 +4764,7 @@ React.createElement('select', {
       const [editStall, setEditStall] = useState(null);
       const [showBpStaffModal, setShowBpStaffModal] = useState(false);
       const [newBpWorkerName, setNewBpWorkerName] = useState("");
-      const [dragState, setDragState] = useState(null);
-      const receptList = React.useMemo(function(){
-        try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
-      }, []); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
+      const [dragState, setDragState] = useState(null); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
       const boardRef = useRef(null);
 
       const _bpFbIncoming = React.useRef(false);
@@ -5514,7 +5784,7 @@ React.createElement('select', {
                       j.memo && React.createElement('span', { style:{ fontSize:9, color:"#fbbf24" }}, "📝 "+j.memo)
                     ),
 
-                    /* 引渡完了ボタン（納車カードのみ） */
+                    /* 完了・計上ボタン（納車カードのみ） */
                     c.type==="納車" && React.createElement('button', {
                       onClick: function(e) {
                         e.stopPropagation();
@@ -5643,7 +5913,7 @@ React.createElement('select', {
                       j.memo && React.createElement('span', { style:{ fontSize:9, color:"#fbbf24" }}, "📝 "+j.memo)
                     ),
 
-                    /* 引渡完了ボタン */
+                    /* 完了・計上ボタン */
                     React.createElement('button', {
                       onClick:function(e){ e.stopPropagation();
                         openCompleteModal(j); },
@@ -5660,49 +5930,71 @@ React.createElement('select', {
           ) /* 完成確定済みパネル閉じ */
 
         , completeModal && React.createElement('div', {
-          onClick:()=>setCompleteModal(null),
-          style:{position:"fixed",inset:0,background:"rgba(0,0,0,.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000}},
-          React.createElement('div', {onClick:e=>e.stopPropagation(),
-            style:{background:"#0d1625",border:"1px solid #1e3a5f",borderRadius:16,padding:28,width:360,boxShadow:"0 24px 64px rgba(0,0,0,.8)"}},
-            React.createElement('div', {style:{fontSize:15,fontWeight:900,color:"#fde68a",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between"}},
+          onClick: () => setCompleteModal(null),
+          style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.8)",
+            display:"flex", alignItems:"center", justifyContent:"center", zIndex:3000 }},
+          React.createElement('div', {
+            onClick: e => e.stopPropagation(),
+            style:{ background:"#0d1625", border:"1px solid #1e3a5f",
+              borderRadius:16, padding:28, width:360,
+              boxShadow:"0 24px 64px rgba(0,0,0,.8)" }},
+            React.createElement('div', { style:{ fontSize:15, fontWeight:900, color:"#fde68a",
+              marginBottom:20, display:"flex", alignItems:"center", justifyContent:"space-between" }},
               "💰 完了・計上",
-              React.createElement('button', {onClick:()=>setCompleteModal(null),style:{background:"none",border:"none",color:"#475569",fontSize:18,cursor:"pointer"}}, "✕")
+              React.createElement('button', { onClick:()=>setCompleteModal(null),
+                style:{ background:"none", border:"none", color:"#475569", fontSize:18, cursor:"pointer" }}, "✕")
             ),
-            React.createElement('div', {style:{background:"#070f1c",borderRadius:8,padding:"10px 14px",marginBottom:16,border:"1px solid #1e3a5f"}},
-              React.createElement('div', {style:{fontSize:12,fontWeight:800,color:"#7dd3fc",marginBottom:3}}, completeModal.job.plate+(completeModal.job.owner?"　"+completeModal.job.owner:"")),
-              React.createElement('div', {style:{fontSize:11,color:"#94a3b8"}}, completeModal.job.carModel||"")
+            React.createElement('div', { style:{ background:"#070f1c", borderRadius:8, padding:"10px 14px",
+              marginBottom:16, border:"1px solid #1e3a5f" }},
+              React.createElement('div', { style:{ fontSize:12, fontWeight:800, color:"#7dd3fc", marginBottom:3 }},
+                completeModal.job.plate + (completeModal.job.owner ? "　" + completeModal.job.owner : "")),
+              React.createElement('div', { style:{ fontSize:11, color:"#94a3b8" }}, completeModal.job.carModel || "")
             ),
-            React.createElement('div', {style:{marginBottom:14}},
-              React.createElement('label', {style:{fontSize:11,fontWeight:700,color:"#94a3b8",display:"block",marginBottom:6}}, "📅 計上月"),
-              React.createElement('select', {value:completeModal.month, onChange:e=>setCompleteModal(p=>({...p,month:e.target.value})),
-                style:{width:"100%",background:"#0f172a",border:"1px solid #334155",borderRadius:8,color:"#f1f5f9",padding:"9px 12px",fontSize:13,colorScheme:"dark"}},
-                getMonthOptions().map(m=>{const[y,mo]=m.split('-');return React.createElement('option',{key:m,value:m},y+"年"+parseInt(mo)+"月"+(m===today.slice(0,7)?"（今月）":""));})
+            React.createElement('div', { style:{ marginBottom:14 }},
+              React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:"#94a3b8", display:"block", marginBottom:6 }}, "📅 計上月"),
+              React.createElement('select', {
+                value: completeModal.month,
+                onChange: e => setCompleteModal(p => ({...p, month: e.target.value})),
+                style:{ width:"100%", background:"#0f172a", border:"1px solid #334155",
+                  borderRadius:8, color:"#f1f5f9", padding:"9px 12px", fontSize:13, colorScheme:"dark" }},
+                getMonthOptions().map(m => {
+                  const [y, mo] = m.split('-');
+                  return React.createElement('option', { key:m, value:m },
+                    y + "年" + parseInt(mo) + "月" + (m === today.slice(0,7) ? "（今月）" : ""));
+                })
               )
             ),
-            React.createElement('div', {style:{marginBottom:24}},
-              React.createElement('label', {style:{fontSize:11,fontWeight:700,color:"#94a3b8",display:"block",marginBottom:6}}, "💴 計上金額"),
-              React.createElement('div', {style:{display:"flex",alignItems:"center",gap:6}},
-                React.createElement('span', {style:{color:"#94a3b8",fontSize:13}}, "¥"),
-                React.createElement('input', {type:"number",value:completeModal.amount,onChange:e=>setCompleteModal(p=>({...p,amount:parseInt(e.target.value)||0})),
-                  style:{flex:1,background:"#0f172a",border:"1px solid #334155",borderRadius:8,color:"#f1f5f9",padding:"9px 12px",fontSize:13,boxSizing:"border-box"}})
+            React.createElement('div', { style:{ marginBottom:24 }},
+              React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:"#94a3b8", display:"block", marginBottom:6 }}, "💴 計上金額"),
+              React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:6 }},
+                React.createElement('span', { style:{ color:"#94a3b8", fontSize:13 }}, "¥"),
+                React.createElement('input', {
+                  type:"number", value: completeModal.amount,
+                  onChange: e => setCompleteModal(p => ({...p, amount: parseInt(e.target.value)||0})),
+                  style:{ flex:1, background:"#0f172a", border:"1px solid #334155",
+                    borderRadius:8, color:"#f1f5f9", padding:"9px 12px", fontSize:13, boxSizing:"border-box" }})
               )
             ),
             React.createElement('button', {
-              onClick:()=>{
-                var job=completeModal.job;
-                var log={id:job.id,plate:job.plate||"",owner:job.owner||"",carModel:job.carModel||"",
-                  estimatedAmount:completeModal.amount,inDate:job.inDate||"",outDate:job.outDate||"",
-                  staffName:job.staffName||"",completedAt:today,month:completeModal.month,
-                  nyukoType:job.nyukoType||"",damage:job.damage||"",memo:job.memo||""};
-                saveBpCompletedLog([...bpCompletedLog,log]);
-                saveBpJobs(bpJobs.filter(function(x){return x.id!==job.id;}));
+              onClick: () => {
+                var job = completeModal.job;
+                var log = { id: job.id, plate: job.plate||"", owner: job.owner||"", carModel: job.carModel||"",
+                  estimatedAmount: completeModal.amount, inDate: job.inDate||"", outDate: job.outDate||"",
+                  staffName: job.staffName||"", completedAt: today, month: completeModal.month,
+                  nyukoType: job.nyukoType||"", damage: job.damage||"", memo: job.memo||"" };
+                saveBpCompletedLog([...bpCompletedLog, log]);
+                saveBpJobs(bpJobs.filter(function(x){ return x.id !== job.id; }));
                 setCompleteModal(null);
               },
-              style:{width:"100%",background:"linear-gradient(135deg,#78350f,#92400e)",border:"1px solid #fbbf2466",borderRadius:10,color:"#fde68a",fontSize:14,fontWeight:800,padding:"13px",cursor:"pointer"}},
+              style:{ width:"100%", background:"linear-gradient(135deg,#78350f,#92400e)",
+                border:"1px solid #fbbf2466", borderRadius:10,
+                color:"#fde68a", fontSize:14, fontWeight:800, padding:"13px",
+                cursor:"pointer", boxShadow:"0 0 12px #f59e0b44" }},
               "✅ 確定"
             )
           )
         )
+
         , showCompletedLog && React.createElement('div', {
           style:{ position:"fixed", top:0, right:0, width:420, height:"100vh",
             background:"#070f1c", borderLeft:"1px solid #1e3a5f",
@@ -5999,7 +6291,7 @@ React.createElement('select', {
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
       const [jobs,     setJobs]    = useState(INIT);
-      const [stalls,   setStalls]  = useState(function(){ try { var s=localStorage.getItem('garage_stalls'); return s?JSON.parse(s):INIT_STALLS; } catch{ return INIT_STALLS; } });
+      const [stalls,   setStalls]  = useState(INIT_STALLS);
       const [sel,      setSel]     = useState(null);
       const [selPos,   setSelPos]  = useState({x:0,y:0});
       const [filt,     setFilt]    = useState("すべて");
@@ -6100,8 +6392,8 @@ React.createElement('select', {
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
-        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) setReceptList(val); });
-        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) setMechList(val); });
+        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) { setReceptList(val); try { localStorage.setItem('garage_recept', JSON.stringify(val)); } catch {} } });
+        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) { setMechList(val); try { localStorage.setItem('garage_mech', JSON.stringify(val)); } catch {} } });
         window.fbOn('garage_manuallog', function(val) { if (val && typeof val === 'object') setManualLog(val); });
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
@@ -6114,6 +6406,7 @@ React.createElement('select', {
         };
       }, []);
 
+      // jobs/stalls変更をFirebaseへ書き込み（初回スキップ）
       const _jobsInitialized = React.useRef(false);
       React.useEffect(() => {
         if (!_jobsInitialized.current) { _jobsInitialized.current = true; return; }
@@ -6881,7 +7174,7 @@ React.createElement('select', {
                 /* ── リセット・設定ボタン ── */
                 , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:5, marginLeft:4 }}
                   , React.createElement('div', { style: { display:"flex", gap:5 }}
-                    , React.createElement('button', { onClick: () => setResetMonthAt(new Date().toISOString()),
+                    , React.createElement('button', { onClick: () => { if(window.confirm('月リセットします。よろしいですか？')) setResetMonthAt(new Date().toISOString()); },
                       style: { background:"#1a0a0a", border:"1px solid #7f1d1d44", borderRadius:6,
                         color:"#f87171", fontSize:10, padding:"5px 10px", cursor:"pointer", fontWeight:700,
                         transition:"all .15s", whiteSpace:"nowrap" },
@@ -7553,7 +7846,7 @@ React.createElement('select', {
             // ジョブカラー（代車管理と同じ）
             function jc2(type){
               if(type==="BP") return { main:"#8b5cf6", bg:"#2e1065", badge:"#c4b5fd" };
-              if(type==="車販") return { main:"#ef4444", bg:"#7f1d1d", badge:"#fca5a5" };
+              if(type==="車販") return { main:"#f59e0b", bg:"#78350f", badge:"#fcd34d" };
               return { main:"#3b82f6", bg:"#1e3a8a", badge:"#93c5fd" };
             }
             // パネルの右オフセット（翌日来店パネルが開いていれば並べる）
@@ -8284,112 +8577,4 @@ React.createElement('select', {
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2124}} ));
-  </script>
-<!--
-================================================================================
-  GARAGE SMB BOARD v6 - チェックリスト（修正時に必ず全項目確認すること）
-  最終更新: 2026-03-16
-================================================================================
-
-【必須チェックスクリプト】
-新しいチャットで作業する際は以下を実行して全項目確認してから納品すること。
-
-import re
-content = open('index.html').read()
-code = content.rsplit('COMMENT_OPEN', 1)[0]
-real_opens = [m for m in re.finditer(r'[script', content) if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
-real_closes = len(re.findall(r'[/script]', content))
-style_inner = re.search(r'[style]([\s\S]*?)[/style]', content).group(1)
-
-checks = {
-    # ===== 構造チェック =====
-    'JS正常':                         len(real_opens)==real_closes,
-    'style正常(1個)':                 content.count('[style]')==1,
-    'styleにHTML混入なし':            'COMMENT_CLOSE' not in style_inner,
-    '古いloginCSS混入なし':           'login-glow-pulse' not in style_inner,
-    'コメントに二重ダッシュなし':     True,
-    # ===== バグ修正 =====
-    '販売ブラックアウト修正':          'catch {} if' in code,
-    # ===== スタッフ名 =====
-    'スタッフFirebase同期(recept)':   "localStorage.setItem('garage_recept'" in content,
-    'スタッフFirebase同期(mech)':     "localStorage.setItem('garage_mech'" in content,
-    'スタッフデフォルト値空':          '"田中","佐藤"' not in code,
-    # ===== Firebase安全保護 =====
-    '代車初回書込み防止':              '_lcInitialized' in content,
-    'BPstalls/workersFirebase同期':   "localStorage.setItem('bp_stalls'" in content,
-    'garage_stalls保存':               "localStorage.setItem('garage_stalls'" in content,
-    'jobs初回書込み防止':              '_jobsInitialized' in content,
-    'stalls初回書込み防止':            '_stallsInitialized' in content,
-    # ===== ストールボード =====
-    'INIT_STALLSデモ名なし':          'mechanic:""' in code,
-    'stalls localStorage初期値':      "localStorage.getItem('garage_stalls')" in content,
-    'ストールボード車種表示':          'job.model && React.createElement' in content,
-    'ストールボード納車日表示':        'job.deliveryDate.slice(5)' in content,
-    # ===== BP札表示 =====
-    'BP札納車予定日':                  '"🚗 "+job.noshaDate' in content,
-    'BP札車種':                        'job.carModel && React.createElement' in content,
-    'BP着工OK/NGバッジ':              '着工OK' in content,
-    # ===== ドラッグ =====
-    'BP上下ドラッグ(origStallIdx)':   'origStallIdx' in content,
-    'BP上下ドラッグ(stallDelta)':     'stallDelta' in content,
-    '代車上下ドラッグ(moveDrag)':     'moveDrag' in content,
-    '代車上下ドラッグ(origCarId)':    'origCarId' in content,
-    # ===== BP完了ログ =====
-    'BP完了ログ(bpCompletedLog)':     'bpCompletedLog' in content,
-    'BP完了ログボタン':                '完了ログ' in content,
-    'completeAndLog':                  'completeAndLog' in content,
-    # ===== 完了・計上モーダル =====
-    '完了・計上モーダル':              'completeModal' in content,
-    '完了・計上ボタン名':              '完了・計上' in content,
-    '計上月選択(getMonthOptions)':    'getMonthOptions' in content,
-    '計上金額(estimatedAmount)':       'completeModal.amount' in content,
-    # ===== 検索機能 =====
-    '検索status-card-':               'status-card-' in content,
-    '検索job-bar-':                   'job-bar-' in content,
-    '検索isShelved判定':               'isShelved' in content,
-    'ShelvedListにflashJobId':        'flashJobId: flashJobId' in content,
-    '検索完了案件除外':               '!j.completed &&' in content,
-    # ===== ROLES =====
-    'ROLE_BAR_BG':                    'ROLE_BAR_BG' in content,
-    'HサブborderColor白':             'borderColor:"#ffffff"' in content,
-    'ROLE×ボタン白':                  'color:"#ffffff", cursor:"pointer"' in content,
-    # ===== 予約ログ =====
-    '予約ログ(showTodayLog)':         'showTodayLog' in content,
-    '予約ログFirebase同期':            'garage_today_log' in content,
-    '予約ログ入庫登録時追記':          'saveTodayLog([...todayLog' in content,
-    # ===== 代車管理 =====
-    '代車車検満了日(car.shaken)':     'car.shaken' in content,
-    '代車車検バッジ':                  '車検まで' in content,
-    '代車貸出時車検警告':             'ご注意ください' in content,
-    '代車部門フィルター':             'deptFilter' in content,
-    '代車フィルター(すべて)':          'すべて' in content,
-    # ===== ログイン画面 =====
-    'ログイン認証(garage_auth_date)':  'garage_auth_date' in content,
-    'パスワード(auto8821)':            'auto8821' in content,
-    'マトリックス背景(login-canvas)':  'login-canvas' in content,
-    'AUTORUNNERアニメーション(MB)':   'AUTORUNNER MB' in content,
-    'ログイン後フェードアウト':        '_fadingOut' in content,
-    'ログインボックス非表示':          "display='none'" in content,
-    # ===== その他機能 =====
-    'stallDraft宣言':                  'stallDraft, setStallDraft' in content,
-    'ROLEカード翌日リセット':          'roleCardsDate' in content,
-    '入庫日変更リセット':              'dateChanged' in content,
-    'confirmReAssign_displayDate':     'displayDate:undefined' in content,
-    'BP👷スタッフ管理ボタン':         'showBpStaffModal' in content,
-    '月リセット確認ダイアログ':        'confirm(' in content,
-}
-all_ok = True
-for k, v in checks.items():
-    s = '✅' if v else '❌'
-    if not v: all_ok = False
-    print(f'{s} {k}')
-print(f'\n{len(checks)}項目 全部OK!' if all_ok else f'\n{len(checks)}項目 ❌ 抜けあり')
-
-================================================================================
-  Firebase: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
-  GitHub:   https://github.com/autorunner3216-beep/garage-board-
-  公開URL:  https://autorunner3216-beep.github.io/garage-board-/
-  ログインリセット: localStorage.removeItem('garage_auth_date');location.reload();
-================================================================================
--->
-</body></html>
+  </script></body></html>
