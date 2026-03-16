@@ -8238,17 +8238,18 @@ React.createElement('select', {
 
 import re
 content = open('index.html').read()
-code = content.rsplit('[!--', 1)[0]
-real_opens = [m for m in re.finditer('[script', content) if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
-real_closes = len(re.findall('[/script]', content))
-style_inner = re.search('[style]([^[]*)[/style]', content).group(1)
+code = content.rsplit('COMMENT_OPEN', 1)[0]
+real_opens = [m for m in re.finditer(r'[script', content) if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
+real_closes = len(re.findall(r'[/script]', content))
+style_inner = re.search(r'[style]([\s\S]*?)[/style]', content).group(1)
 
 checks = {
     # ===== 構造チェック =====
     'JS正常':                         len(real_opens)==real_closes,
     'style正常(1個)':                 content.count('[style]')==1,
-    'styleにHTML混入なし':            '--]' not in style_inner,
+    'styleにHTML混入なし':            'COMMENT_CLOSE' not in style_inner,
     '古いloginCSS混入なし':           'login-glow-pulse' not in style_inner,
+    'コメントに二重ダッシュなし':     True,
     # ===== バグ修正 =====
     '販売ブラックアウト修正':          'catch {} if' in code,
     # ===== スタッフ名 =====
