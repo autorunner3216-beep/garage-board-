@@ -3427,10 +3427,10 @@ React.createElement('select', {
       const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
-      // 貸出モーダル用: 受付スタッフリスト（モーダル開閉のたびに最新を取得）
-      const receptList = React.useMemo(function(){
+      // 貸出モーダル用: 受付スタッフリスト
+      var receptList = (function(){
         try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
-      }, [loanModal]);
+      })();
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
 
@@ -3891,10 +3891,12 @@ React.createElement('select', {
                             returned ? '✓ 返却済' : loan.undecided ? '📅 未定' : '〜'+loan.endDate.slice(5)+
                             (loan.carModel ? ' · '+loan.carModel : '')+(loan.plate ? ' '+loan.plate : '')),
                           loan.staffName ? React.createElement('div', { style:{
-                            fontSize:9, color:'#7dd3fc',
+                            fontSize:11, fontWeight:800, color:'#0f172a',
+                            background:'#f1f5f9', borderRadius:3,
+                            padding:'1px 4px', marginTop:1,
                             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                            lineHeight:1.2 }},
-                            '📋 '+loan.staffName) : null
+                            lineHeight:1.3, display:'inline-block', maxWidth:'100%' }},
+                            '👤 '+loan.staffName) : null
                         ),
 
                         /* 右リサイズハンドル */
@@ -4010,7 +4012,8 @@ React.createElement('select', {
                 ) : null,
                 loan.staffName ? React.createElement('div', { style:{ marginTop:6, display:'flex', alignItems:'center', gap:5 }},
                   React.createElement('span', { style:{ fontSize:10, color:'#64748b' }}, '📋'),
-                  React.createElement('span', { style:{ fontSize:12, fontWeight:700, color:'#7dd3fc' }}, loan.staffName)
+                  React.createElement('span', { style:{ fontSize:14, fontWeight:900, color:'#0f172a',
+                    background:'#f1f5f9', borderRadius:4, padding:'2px 8px' }}, loan.staffName)
                 ) : null
               ),
 
@@ -4501,10 +4504,6 @@ React.createElement('select', {
       const [showBpStaffModal, setShowBpStaffModal] = useState(false);
       const [newBpWorkerName, setNewBpWorkerName] = useState("");
       const [dragState, setDragState] = useState(null);
-      // 貸出モーダル用: 受付スタッフリスト（モーダル開閉のたびに最新を取得）
-      const receptList = React.useMemo(function(){
-        try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
-      }, [loanModal]); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
       const boardRef = useRef(null);
 
       const _bpFbIncoming = React.useRef(false);
