@@ -3426,6 +3426,9 @@ React.createElement('select', {
       const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
+      const receptList = React.useMemo(function(){
+        try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
+      }, []);
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
 
@@ -3590,7 +3593,7 @@ React.createElement('select', {
       // ジョブタイプ色
       function jobColor(type) {
         if (type==='BP') return { main:'#8b5cf6', light:'#ede9fe', bg:'#2e1065', badge:'#c4b5fd' };
-        if (type==='車販') return { main:'#f59e0b', light:'#fef3c7', bg:'#78350f', badge:'#fcd34d' };
+        if (type==='車販') return { main:'#ef4444', light:'#fef2f2', bg:'#7f1d1d', badge:'#fca5a5' };
         return { main:'#3b82f6', light:'#dbeafe', bg:'#1e3a8a', badge:'#93c5fd' };
       }
 
@@ -3651,7 +3654,7 @@ React.createElement('select', {
           /* 部門フィルター */
           React.createElement('div', { style:{ display:'flex', gap:4, alignItems:'center' }},
             [null, '整備', 'BP', '車販'].map(function(dept){
-              const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#f59e0b' };
+              const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#ef4444' };
               const active = deptFilter === dept;
               const col = dept ? colors[dept] : '#94a3b8';
               return React.createElement('button', { key:String(dept),
@@ -3976,9 +3979,9 @@ React.createElement('select', {
                     car.plate),
                   car && car.dept && React.createElement('span', { style:{
                     fontSize:10, fontWeight:800, padding:'2px 7px', borderRadius:4,
-                    background: car.dept==='整備'?'#10b98122': car.dept==='BP'?'#3b82f622':'#f59e0b22',
-                    color: car.dept==='整備'?'#10b981': car.dept==='BP'?'#60a5fa':'#fbbf24',
-                    border:'1px solid '+(car.dept==='整備'?'#10b98155': car.dept==='BP'?'#3b82f655':'#f59e0b55') }},
+                    background: car.dept==='整備'?'#10b98122': car.dept==='BP'?'#3b82f622':'#ef444422',
+                    color: car.dept==='整備'?'#10b981': car.dept==='BP'?'#60a5fa':'#ef4444',
+                    border:'1px solid '+(car.dept==='整備'?'#10b98155': car.dept==='BP'?'#3b82f655':'#ef444455') }},
                     car.dept)
                 )
               ),
@@ -3990,13 +3993,17 @@ React.createElement('select', {
                 React.createElement('div', { style:{ fontSize:10, fontWeight:700, color:'#475569', letterSpacing:1, marginBottom:8 }}, 'お客様'),
                 React.createElement('div', { style:{ fontSize:15, fontWeight:800, color:'#f1f5f9', marginBottom:6 }},
                   loan.owner || '—'),
-                loan.carModel || loan.plate ? React.createElement('div', { style:{ display:'flex', gap:8 }},
+                loan.carModel || loan.plate ? React.createElement('div', { style:{ display:'flex', gap:8, marginBottom: loan.staffName?6:0 }},
                   loan.carModel && React.createElement('span', { style:{ fontSize:12, color:'#94a3b8',
                     background:'#1e293b', border:'1px solid #334155', borderRadius:5, padding:'2px 8px' }},
                     loan.carModel),
                   loan.plate && React.createElement('span', { style:{ fontSize:12, fontWeight:700, color:'#cbd5e1',
                     background:'#1e293b', border:'1px solid #334155', borderRadius:5, padding:'2px 8px', letterSpacing:'0.04em' }},
                     loan.plate)
+                ) : null,
+                loan.staffName ? React.createElement('div', { style:{ marginTop:6, display:'flex', alignItems:'center', gap:5 }},
+                  React.createElement('span', { style:{ fontSize:10, color:'#64748b' }}, '📋'),
+                  React.createElement('span', { style:{ fontSize:12, fontWeight:700, color:'#7dd3fc' }}, loan.staffName)
                 ) : null
               ),
 
@@ -4126,6 +4133,22 @@ React.createElement('select', {
                 style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
                   borderRadius:8, color:'#f1f5f9', padding:'9px 12px',
                   fontSize:13, boxSizing:'border-box' }})
+            ),
+
+            /* 担当スタッフ */
+            React.createElement('div', { style:{ marginBottom:14 }},
+              React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:'#94a3b8', display:'block', marginBottom:6 }}, '担当スタッフ'),
+              React.createElement('select', {
+                value:loanModal.staffName||'',
+                onChange:e=>setLoanModal(p=>({...p,staffName:e.target.value})),
+                style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
+                  borderRadius:8, color:loanModal.staffName?'#f1f5f9':'#64748b',
+                  padding:'9px 12px', fontSize:13, boxSizing:'border-box', colorScheme:'dark' }},
+                React.createElement('option', { value:'' }, '-- 未選択 --'),
+                receptList.map(function(name){
+                  return React.createElement('option', { key:name, value:name }, name);
+                })
+              )
             ),
 
             /* 車種・ナンバー */
@@ -4294,7 +4317,7 @@ React.createElement('select', {
                     style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
                       borderRadius:8, color:'#f1f5f9', padding:'9px 12px', fontSize:13, boxSizing:'border-box' }}),
                   React.createElement('div', { style:{ display:'flex', gap:5 }},
-                    [['整備','#10b981'],['BP','#3b82f6'],['車販','#f59e0b']].map(function(pair){
+                    [['整備','#10b981'],['BP','#3b82f6'],['車販','#ef4444']].map(function(pair){
                       var dn=pair[0], dc=pair[1], active=car.dept===dn;
                       return React.createElement('button', { key:dn,
                         onClick:function(){ setCarDraft(function(p){ return p.map(function(c,i){ return i===idx?Object.assign({},c,{dept:active?null:dn}):c; }); }); },
@@ -4436,7 +4459,10 @@ React.createElement('select', {
       const [editStall, setEditStall] = useState(null);
       const [showBpStaffModal, setShowBpStaffModal] = useState(false);
       const [newBpWorkerName, setNewBpWorkerName] = useState("");
-      const [dragState, setDragState] = useState(null); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
+      const [dragState, setDragState] = useState(null);
+      const receptList = React.useMemo(function(){
+        try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
+      }, []); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
       const boardRef = useRef(null);
 
       const _bpFbIncoming = React.useRef(false);
@@ -7495,7 +7521,7 @@ React.createElement('select', {
             // ジョブカラー（代車管理と同じ）
             function jc2(type){
               if(type==="BP") return { main:"#8b5cf6", bg:"#2e1065", badge:"#c4b5fd" };
-              if(type==="車販") return { main:"#f59e0b", bg:"#78350f", badge:"#fcd34d" };
+              if(type==="車販") return { main:"#ef4444", bg:"#7f1d1d", badge:"#fca5a5" };
               return { main:"#3b82f6", bg:"#1e3a8a", badge:"#93c5fd" };
             }
             // パネルの右オフセット（翌日来店パネルが開いていれば並べる）
