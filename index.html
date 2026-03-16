@@ -3434,6 +3434,7 @@ React.createElement('select', {
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
 
+
       const _lcInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcInitialized.current) { _lcInitialized.current = true; return; }
@@ -3521,34 +3522,72 @@ React.createElement('select', {
 
       useEffect(() => {
         if (!moveDrag) return;
+        // ドラッグ中のDOM要素を取得
+        const barEl = document.getElementById('loan-bar-' + moveDrag.loanId);
+        if (!barEl) return;
+        const origTransform = barEl.style.transform || '';
+        const origZIndex = barEl.style.zIndex || '2';
+        const origOpacity = barEl.style.opacity || '1';
+        barEl.style.zIndex = '99';
+        barEl.style.opacity = '0.85';
+        barEl.style.transition = 'none';
+        barEl.style.cursor = 'grabbing';
+
+        let lastDaysDelta = 0;
+        let lastRowDelta = 0;
+
         const onMove = e => {
           if (!gridRef.current) return;
           const rect = gridRef.current.getBoundingClientRect();
-          const dx = e.clientX - moveDrag.startX;
-          const dy = e.clientY - moveDrag.startY;
           const gridW = rect.width - LEFT_W;
           const dayW = gridW / daysInMonth;
-          const daysDelta = Math.round(dx / dayW);
-          const rowDelta = Math.round(dy / ROW_H);
-          if (daysDelta === 0 && rowDelta === 0) return;
-          setLcLoans(p => p.map(l => {
-            if (l.id !== moveDrag.loanId) return l;
-            const newStart = bpAddDays(moveDrag.origStart, daysDelta);
-            const newEnd   = bpAddDays(moveDrag.origEnd,   daysDelta);
-            let newCarId = l.carId;
-            if (rowDelta !== 0) {
-              const carIds = lcCars.map(c => c.id);
-              const origIdx = carIds.indexOf(moveDrag.origCarId);
-              const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + rowDelta));
-              newCarId = carIds[newIdx];
-            }
-            return { ...l, startDate: newStart, endDate: newEnd, carId: newCarId };
-          }));
+          const dx = e.clientX - moveDrag.startX;
+          const dy = e.clientY - moveDrag.startY;
+          lastDaysDelta = Math.round(dx / dayW);
+          lastRowDelta  = Math.round(dy / ROW_H);
+          // CSSのtransformで見た目だけ動かす（stateは触らない）
+          barEl.style.transform = 'translate(' + (lastDaysDelta * dayW) + 'px, ' + (lastRowDelta * ROW_H) + 'px)';
         };
-        const onUp = () => setMoveDrag(null);
+
+        const onUp = () => {
+          // 見た目を元に戻す
+          barEl.style.transform = origTransform;
+          barEl.style.zIndex = origZIndex;
+          barEl.style.opacity = origOpacity;
+          barEl.style.cursor = '';
+
+          // マウスを離した時だけstateを更新（データ確定）
+          if (lastDaysDelta !== 0 || lastRowDelta !== 0) {
+            setLcLoans(p => p.map(l => {
+              if (l.id !== moveDrag.loanId) return l;
+              const newStart = bpAddDays(moveDrag.origStart, lastDaysDelta);
+              const newEnd   = bpAddDays(moveDrag.origEnd,   lastDaysDelta);
+              let newCarId = l.carId;
+              if (lastRowDelta !== 0) {
+                const carIds = lcCars.map(c => c.id);
+                const origIdx = carIds.indexOf(moveDrag.origCarId);
+                const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + lastRowDelta));
+                newCarId = carIds[newIdx];
+              }
+              return { ...l, startDate: newStart, endDate: newEnd, carId: newCarId };
+            }));
+          }
+          setMoveDrag(null);
+        };
+
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+        return () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          // クリーンアップ時もスタイルを戻す
+          if (barEl) {
+            barEl.style.transform = origTransform;
+            barEl.style.zIndex = origZIndex;
+            barEl.style.opacity = origOpacity;
+            barEl.style.cursor = '';
+          }
+        };
       }, [moveDrag, daysInMonth, lcCars]);
 
       const prevMonth = () => {
@@ -3825,12 +3864,18 @@ React.createElement('select', {
                       const jc = jobColor(loan.jobType);
                       const barColor = returned ? '#64748b' : overdue ? '#ef4444' : loan.undecided ? '#f59e0b' : jc.main;
 
-                      return React.createElement('div', { key:loan.id,
+                      return React.createElement('div', { key:loan.id, id:'loan-bar-'+loan.id,
                         onClick: function(e){ e.stopPropagation(); },
                         onDoubleClick: (function(l){ return function(e) {
                           e.stopPropagation();
                           setLoanModal(Object.assign({},l));
                         }; })(loan),
+                        onMouseDown: (function(l, carId){ return function(e) {
+                          if (e.target.closest && e.target.closest('[data-resize]')) return;
+                          e.stopPropagation(); e.preventDefault();
+                          setMoveDrag({ loanId:l.id, startX:e.clientX, startY:e.clientY,
+                            origStart:l.startDate, origEnd:l.endDate, origCarId:carId });
+                        }; })(loan, car.id),
                         style:{
                           position:'absolute',
                           top:5, height:ROW_H-12,
@@ -3851,6 +3896,7 @@ React.createElement('select', {
 
                         /* 左リサイズハンドル */
                         React.createElement('div', {
+                          'data-resize': 'L',
                           onMouseDown: e => { e.stopPropagation(); e.preventDefault(); setResizeDrag({loanId:loan.id, side:'L'}); },
                           style:{
                             position:'absolute', left:0, top:0, bottom:0, width:8,
@@ -3901,6 +3947,7 @@ React.createElement('select', {
 
                         /* 右リサイズハンドル */
                         React.createElement('div', {
+                          'data-resize': 'R',
                           onMouseDown: e => { e.stopPropagation(); e.preventDefault(); setResizeDrag({loanId:loan.id, side:'R'}); },
                           style:{
                             position:'absolute', right:0, top:0, bottom:0, width:8,
@@ -6104,7 +6151,12 @@ React.createElement('select', {
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_stalls', function(val) {
-          if (val && Array.isArray(val)) { _fbIncoming.current = true; setStalls(val); try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} setTimeout(() => { _fbIncoming.current = false; }, 50); }
+          if (val && Array.isArray(val)) {
+            _fbIncoming.current = true;
+            try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {}
+            setStalls(val);
+            setTimeout(() => { _fbIncoming.current = false; }, 50);
+          }
         });
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
@@ -8297,11 +8349,13 @@ React.createElement('select', {
 <!--
 ================================================================================
   GARAGE SMB BOARD v6 - チェックリスト（修正時に必ず全項目確認すること）
-  最終更新: 2026-03-16
+  最終更新: 2026-03-17
+  ★データに触れる修正は必ず事前にユーザーに確認を取ること
+  ★「安全のため」という理由でもデータ変換・削除は禁止
 ================================================================================
 
 【必須チェックスクリプト】
-新しいチャットで作業する際は以下を実行して全項目確認してから納品すること。
+新しいチャットで作業する際は以下をそのまま実行して全項目確認してから納品すること。
 
 import re
 content = open('index.html').read()
@@ -8309,74 +8363,104 @@ code = content.rsplit('COMMENT_OPEN', 1)[0]
 real_opens = [m for m in re.finditer(r'[script', content) if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
 real_closes = len(re.findall(r'[/script]', content))
 style_inner = re.search(r'[style]([\s\S]*?)[/style]', content).group(1)
+recept_defs = [m for m in re.finditer(r'(var|const) receptList', content) if 'チェック' not in content[max(0,m.start()-100):m.start()]]
+bp_start = content.find('function BPBoard({ boardJobs })')
+bp_end = content.find('
+    function ', bp_start + 100)
+bp_code = content[bp_start:bp_end]
+comment_match = re.search(r'(COMMENT_OPEN
+={40,}[\s\S]*?={40,}
+COMMENT_CLOSE)', content)
+inner = comment_match.group(1)[12:-14] if comment_match else ''
+dashes = len(re.findall(r'DASH_DASH', inner))
 
 checks = {
     # ===== 構造チェック =====
-    'JS正常':                         len(real_opens)==real_closes,
-    'style正常(1個)':                 content.count('[style]')==1,
-    'styleにHTML混入なし':            'COMMENT_CLOSE' not in style_inner,
-    '古いloginCSS混入なし':           'login-glow-pulse' not in style_inner,
-    'コメントに二重ダッシュなし':     True,
+    'JS正常':                          len(real_opens)==real_closes,
+    'style正常(1個)':                  content.count('[style]')==1,
+    'styleにHTML混入なし':             'COMMENT_CLOSE' not in style_inner,
+    '古いloginCSS混入なし':            'login-glow-pulse' not in style_inner,
+    'コメント二重ダッシュなし':        dashes==0,
+    'receptList定義1個':               len(recept_defs)==1,
+    'BPボード内receptListなし':        'receptList' not in bp_code,
+    'BPボード内lcCarsなし':            'lcCars' not in bp_code,
+    # ===== データ破壊防止（最重要） =====
+    'Firebase.remove()なし':           '.remove()' not in code,
+    'demoNames処理なし':               'demoNames' not in code,
+    'stalls強制変換なし':              'cleaned = val.map' not in code,
+    '入庫jobs初回書込み防止':          '_jobsInitialized' in content,
+    '入庫jobs強制削除なし':            "fbSet('garage_jobs', [])" not in code,
+    'stalls初回書込み防止':            '_stallsInitialized' in content,
+    'stalls初期値localStorage':        "localStorage.getItem('garage_stalls')" in content,
+    'garage_stalls保存':               "localStorage.setItem('garage_stalls'" in content,
+    'stalls強制削除なし':              "fbSet('garage_stalls', [])" not in code,
+    '代車初回書込み防止':              '_lcInitialized' in content,
+    '代車carsFirebase受信':            "fbOn('loancar_cars'" in content,
+    '代車loansFirebase受信':           "fbOn('loancar_loans'" in content,
+    'BPjobs初回書込み防止':            '_bpFbIncoming' in content,
+    'BPstalls Firebase同期':           "localStorage.setItem('bp_stalls'" in content,
+    'BP強制削除なし':                  "fbSet('bp_jobs', [])" not in code,
     # ===== バグ修正 =====
     '販売ブラックアウト修正':          'catch {} if' in code,
     # ===== スタッフ名 =====
-    'スタッフFirebase同期(recept)':   "localStorage.setItem('garage_recept'" in content,
-    'スタッフFirebase同期(mech)':     "localStorage.setItem('garage_mech'" in content,
+    'スタッフFirebase同期(recept)':    "localStorage.setItem('garage_recept'" in content,
+    'スタッフFirebase同期(mech)':      "localStorage.setItem('garage_mech'" in content,
     'スタッフデフォルト値空':          '"田中","佐藤"' not in code,
-    # ===== Firebase安全保護 =====
-    '代車初回書込み防止':              '_lcInitialized' in content,
-    'BPstalls/workersFirebase同期':   "localStorage.setItem('bp_stalls'" in content,
-    'garage_stalls保存':               "localStorage.setItem('garage_stalls'" in content,
-    'jobs初回書込み防止':              '_jobsInitialized' in content,
-    'stalls初回書込み防止':            '_stallsInitialized' in content,
     # ===== ストールボード =====
-    'INIT_STALLSデモ名なし':          'mechanic:""' in code,
-    'stalls localStorage初期値':      "localStorage.getItem('garage_stalls')" in content,
+    'INIT_STALLSデモ名なし':           'mechanic:""' in code,
+    'stalls localStorage初期値':       "localStorage.getItem('garage_stalls')" in content,
     'ストールボード車種表示':          'job.model && React.createElement' in content,
     'ストールボード納車日表示':        'job.deliveryDate.slice(5)' in content,
     # ===== BP札表示 =====
     'BP札納車予定日':                  '"🚗 "+job.noshaDate' in content,
     'BP札車種':                        'job.carModel && React.createElement' in content,
-    'BP着工OK/NGバッジ':              '着工OK' in content,
+    'BP着工OK/NGバッジ':               '着工OK' in content,
     # ===== ドラッグ =====
-    'BP上下ドラッグ(origStallIdx)':   'origStallIdx' in content,
-    'BP上下ドラッグ(stallDelta)':     'stallDelta' in content,
-    '代車上下ドラッグ(moveDrag)':     'moveDrag' in content,
-    '代車上下ドラッグ(origCarId)':    'origCarId' in content,
+    'BP上下ドラッグ(origStallIdx)':    'origStallIdx' in content,
+    'BP上下ドラッグ(stallDelta)':      'stallDelta' in content,
+    '代車上下ドラッグ(moveDrag)':      'moveDrag' in content,
+    '代車上下ドラッグ(origCarId)':     'origCarId' in content,
     # ===== BP完了ログ =====
-    'BP完了ログ(bpCompletedLog)':     'bpCompletedLog' in content,
+    'BP完了ログ(bpCompletedLog)':      'bpCompletedLog' in content,
     'BP完了ログボタン':                '完了ログ' in content,
-    'completeAndLog':                  'completeAndLog' in content,
+    'completeAndLog':                   'completeAndLog' in content,
     # ===== 完了・計上モーダル =====
     '完了・計上モーダル':              'completeModal' in content,
     '完了・計上ボタン名':              '完了・計上' in content,
-    '計上月選択(getMonthOptions)':    'getMonthOptions' in content,
+    '計上月選択(getMonthOptions)':     'getMonthOptions' in content,
     '計上金額(estimatedAmount)':       'completeModal.amount' in content,
     # ===== 検索機能 =====
-    '検索status-card-':               'status-card-' in content,
-    '検索job-bar-':                   'job-bar-' in content,
+    '検索status-card-':                'status-card-' in content,
+    '検索job-bar-':                    'job-bar-' in content,
     '検索isShelved判定':               'isShelved' in content,
-    'ShelvedListにflashJobId':        'flashJobId: flashJobId' in content,
-    '検索完了案件除外':               '!j.completed &&' in content,
+    'ShelvedListにflashJobId':         'flashJobId: flashJobId' in content,
+    '検索完了案件除外':                '!j.completed &&' in content,
     # ===== ROLES =====
-    'ROLE_BAR_BG':                    'ROLE_BAR_BG' in content,
-    'HサブborderColor白':             'borderColor:"#ffffff"' in content,
-    'ROLE×ボタン白':                  'color:"#ffffff", cursor:"pointer"' in content,
+    'ROLE_BAR_BG':                     'ROLE_BAR_BG' in content,
+    'HサブborderColor白':              'borderColor:"#ffffff"' in content,
+    'ROLE×ボタン白':                   'color:"#ffffff", cursor:"pointer"' in content,
     # ===== 予約ログ =====
-    '予約ログ(showTodayLog)':         'showTodayLog' in content,
-    '予約ログFirebase同期':            'garage_today_log' in content,
+    '予約ログ(showTodayLog)':          'showTodayLog' in content,
+    '予約ログFirebase同期':             'garage_today_log' in content,
     '予約ログ入庫登録時追記':          'saveTodayLog([...todayLog' in content,
     # ===== 代車管理 =====
-    '代車車検満了日(car.shaken)':     'car.shaken' in content,
+    '代車車検満了日(car.shaken)':      'car.shaken' in content,
     '代車車検バッジ':                  '車検まで' in content,
-    '代車貸出時車検警告':             'ご注意ください' in content,
-    '代車部門フィルター':             'deptFilter' in content,
+    '代車貸出時車検警告':              'ご注意ください' in content,
+    '代車部門フィルター':              'deptFilter' in content,
     '代車フィルター(すべて)':          'すべて' in content,
+    '代車車販カラー赤':                "'#ef4444'" in content and "type==='車販'" in content,
+    '代車担当スタッフ欄':              'loanModal.staffName' in content,
+    '代車新規登録staffName':           "staffName:''" in content,
+    '代車バー担当名表示':              "'👤 '+loan.staffName" in content,
+    '代車バー担当名スタイル(黒白)':    "color:'#0f172a'" in content and "background:'#f1f5f9'" in content,
+    '代車担当名表示(詳細カード)':      'loan.staffName ? React.createElement' in content,
+    '代車順番タップ選択':              'selectedCarIdx' in content,
     # ===== ログイン画面 =====
     'ログイン認証(garage_auth_date)':  'garage_auth_date' in content,
     'パスワード(auto8821)':            'auto8821' in content,
     'マトリックス背景(login-canvas)':  'login-canvas' in content,
-    'AUTORUNNERアニメーション(MB)':   'AUTORUNNER MB' in content,
+    'AUTORUNNERアニメーション(MB)':    'AUTORUNNER MB' in content,
     'ログイン後フェードアウト':        '_fadingOut' in content,
     'ログインボックス非表示':          "display='none'" in content,
     # ===== その他機能 =====
@@ -8392,7 +8476,7 @@ for k, v in checks.items():
     s = '✅' if v else '❌'
     if not v: all_ok = False
     print(f'{s} {k}')
-print(f'\n{len(checks)}項目 全部OK!' if all_ok else f'\n{len(checks)}項目 ❌ 抜けあり')
+print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
 
 ================================================================================
   Firebase: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
