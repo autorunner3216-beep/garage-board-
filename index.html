@@ -1795,7 +1795,7 @@ react-dom/cjs/react-dom-client.production.js:
                                 job.owner||"---")
                               , React.createElement('span', { style: { fontSize:8, fontWeight:700, fontFamily:"monospace",
                                   color:"#e2e8f0", whiteSpace:"nowrap", flexShrink:1, minWidth:0, overflow:"hidden", textOverflow:"clip" }},
-                                (job.plate&&job.plate.match(/\d{4}/)||[""])[0])
+                                job.plate||"")
                               , w > 90 && job.model && React.createElement('span', { style: { fontSize:7, fontWeight:600,
                                   color:"#94a3b8", whiteSpace:"nowrap", flexShrink:1, overflow:"hidden", textOverflow:"ellipsis" }}, job.model)
                               , w > 110 && job.deliveryDate && React.createElement('span', { style: { fontSize:7, fontWeight:700,
@@ -1948,7 +1948,7 @@ react-dom/cjs/react-dom-client.production.js:
                     display:"flex", flexDirection:"column", gap:5, boxShadow:`0 0 10px ${sc.glow}`, cursor:"default" }}
                     , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
                       , React.createElement('span', { style: { fontSize:14, fontWeight:700, color:"#38bdf8", fontFamily:"monospace", letterSpacing:2 }}
-                        , (job.plate.match(/\d{4}/)||["----"])[0]
+                        , job.plate||"----"
                       )
                       , working && React.createElement('span', { className: "dot-blink", style: { width:7, height:7, borderRadius:"50%", background:"#10b981" }})
                       , shelved && React.createElement('span', { style: { fontSize:9, color:"#334155" }}, "✓")
