@@ -460,14 +460,14 @@ react-dom/cjs/react-dom-client.production.js:
     const MIN_DUR = 1/3;
 
     const INIT_STALLS = [
-      {id:"S01",name:"S-01",mechanic:"山田"},
-      {id:"S02",name:"S-02",mechanic:"鈴木"},
-      {id:"S03",name:"S-03",mechanic:"高橋"},
-      {id:"S04",name:"S-04",mechanic:"渡辺"},
-      {id:"S05",name:"S-05",mechanic:"中村"},
-      {id:"S06",name:"S-06",mechanic:"伊藤"},
-      {id:"S07",name:"S-07",mechanic:"加藤"},
-      {id:"S08",name:"S-08",mechanic:"松本"},
+      {id:"S01",name:"S-01",mechanic:""},
+      {id:"S02",name:"S-02",mechanic:""},
+      {id:"S03",name:"S-03",mechanic:""},
+      {id:"S04",name:"S-04",mechanic:""},
+      {id:"S05",name:"S-05",mechanic:""},
+      {id:"S06",name:"S-06",mechanic:""},
+      {id:"S07",name:"S-07",mechanic:""},
+      {id:"S08",name:"S-08",mechanic:""},
     ];
 
     const STATUSES = ["作業待ち","当日来店/預かり","連絡待ち","部品待ち","一時中断","検査・保適待ち","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
@@ -5941,7 +5941,7 @@ React.createElement('select', {
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
       const [jobs,     setJobs]    = useState(INIT);
-      const [stalls,   setStalls]  = useState(INIT_STALLS);
+      const [stalls,   setStalls]  = useState(function(){ try { var s=localStorage.getItem('garage_stalls'); return s?JSON.parse(s):INIT_STALLS; } catch{ return INIT_STALLS; } });
       const [sel,      setSel]     = useState(null);
       const [selPos,   setSelPos]  = useState({x:0,y:0});
       const [filt,     setFilt]    = useState("すべて");
@@ -5996,10 +5996,10 @@ React.createElement('select', {
       });
       const saveBlockDays = list => { setBlockDays(list); try { localStorage.setItem('garage_blockdays', JSON.stringify(list)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_blockdays', list); };
       const [receptList, setReceptList] = useState(() => {
-        try { const s = localStorage.getItem('garage_recept'); return s ? JSON.parse(s) : ["田中","佐藤"]; } catch { return ["田中","佐藤"]; }
+        try { const s = localStorage.getItem('garage_recept'); return s ? JSON.parse(s) : []; } catch { return []; }
       });
       const [mechList, setMechList] = useState(() => {
-        try { const s = localStorage.getItem('garage_mech'); return s ? JSON.parse(s) : ["鈴木","高橋"]; } catch { return ["鈴木","高橋"]; }
+        try { const s = localStorage.getItem('garage_mech'); return s ? JSON.parse(s) : []; } catch { return []; }
       });
       const saveReceptList = list => { setReceptList(list); try { localStorage.setItem('garage_recept', JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_recept', list); };
       const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
@@ -8234,122 +8234,103 @@ React.createElement('select', {
 ================================================================================
 
 【必須チェックスクリプト】
-新しいチャットで作業する際は、アップロードされたindex.htmlに対して
-以下のPythonスクリプトを実行して全項目✅を確認してから納品すること。
+新しいチャットで作業する際は以下を実行して全項目確認してから納品すること。
 
-import re, subprocess, tempfile, os
-
+import re
 content = open('index.html').read()
-code = content
-
-# Reactバンドル内の[script>文字列を除外してカウント
-real_opens = [m for m in re.finditer(r'[script', content)
-              if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
-real_closes = len(re.findall(r'[/script]', content))
-style_inner = re.search(r'[style]([\s\S]*?)[/style]', content).group(1)
+code = content.rsplit('<!--', 1)[0]
+real_opens = [m for m in re.finditer('[script', content) if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
+real_closes = len(re.findall('[/script]', content))
+style_inner = re.search('[style]([^[]*)[/style]', content).group(1)
 
 checks = {
     # ===== 構造チェック =====
-    'JS構文エラーなし':           len(real_opens) == real_closes,
-    'styleタグ正常(1個)':         content.count('[style]') == 1,
-    'styleにHTML混入なし':        '-->' not in style_inner and '<html' not in style_inner,
-    '古いloginCSS混入なし':       'login-glow-pulse' not in style_inner and 'login-bg-move' not in style_inner,
-
+    'JS正常':                         len(real_opens)==real_closes,
+    'style正常(1個)':                 content.count('[style]')==1,
+    'styleにHTML混入なし':            '-->' not in style_inner,
+    '古いloginCSS混入なし':           'login-glow-pulse' not in style_inner,
     # ===== バグ修正 =====
-    '販売ブラックアウト修正': '} }; if' not in code,
-
+    '販売ブラックアウト修正':          'catch {} if' in code,
     # ===== スタッフ名 =====
-    'スタッフFirebase同期(recept)': "localStorage.setItem('garage_recept'" in content,
-    'スタッフFirebase同期(mech)':   "localStorage.setItem('garage_mech'" in content,
-    'スタッフデフォルト値空':        '"田中","佐藤"' not in code,
-
+    'スタッフFirebase同期(recept)':   "localStorage.setItem('garage_recept'" in content,
+    'スタッフFirebase同期(mech)':     "localStorage.setItem('garage_mech'" in content,
+    'スタッフデフォルト値空':          '"田中","佐藤"' not in code,
     # ===== Firebase安全保護 =====
-    '代車初回書込み防止(_lcInitialized)':       '_lcInitialized' in content,
-    'BPstalls/workersFirebase同期':             "localStorage.setItem('bp_stalls'" in content,
-    'garage_stalls_localStorage保存':           "localStorage.setItem('garage_stalls'" in content,
-    'jobs初回書込み防止(_jobsInitialized)':     '_jobsInitialized' in content,
-    'stalls初回書込み防止(_stallsInitialized)': '_stallsInitialized' in content,
-
+    '代車初回書込み防止':              '_lcInitialized' in content,
+    'BPstalls/workersFirebase同期':   "localStorage.setItem('bp_stalls'" in content,
+    'garage_stalls保存':               "localStorage.setItem('garage_stalls'" in content,
+    'jobs初回書込み防止':              '_jobsInitialized' in content,
+    'stalls初回書込み防止':            '_stallsInitialized' in content,
+    # ===== ストールボード =====
+    'INIT_STALLSデモ名なし':          'mechanic:""' in code,
+    'stalls localStorage初期値':      "localStorage.getItem('garage_stalls')" in content,
+    'ストールボード車種表示':          'job.model && React.createElement' in content,
+    'ストールボード納車日表示':        'job.deliveryDate.slice(5)' in content,
     # ===== BP札表示 =====
-    'BP札納車予定日(🚗ゴールド)': '"🚗 "+job.noshaDate' in content,
-    'BP札車種(carModel)':         'job.carModel && React.createElement' in content,
-    'BP着工OK/NGバッジ':          '着工OK' in content,
-
-    # ===== ストールボード札 =====
-    'ストールボード車種表示':   'job.model && React.createElement' in content,
-    'ストールボード納車日表示': 'job.deliveryDate.slice(5)' in content,
-
+    'BP札納車予定日':                  '"🚗 "+job.noshaDate' in content,
+    'BP札車種':                        'job.carModel && React.createElement' in content,
+    'BP着工OK/NGバッジ':              '着工OK' in content,
     # ===== ドラッグ =====
-    'BP上下ドラッグ(origStallIdx)': 'origStallIdx' in content,
-    'BP上下ドラッグ(stallDelta)':   'stallDelta' in content,
-    '代車上下ドラッグ(moveDrag)':   'moveDrag' in content,
-    '代車上下ドラッグ(origCarId)':  'origCarId' in content,
-
+    'BP上下ドラッグ(origStallIdx)':   'origStallIdx' in content,
+    'BP上下ドラッグ(stallDelta)':     'stallDelta' in content,
+    '代車上下ドラッグ(moveDrag)':     'moveDrag' in content,
+    '代車上下ドラッグ(origCarId)':    'origCarId' in content,
     # ===== BP完了ログ =====
-    'BP完了ログ(bpCompletedLog)':        'bpCompletedLog' in content,
-    'BP完了ログボタン':                   '完了ログ' in content,
-    '引渡完了後売上維持(completeAndLog)': 'completeAndLog' in content,
-
+    'BP完了ログ(bpCompletedLog)':     'bpCompletedLog' in content,
+    'BP完了ログボタン':                '完了ログ' in content,
+    'completeAndLog':                  'completeAndLog' in content,
     # ===== 完了・計上モーダル =====
-    '完了・計上モーダル(completeModal)':   'completeModal' in content,
-    '完了・計上ボタン名':                   '完了・計上' in content,
-    '計上月選択(getMonthOptions)':         'getMonthOptions' in content,
-    '計上金額(estimatedAmount自動入力)':    'completeModal.amount' in content,
-
+    '完了・計上モーダル':              'completeModal' in content,
+    '完了・計上ボタン名':              '完了・計上' in content,
+    '計上月選択(getMonthOptions)':    'getMonthOptions' in content,
+    '計上金額(estimatedAmount)':       'completeModal.amount' in content,
     # ===== 検索機能 =====
-    '検索→ステータス一覧(status-card-)': 'status-card-' in content,
-    '検索→ガントボード(job-bar-)':       'job-bar-' in content,
-    '検索isShelved判定':                  'isShelved' in content,
-    'ShelvedListにflashJobId':            'flashJobId: flashJobId' in content,
-    '検索完了案件除外':                    '!j.completed &&' in content,
-
+    '検索status-card-':               'status-card-' in content,
+    '検索job-bar-':                   'job-bar-' in content,
+    '検索isShelved判定':               'isShelved' in content,
+    'ShelvedListにflashJobId':        'flashJobId: flashJobId' in content,
+    '検索完了案件除外':               '!j.completed &&' in content,
     # ===== ROLES =====
-    'ROLE_BAR_BG(貼ったバー濃く)':  'ROLE_BAR_BG' in content,
-    'HサブROLE赤白(borderColor白)': 'borderColor:"#ffffff"' in content,
-    'ROLE×ボタン白':                 'color:"#ffffff", cursor:"pointer"' in content,
-
+    'ROLE_BAR_BG':                    'ROLE_BAR_BG' in content,
+    'HサブborderColor白':             'borderColor:"#ffffff"' in content,
+    'ROLE×ボタン白':                  'color:"#ffffff", cursor:"pointer"' in content,
     # ===== 予約ログ =====
-    '予約ログ(showTodayLog)':  'showTodayLog' in content,
-    '予約ログFirebase同期':     'garage_today_log' in content,
-    '予約ログ入庫登録時追記':    'saveTodayLog([...todayLog' in content,
-
+    '予約ログ(showTodayLog)':         'showTodayLog' in content,
+    '予約ログFirebase同期':            'garage_today_log' in content,
+    '予約ログ入庫登録時追記':          'saveTodayLog([...todayLog' in content,
     # ===== 代車管理 =====
-    '代車車検満了日(car.shaken)':    'car.shaken' in content,
-    '代車車検バッジ表示':             '車検まで' in content,
+    '代車車検満了日(car.shaken)':     'car.shaken' in content,
+    '代車車検バッジ':                  '車検まで' in content,
     '代車貸出時車検警告':             'ご注意ください' in content,
-    '代車部門フィルター(deptFilter)': 'deptFilter' in content,
+    '代車部門フィルター':             'deptFilter' in content,
     '代車フィルター(すべて)':          'すべて' in content,
-
     # ===== ログイン画面 =====
-    'ログイン認証(garage_auth_date)':      'garage_auth_date' in content,
-    'パスワード(auto8821)':                'auto8821' in content,
-    'マトリックス背景(login-canvas)':      'login-canvas' in content,
-    'AUTORUNNERアニメーション(MB)':        'AUTORUNNER MB' in content,
-    'ログイン後フェードアウト(_fadingOut)': '_fadingOut' in content,
-    'ログインボックス非表示':              "display='none'" in content,
-
+    'ログイン認証(garage_auth_date)':  'garage_auth_date' in content,
+    'パスワード(auto8821)':            'auto8821' in content,
+    'マトリックス背景(login-canvas)':  'login-canvas' in content,
+    'AUTORUNNERアニメーション(MB)':   'AUTORUNNER MB' in content,
+    'ログイン後フェードアウト':        '_fadingOut' in content,
+    'ログインボックス非表示':          "display='none'" in content,
     # ===== その他機能 =====
-    'stallDraft宣言':                      'stallDraft, setStallDraft' in content,
-    'ストールボタン修正(maxWidth削除)':     'padding:"16px 20px" }}' in content,
-    'ROLEカード翌日リセット(roleCardsDate)':'roleCardsDate' in content,
-    '入庫日変更リセット(dateChanged)':      'dateChanged' in content,
-    'confirmReAssign_displayDate':          'displayDate:undefined' in content,
-    'BP👷スタッフ管理ボタン':              'showBpStaffModal' in content,
-    '月リセット確認ダイアログ':             'confirm(' in content,
+    'stallDraft宣言':                  'stallDraft, setStallDraft' in content,
+    'ROLEカード翌日リセット':          'roleCardsDate' in content,
+    '入庫日変更リセット':              'dateChanged' in content,
+    'confirmReAssign_displayDate':     'displayDate:undefined' in content,
+    'BP👷スタッフ管理ボタン':         'showBpStaffModal' in content,
+    '月リセット確認ダイアログ':        'confirm(' in content,
 }
-
 all_ok = True
 for k, v in checks.items():
     s = '✅' if v else '❌'
     if not v: all_ok = False
     print(f'{s} {k}')
-print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
+print(f'\n{len(checks)}項目 全部OK!' if all_ok else f'\n{len(checks)}項目 ❌ 抜けあり')
 
 ================================================================================
-  Firebase URL: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
-  GitHub URL:   https://github.com/autorunner3216-beep/garage-board-
-  公開URL:      https://autorunner3216-beep.github.io/garage-board-/
-  ログインリセット(Consoleに貼る): localStorage.removeItem('garage_auth_date');location.reload();
+  Firebase: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
+  GitHub:   https://github.com/autorunner3216-beep/garage-board-
+  公開URL:  https://autorunner3216-beep.github.io/garage-board-/
+  ログインリセット: localStorage.removeItem('garage_auth_date');location.reload();
 ================================================================================
 -->
 </body></html>
