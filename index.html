@@ -95,8 +95,6 @@ checks = {
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Garage SMB Board v6</title><style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    /* ── ログイン画面（マトリックス風） ── */
     @keyframes login-glow-pulse {
       0%,100% { text-shadow: 0 0 10px #00ff41, 0 0 30px #00ff4177, 0 0 60px #00ff4144; }
       50%      { text-shadow: 0 0 20px #00ff41, 0 0 50px #00ff41aa, 0 0 90px #00ff4166; }
@@ -105,64 +103,7 @@ checks = {
       0%,100% { box-shadow: 0 0 0 1px #00ff4133, 0 0 30px #00ff4111; }
       50%      { box-shadow: 0 0 0 1px #00ff4166, 0 0 60px #00ff4122; }
     }
-    @keyframes login-fadeup {
-      from { opacity:0; transform:translateY(20px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    #login-screen {
-      position: fixed; inset: 0; background: #000;
-      display: flex; align-items: center; justify-content: center;
-      z-index: 99999; overflow: hidden;
-    }
-    #login-screen.hidden { display: none; }
-    #login-matrix-canvas {
-      position: absolute; inset: 0; pointer-events: none;
-    }
-    #login-box {
-      position: relative; z-index: 2;
-      background: rgba(0,8,0,0.9);
-      border: 1px solid #00ff4144;
-      border-radius: 4px;
-      padding: 52px 44px 44px;
-      width: 380px;
-      display: flex; flex-direction: column; gap: 20px; align-items: center;
-      animation: login-border-pulse 3s ease-in-out infinite, login-fadeup .6s ease-out;
-      backdrop-filter: blur(4px);
-    }
-    #login-box::before { content:''; position:absolute; top:-1px; left:-1px; width:20px; height:20px; border-top:2px solid #00ff41; border-left:2px solid #00ff41; }
-    #login-box::after  { content:''; position:absolute; bottom:-1px; right:-1px; width:20px; height:20px; border-bottom:2px solid #00ff41; border-right:2px solid #00ff41; }
-    #login-logo-area { text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; }
-    #login-logo-icon { font-size:34px; filter:drop-shadow(0 0 12px #00ff41); }
-    #login-title {
-      font-size: 28px; font-weight: 900; color: #00ff41;
-      letter-spacing: 5px; font-family: 'Courier New', monospace;
-      animation: login-glow-pulse 2.5s ease-in-out infinite;
-    }
-    #login-subtitle { font-size: 9px; color: #00ff4155; letter-spacing: 7px; font-family: monospace; }
-    #login-divider { width:100%; height:1px; background:linear-gradient(90deg,transparent,#00ff4133,transparent); }
-    #login-label { font-size:9px; color:#00ff4144; letter-spacing:5px; font-family:monospace; }
-    #login-input {
-      width: 100%; background: rgba(0,15,0,0.9); border: 1px solid #00ff4133;
-      border-radius: 2px; color: #00ff41; padding: 13px 20px;
-      font-size: 20px; outline: none; letter-spacing: 8px;
-      text-align: center; box-sizing: border-box; font-family: monospace;
-      transition: all .2s;
-    }
-    #login-input:focus { border-color: #00ff41; box-shadow: 0 0 0 1px #00ff4133, 0 0 20px #00ff4111; }
-    #login-input::placeholder { color: #00ff4122; letter-spacing: 4px; }
-    #login-btn {
-      width: 100%; background: transparent; border: 1px solid #00ff41;
-      color: #00ff41; font-size: 11px; font-weight: 800; padding: 15px;
-      cursor: pointer; letter-spacing: 6px; font-family: monospace;
-      transition: all .2s;
-    }
-    #login-btn:hover { background: #00ff4111; box-shadow: 0 0 30px #00ff4133; color:#afffaf; }
-    #login-error {
-      font-size: 10px; color: #f87171; text-align: center; display: none;
-      letter-spacing: 3px; font-family: monospace;
-      padding: 8px; border: 1px solid #f8717133; background: rgba(248,113,113,0.05);
-    }
-    #login-footer { text-align:center; font-size:9px; color:#00ff4122; letter-spacing:3px; font-family:monospace; }6 - チェックリスト（修正時に必ず全項目確認すること）
+    #login-screen.hidden { display: none; }6 - チェックリスト（修正時に必ず全項目確認すること）
   最終更新: 2026-03-16
 ================================================================================
 
@@ -256,18 +197,10 @@ checks = {
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Garage SMB Board v6</title><style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    /* ── ログイン画面 ── */
     @keyframes login-bg-move {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
-    }
-    @keyframes login-scan {
-      0% { transform: translateY(-100%); opacity: 0; }
-      10% { opacity: 0.4; }
-      90% { opacity: 0.4; }
-      100% { transform: translateY(100vh); opacity: 0; }
     }
     @keyframes login-glow-pulse {
       0%,100% { text-shadow: 0 0 10px #38bdf8, 0 0 30px #38bdf8aa, 0 0 60px #38bdf866; }
@@ -280,120 +213,9 @@ checks = {
     @keyframes login-line-blink {
       0%,100% { opacity: 1; } 50% { opacity: 0; }
     }
-    @keyframes login-fadeup {
-      from { opacity:0; transform:translateY(20px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    #login-screen {
-      position: fixed; inset: 0;
-      background: #020710;
-      display: flex; align-items: center; justify-content: center;
-      z-index: 99999; flex-direction: column; overflow: hidden;
-    }
     #login-screen.hidden { display: none; }
-    #login-grid {
-      position: absolute; inset: 0;
-      background-image:
-        linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none;
-    }
-    #login-scan-line {
-      position: absolute; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, #38bdf866, #38bdf8cc, #38bdf866, transparent);
-      animation: login-scan 4s linear infinite;
-      pointer-events: none;
-    }
-    #login-box {
-      position: relative;
-      background: rgba(6,14,28,0.92);
-      border: 1px solid #38bdf833;
-      border-radius: 4px;
-      padding: 52px 44px 44px;
-      width: 400px;
-      display: flex; flex-direction: column; gap: 24px;
-      animation: login-border-pulse 3s ease-in-out infinite, login-fadeup .6s ease-out;
-      backdrop-filter: blur(20px);
-    }
     /* 角のデコレーション */
-    #login-box::before, #login-box::after {
-      content: ''; position: absolute;
-      width: 16px; height: 16px;
-      border-color: #38bdf8; border-style: solid;
-    }
-    #login-box::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
-    #login-box::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
-    #login-logo-area {
-      text-align: center; display: flex; flex-direction: column;
-      align-items: center; gap: 6px;
-    }
-    #login-logo-icon {
-      font-size: 36px; margin-bottom: 4px;
-      filter: drop-shadow(0 0 12px #38bdf8);
-    }
-    #login-title {
-      font-size: 32px; font-weight: 900; color: #38bdf8;
-      letter-spacing: 6px; font-family: 'Orbitron', monospace;
-      animation: login-glow-pulse 2.5s ease-in-out infinite;
-      text-transform: uppercase;
-    }
-    #login-subtitle {
-      font-size: 10px; color: #38bdf888; letter-spacing: 8px;
-      font-family: monospace; text-transform: uppercase;
-      margin-top: 2px;
-    }
-    #login-divider {
-      width: 100%; height: 1px;
-      background: linear-gradient(90deg, transparent, #38bdf844, transparent);
-      margin: -8px 0;
-    }
-    #login-label {
-      font-size: 9px; color: #38bdf877; letter-spacing: 4px;
-      font-family: monospace; text-transform: uppercase;
-      text-align: center;
-    }
-    #login-input {
-      width: 100%; background: rgba(0,20,40,0.8);
-      border: 1px solid #38bdf844;
-      border-radius: 3px; color: #38bdf8; padding: 14px 20px;
-      font-size: 22px; outline: none; letter-spacing: 8px;
-      text-align: center; box-sizing: border-box;
-      font-family: monospace;
-      transition: all .2s;
-    }
-    #login-input:focus {
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 1px #38bdf844, 0 0 20px #38bdf822;
-      background: rgba(0,30,60,0.9);
-    }
-    #login-input::placeholder { color: #38bdf833; letter-spacing: 4px; }
-    #login-btn {
-      width: 100%;
-      background: transparent;
-      border: 1px solid #38bdf8;
-      border-radius: 3px; color: #38bdf8;
-      font-size: 12px; font-weight: 800; padding: 16px;
-      cursor: pointer; letter-spacing: 6px;
-      font-family: monospace; text-transform: uppercase;
-      box-shadow: 0 0 20px #38bdf822, inset 0 0 20px #38bdf808;
-      transition: all .2s; position: relative; overflow: hidden;
-    }
-    #login-btn:hover {
-      background: #38bdf811;
-      box-shadow: 0 0 40px #38bdf844, inset 0 0 30px #38bdf811;
-      color: #fff; border-color: #7dd3fc;
-    }
-    #login-error {
-      font-size: 10px; color: #f87171; text-align: center;
-      display: none; letter-spacing: 3px; font-family: monospace;
-      padding: 8px; border: 1px solid #f8717133;
-      background: rgba(248,113,113,0.05); border-radius: 3px;
-    }
-    #login-footer {
-      text-align: center; font-size: 9px; color: #1e3a5f;
-      letter-spacing: 2px; font-family: monospace;
-    }
+    #login-box::before,
     body { background: #060b14; color: #e2e8f0; font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0a0f1a; }
@@ -581,6 +403,42 @@ checks = {
       100% { box-shadow: 0 0 2px #f8717108; }
     }
     .mythic-pulse { animation: mythicPulse 3.5s ease-in-out infinite; }
+
+    /* ══ MATRIX LOGIN ══ */
+    @keyframes mx-glow {
+      0%,100% { text-shadow:0 0 7px #00ff41,0 0 20px #00ff4188,0 0 45px #00ff4155; }
+      50%      { text-shadow:0 0 14px #00ff41,0 0 40px #00ff41bb,0 0 80px #00ff4177; }
+    }
+    @keyframes mx-pulse {
+      0%,100% { box-shadow:0 0 0 1px #00ff4122,0 0 40px #00ff410a; }
+      50%      { box-shadow:0 0 0 1px #00ff4155,0 0 80px #00ff4118; }
+    }
+    @keyframes mx-fadein { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);} }
+    @keyframes mx-scan {
+      0%{top:-4px;opacity:0;}5%{opacity:1;}95%{opacity:1;}100%{top:100%;opacity:0;}
+    }
+    #login-screen{position:fixed;inset:0;background:#000802;display:flex;align-items:center;justify-content:center;z-index:99999;overflow:hidden;}
+    #login-screen.hidden{display:none;}
+    #login-canvas{position:absolute;inset:0;pointer-events:none;}
+    #login-box{position:relative;z-index:2;background:rgba(0,10,2,0.93);border:1px solid #00ff4133;padding:50px 46px 42px;width:400px;display:flex;flex-direction:column;gap:22px;align-items:center;animation:mx-pulse 3s ease-in-out infinite,mx-fadein .7s ease-out;overflow:hidden;}
+    #login-box::before{content:'';position:absolute;left:0;right:0;height:3px;top:-4px;background:linear-gradient(90deg,transparent,#00ff4133,#00ff4166,#00ff4133,transparent);animation:mx-scan 3s linear infinite;pointer-events:none;}
+    .mx-corner{position:absolute;width:22px;height:22px;pointer-events:none;}
+    .mx-tl{top:-1px;left:-1px;border-top:2px solid #00ff41;border-left:2px solid #00ff41;}
+    .mx-tr{top:-1px;right:-1px;border-top:2px solid #00ff41;border-right:2px solid #00ff41;}
+    .mx-bl{bottom:-1px;left:-1px;border-bottom:2px solid #00ff41;border-left:2px solid #00ff41;}
+    .mx-br{bottom:-1px;right:-1px;border-bottom:2px solid #00ff41;border-right:2px solid #00ff41;}
+    #login-title{font-size:26px;font-weight:900;color:#00ff41;letter-spacing:4px;font-family:'Courier New',monospace;animation:mx-glow 2.5s ease-in-out infinite;text-transform:uppercase;white-space:nowrap;}
+    #login-sub{font-size:11px;color:#00ff41aa;letter-spacing:5px;font-family:'Courier New',monospace;}
+    #login-div{width:100%;height:1px;background:linear-gradient(90deg,transparent,#00ff4155,#00ff4199,#00ff4155,transparent);}
+    #login-lbl{font-size:11px;color:#00ff41bb;letter-spacing:4px;font-family:'Courier New',monospace;width:100%;}
+    #login-input{width:100%;background:rgba(0,20,5,0.95);border:1px solid #00ff4144;color:#00ff41;padding:14px 20px;font-size:22px;outline:none;letter-spacing:10px;text-align:center;box-sizing:border-box;font-family:'Courier New',monospace;transition:all .2s;caret-color:#00ff41;}
+    #login-input:focus{border-color:#00ff41;box-shadow:0 0 0 1px #00ff4144,0 0 25px #00ff4115;}
+    #login-input::placeholder{color:#00ff4133;letter-spacing:6px;font-size:16px;}
+    #login-btn{width:100%;background:transparent;border:1px solid #00ff41;border-bottom:2px solid #00ff41;color:#00ff41;font-size:18px;font-weight:900;padding:18px;cursor:pointer;letter-spacing:10px;font-family:'Courier New',monospace;text-transform:uppercase;transition:all .15s;}
+    #login-btn:hover{background:#00ff4115;box-shadow:0 0 40px #00ff4133;color:#afffaf;}
+    #login-btn:active{transform:scale(0.98);}
+    #login-err{width:100%;font-size:10px;color:#ff4141;text-align:center;display:none;letter-spacing:3px;font-family:'Courier New',monospace;padding:10px;border:1px solid #ff414133;background:rgba(255,65,65,0.06);text-shadow:0 0 8px #ff414188;}
+    #login-foot{text-align:center;font-size:9px;color:#00ff4133;letter-spacing:4px;font-family:'Courier New',monospace;}
 </style>
   <!-- ★ Firebase SDK ★ -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -617,84 +475,113 @@ checks = {
   </script>
 </head>
 <body>
-  <!-- ログイン画面 -->
+
+  <!-- ══ MATRIX LOGIN ══ -->
   <div id="login-screen">
-    <canvas id="login-matrix-canvas"></canvas>
+    <canvas id="login-canvas"></canvas>
     <div id="login-box">
-      <div id="login-logo-area">
-        <div id="login-logo-icon">🚗</div>
-        <div id="login-title">AutoRunner MB</div>
-        <div id="login-subtitle">MANAGEMENT BOARD SYSTEM</div>
-      </div>
-      <div id="login-divider"></div>
-      <div id="login-label">// ACCESS CODE REQUIRED</div>
+      <div class="mx-corner mx-tl"></div>
+      <div class="mx-corner mx-tr"></div>
+      <div class="mx-corner mx-bl"></div>
+      <div class="mx-corner mx-br"></div>
+      <div id="login-title">AutoRunner MB</div>
+      <div id="login-sub">MANAGEMENT BOARD SYSTEM</div>
+      <div id="login-div"></div>
+      <div id="login-lbl">// ACCESS CODE REQUIRED</div>
       <input id="login-input" type="password" placeholder="· · · · · · · ·"
-        onkeydown="if(event.key==='Enter') document.getElementById('login-btn').click()"/>
-      <div id="login-error">⚠ ACCESS DENIED — INVALID CODE</div>
-      <button id="login-btn" onclick="doLogin()">[ ENTER THE SYSTEM ]</button>
-      <div id="login-footer">AUTHORIZED PERSONNEL ONLY</div>
+        onkeydown="if(event.key==='Enter')document.getElementById('login-btn').click()"/>
+      <div id="login-err">⚠ ACCESS DENIED — INVALID CODE</div>
+      <button id="login-btn" onclick="doLogin()">ENTER</button>
+      <div id="login-foot">AUTHORIZED PERSONNEL ONLY</div>
     </div>
   </div>
 
   <script>
-    (function() {
-      var canvas = document.getElementById('login-matrix-canvas');
-      var ctx = canvas.getContext('2d');
-      function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
-      resizeCanvas();
-      window.addEventListener('resize', resizeCanvas);
-      var cols, drops;
-      function initDrops() {
-        cols = Math.floor(canvas.width / 16);
-        drops = Array(cols).fill(1);
-      }
-      initDrops();
-      var chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ0123456789ABCDEF';
-      var matrixTimer = setInterval(function() {
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        for (var i=0; i<drops.length; i++) {
-          var ch = chars[Math.floor(Math.random()*chars.length)];
-          ctx.fillStyle = drops[i]*16 < 40 ? '#afffaf' : '#00ff41';
-          ctx.font = '14px Courier New';
-          ctx.fillText(ch, i*16, drops[i]*16);
-          if (drops[i]*16 > canvas.height && Math.random() > 0.975) drops[i]=0;
+    (function(){
+      var cv=document.getElementById('login-canvas');
+      var cx=cv.getContext('2d');
+      function resize(){cv.width=innerWidth;cv.height=innerHeight;}
+      resize();window.addEventListener('resize',resize);
+      var cols,drops;
+      function init(){cols=Math.floor(cv.width/16);drops=Array(cols).fill(1);}
+      init();
+      var ch='ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789';
+      var tid=setInterval(function(){
+        cx.fillStyle='rgba(0,0,0,0.05)';cx.fillRect(0,0,cv.width,cv.height);
+        for(var i=0;i<drops.length;i++){
+          cx.fillStyle=drops[i]*16<40?'#c0ffc0':'#00ff41';
+          cx.font='14px Courier New';
+          cx.fillText(ch[Math.floor(Math.random()*ch.length)],i*16,drops[i]*16);
+          if(drops[i]*16>cv.height&&Math.random()>0.975)drops[i]=0;
           drops[i]++;
         }
-      }, 50);
-      window._stopMatrix = function() { clearInterval(matrixTimer); };
-
-    (function() {
-      var PWD = 'auto8821';
-      var TODAY = new Date().toISOString().slice(0,10);
-
-      function checkAuth() {
-        var saved = localStorage.getItem('garage_auth_date');
-        if (saved === TODAY) {
+      },45);
+      var PWD='auto8821';
+      var TODAY=new Date().toISOString().slice(0,10);
+      function checkAuth(){
+        if(localStorage.getItem('garage_auth_date')===TODAY){
           document.getElementById('login-screen').classList.add('hidden');
+          clearInterval(tid);
         }
       }
-
-      window.doLogin = function() {
-        var val = document.getElementById('login-input').value;
-        if (val === PWD) {
-          localStorage.setItem('garage_auth_date', TODAY);
-          document.getElementById('login-screen').classList.add('hidden');
-          document.getElementById('login-error').style.display = 'none';
-          if (window._stopMatrix) window._stopMatrix();
-        } else {
-          document.getElementById('login-error').style.display = 'block';
-          document.getElementById('login-input').value = '';
+      window.doLogin=function(){
+        var v=document.getElementById('login-input').value;
+        if(v===PWD){
+          localStorage.setItem('garage_auth_date',TODAY);
+          document.getElementById('login-err').style.display='none';
+          document.getElementById('login-box').style.transition='opacity 0.4s';
+          document.getElementById('login-box').style.opacity='0';
+          setTimeout(function(){ document.getElementById('login-box').style.display='none'; },400);
+          var target='AUTORUNNER';
+          var progress=0;
+          clearInterval(tid);
+          var autoTid=setInterval(function(){
+            progress+=0.012;
+            cx.fillStyle='rgba(0,0,0,'+Math.max(0.001,0.05-progress*0.01)+')';
+            cx.fillRect(0,0,cv.width,cv.height);
+            var cx2=cv.width/2,cy2=cv.height/2;
+            for(var i=0;i<drops.length;i++){
+              var useTarget=Math.random()<Math.min(progress*0.5,1);
+              var letter=useTarget?target[Math.floor(Math.random()*target.length)]:ch[Math.floor(Math.random()*ch.length)];
+              var x=i*16,y=drops[i]*16;
+              if(progress>1.5){var pull=Math.min((progress-1.5)*0.08,0.6);x=x+(cx2-x)*pull;y=y+(cy2-y)*pull;}
+              if(useTarget&&progress>2){var w=Math.min((progress-2)*0.6,1);cx.fillStyle='rgb('+Math.floor(w*255)+',255,'+Math.floor(65+w*190)+')';cx.font='bold 14px Courier New';}
+              else{cx.fillStyle=useTarget?'#00ff41':'#00ff4144';cx.font='13px Courier New';}
+              cx.fillText(letter,x,y);
+              drops[i]+=1+progress;
+              if(drops[i]*16>cv.height)drops[i]=0;
+            }
+            if(progress>1.5){
+              var alpha=Math.min((progress-1.5)*0.3,1);
+              var size=40+(progress-1.5)*20;
+              cx.save();cx.globalAlpha=alpha;
+              cx.font='bold '+Math.floor(size)+'px Courier New';
+              cx.textAlign='center';cx.textBaseline='middle';
+              cx.shadowColor='#00ff41';cx.shadowBlur=20+Math.min((progress-1.5)*0.5,1)*40;
+              cx.fillStyle=progress>3?'rgb('+Math.floor((progress-3)*128)+',255,'+Math.floor(65+(progress-3)*60)+')':'#00ff41';
+              cx.fillText('AUTORUNNER MB',cx2,cy2);
+              cx.restore();
+            }
+            if(progress>4.5&&!window._fadingOut){
+              window._fadingOut=true;clearInterval(autoTid);
+              var flash=document.createElement('div');
+              flash.style.cssText='position:fixed;inset:0;background:#fff;z-index:99998;opacity:0;transition:opacity 0.25s;pointer-events:none;';
+              document.body.appendChild(flash);
+              setTimeout(function(){flash.style.opacity='0.9';},30);
+              setTimeout(function(){flash.style.opacity='0';flash.style.transition='opacity 0.7s';document.getElementById('login-screen').style.transition='opacity 0.7s';document.getElementById('login-screen').style.opacity='0';},350);
+              setTimeout(function(){document.getElementById('login-screen').classList.add('hidden');document.getElementById('login-screen').style.opacity='';document.body.removeChild(flash);window._fadingOut=false;},1100);
+            }
+          },30);
+        }else{
+          document.getElementById('login-err').style.display='block';
+          document.getElementById('login-input').value='';
           document.getElementById('login-input').focus();
         }
       };
-
       checkAuth();
     })();
   </script>
+
   <!-- Firebase接続状態インジケーター -->
   <div id="fb-status" style="position:fixed;bottom:12px;right:12px;z-index:9998;
     background:rgba(6,182,212,0.15);border:1px solid rgba(6,182,212,0.4);
