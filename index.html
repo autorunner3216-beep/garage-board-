@@ -3,34 +3,6 @@
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Garage SMB Board v6</title><style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    /* ══ MATRIX LOGIN ══ */
-    @keyframes mx-glow{0%,100%{text-shadow:0 0 7px #00ff41,0 0 20px #00ff4188;}50%{text-shadow:0 0 14px #00ff41,0 0 40px #00ff41bb;}}
-    @keyframes mx-pulse{0%,100%{box-shadow:0 0 0 1px #00ff4122,0 0 40px #00ff410a;}50%{box-shadow:0 0 0 1px #00ff4155,0 0 80px #00ff4118;}}
-    @keyframes mx-fadein{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
-    @keyframes mx-scan{0%{top:-4px;opacity:0;}5%{opacity:1;}95%{opacity:1;}100%{top:100%;opacity:0;}}
-    #login-screen{position:fixed;inset:0;background:#000802;display:flex;align-items:center;justify-content:center;z-index:99999;overflow:hidden;}
-    #login-screen.hidden{display:none;}
-    #login-canvas{position:absolute;inset:0;pointer-events:none;}
-    #login-box{position:relative;z-index:2;background:rgba(0,10,2,0.93);border:1px solid #00ff4133;padding:50px 46px 42px;width:400px;display:flex;flex-direction:column;gap:22px;align-items:center;animation:mx-pulse 3s ease-in-out infinite,mx-fadein .7s ease-out;overflow:hidden;}
-    #login-box::before{content:'';position:absolute;left:0;right:0;height:3px;top:-4px;background:linear-gradient(90deg,transparent,#00ff4133,#00ff4166,#00ff4133,transparent);animation:mx-scan 3s linear infinite;pointer-events:none;}
-    .mx-corner{position:absolute;width:22px;height:22px;pointer-events:none;}
-    .mx-tl{top:-1px;left:-1px;border-top:2px solid #00ff41;border-left:2px solid #00ff41;}
-    .mx-tr{top:-1px;right:-1px;border-top:2px solid #00ff41;border-right:2px solid #00ff41;}
-    .mx-bl{bottom:-1px;left:-1px;border-bottom:2px solid #00ff41;border-left:2px solid #00ff41;}
-    .mx-br{bottom:-1px;right:-1px;border-bottom:2px solid #00ff41;border-right:2px solid #00ff41;}
-    #login-title{font-size:26px;font-weight:900;color:#00ff41;letter-spacing:4px;font-family:'Courier New',monospace;animation:mx-glow 2.5s ease-in-out infinite;text-transform:uppercase;white-space:nowrap;}
-    #login-sub{font-size:11px;color:#00ff41aa;letter-spacing:5px;font-family:'Courier New',monospace;}
-    #login-div{width:100%;height:1px;background:linear-gradient(90deg,transparent,#00ff4155,#00ff4199,#00ff4155,transparent);}
-    #login-lbl{font-size:11px;color:#00ff41bb;letter-spacing:4px;font-family:'Courier New',monospace;width:100%;}
-    #login-input{width:100%;background:rgba(0,20,5,0.95);border:1px solid #00ff4144;color:#00ff41;padding:14px 20px;font-size:22px;outline:none;letter-spacing:10px;text-align:center;box-sizing:border-box;font-family:'Courier New',monospace;transition:all .2s;caret-color:#00ff41;}
-    #login-input:focus{border-color:#00ff41;box-shadow:0 0 0 1px #00ff4144,0 0 25px #00ff4115;}
-    #login-input::placeholder{color:#00ff4133;letter-spacing:6px;font-size:16px;}
-    #login-btn{width:100%;background:transparent;border:1px solid #00ff41;border-bottom:2px solid #00ff41;color:#00ff41;font-size:18px;font-weight:900;padding:18px;cursor:pointer;letter-spacing:10px;font-family:'Courier New',monospace;text-transform:uppercase;transition:all .15s;}
-    #login-btn:hover{background:#00ff4115;box-shadow:0 0 40px #00ff4133;color:#afffaf;}
-    #login-btn:active{transform:scale(0.98);}
-    #login-err{width:100%;font-size:10px;color:#ff4141;text-align:center;display:none;letter-spacing:3px;font-family:'Courier New',monospace;padding:10px;border:1px solid #ff414133;background:rgba(255,65,65,0.06);}
-    #login-foot{text-align:center;font-size:9px;color:#00ff4133;letter-spacing:4px;font-family:'Courier New',monospace;}
-
     body { background: #060b14; color: #e2e8f0; font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0a0f1a; }
@@ -254,111 +226,6 @@
   </script>
 </head>
 <body>
-
-  <!-- ══ MATRIX LOGIN ══ -->
-  <div id="login-screen">
-    <canvas id="login-canvas"></canvas>
-    <div id="login-box">
-      <div class="mx-corner mx-tl"></div>
-      <div class="mx-corner mx-tr"></div>
-      <div class="mx-corner mx-bl"></div>
-      <div class="mx-corner mx-br"></div>
-      <div id="login-title">AutoRunner MB</div>
-      <div id="login-sub">MANAGEMENT BOARD SYSTEM</div>
-      <div id="login-div"></div>
-      <div id="login-lbl">// ACCESS CODE REQUIRED</div>
-      <input id="login-input" type="password" placeholder="· · · · · · · ·"
-        onkeydown="if(event.key==='Enter')document.getElementById('login-btn').click()"/>
-      <div id="login-err">⚠ ACCESS DENIED — INVALID CODE</div>
-      <button id="login-btn" onclick="doLogin()">ENTER</button>
-      <div id="login-foot">AUTHORIZED PERSONNEL ONLY</div>
-    </div>
-  </div>
-  <script>
-    (function(){
-      var cv=document.getElementById('login-canvas');
-      var cx=cv.getContext('2d');
-      function resize(){cv.width=innerWidth;cv.height=innerHeight;}
-      resize();window.addEventListener('resize',resize);
-      var cols,drops;
-      function init(){cols=Math.floor(cv.width/16);drops=Array(cols).fill(1);}
-      init();
-      var ch='ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789';
-      var tid=setInterval(function(){
-        cx.fillStyle='rgba(0,0,0,0.05)';cx.fillRect(0,0,cv.width,cv.height);
-        for(var i=0;i<drops.length;i++){
-          cx.fillStyle=drops[i]*16<40?'#c0ffc0':'#00ff41';
-          cx.font='14px Courier New';
-          cx.fillText(ch[Math.floor(Math.random()*ch.length)],i*16,drops[i]*16);
-          if(drops[i]*16>cv.height&&Math.random()>0.975)drops[i]=0;
-          drops[i]++;
-        }
-      },45);
-      var PWD='auto8821';
-      var TODAY=new Date().toISOString().slice(0,10);
-      function checkAuth(){
-        if(localStorage.getItem('garage_auth_date')===TODAY){
-          document.getElementById('login-screen').classList.add('hidden');
-          clearInterval(tid);
-        }
-      }
-      window.doLogin=function(){
-        var v=document.getElementById('login-input').value;
-        if(v===PWD){
-          localStorage.setItem('garage_auth_date',TODAY);
-          document.getElementById('login-err').style.display='none';
-          document.getElementById('login-box').style.transition='opacity 0.4s';
-          document.getElementById('login-box').style.opacity='0';
-          setTimeout(function(){document.getElementById('login-box').style.display='none';},400);
-          var target='AUTORUNNER MB';
-          var progress=0;
-          clearInterval(tid);
-          var autoTid=setInterval(function(){
-            progress+=0.012;
-            cx.fillStyle='rgba(0,0,0,'+Math.max(0.001,0.05-progress*0.01)+')';
-            cx.fillRect(0,0,cv.width,cv.height);
-            var cx2=cv.width/2,cy2=cv.height/2;
-            for(var i=0;i<drops.length;i++){
-              var useTarget=Math.random()<Math.min(progress*0.5,1);
-              var letter=useTarget?target[Math.floor(Math.random()*target.length)]:ch[Math.floor(Math.random()*ch.length)];
-              var x=i*16,y=drops[i]*16;
-              if(progress>1.5){var pull=Math.min((progress-1.5)*0.08,0.6);x=x+(cx2-x)*pull;y=y+(cy2-y)*pull;}
-              if(useTarget&&progress>2){var w=Math.min((progress-2)*0.6,1);cx.fillStyle='rgb('+Math.floor(w*255)+',255,'+Math.floor(65+w*190)+')';cx.font='bold 14px Courier New';}
-              else{cx.fillStyle=useTarget?'#00ff41':'#00ff4144';cx.font='13px Courier New';}
-              cx.fillText(letter,x,y);
-              drops[i]+=1+progress;
-              if(drops[i]*16>cv.height)drops[i]=0;
-            }
-            if(progress>1.5){
-              var alpha=Math.min((progress-1.5)*0.3,1);
-              var size=40+(progress-1.5)*20;
-              cx.save();cx.globalAlpha=alpha;
-              cx.font='bold '+Math.floor(size)+'px Courier New';
-              cx.textAlign='center';cx.textBaseline='middle';
-              cx.shadowColor='#00ff41';cx.shadowBlur=20+Math.min((progress-1.5)*0.5,1)*40;
-              cx.fillStyle=progress>3?'rgb('+Math.floor((progress-3)*128)+',255,'+Math.floor(65+(progress-3)*60)+')':'#00ff41';
-              cx.fillText('AUTORUNNER MB',cx2,cy2);
-              cx.restore();
-            }
-            if(progress>4.5&&!window._fadingOut){
-              window._fadingOut=true;clearInterval(autoTid);
-              var flash=document.createElement('div');
-              flash.style.cssText='position:fixed;inset:0;background:#fff;z-index:99998;opacity:0;transition:opacity 0.25s;pointer-events:none;';
-              document.body.appendChild(flash);
-              setTimeout(function(){flash.style.opacity='0.9';},30);
-              setTimeout(function(){flash.style.opacity='0';flash.style.transition='opacity 0.7s';document.getElementById('login-screen').style.transition='opacity 0.7s';document.getElementById('login-screen').style.opacity='0';},350);
-              setTimeout(function(){document.getElementById('login-screen').classList.add('hidden');document.getElementById('login-screen').style.opacity='';document.body.removeChild(flash);window._fadingOut=false;},1100);
-            }
-          },30);
-        }else{
-          document.getElementById('login-err').style.display='block';
-          document.getElementById('login-input').value='';
-          document.getElementById('login-input').focus();
-        }
-      };
-      checkAuth();
-    })();
-  </script>
   <!-- Firebase接続状態インジケーター -->
   <div id="fb-status" style="position:fixed;bottom:12px;right:12px;z-index:9998;
     background:rgba(6,182,212,0.15);border:1px solid rgba(6,182,212,0.4);
@@ -460,14 +327,14 @@ react-dom/cjs/react-dom-client.production.js:
     const MIN_DUR = 1/3;
 
     const INIT_STALLS = [
-      {id:"S01",name:"S-01",mechanic:"山田"},
-      {id:"S02",name:"S-02",mechanic:"鈴木"},
-      {id:"S03",name:"S-03",mechanic:"高橋"},
-      {id:"S04",name:"S-04",mechanic:"渡辺"},
-      {id:"S05",name:"S-05",mechanic:"中村"},
-      {id:"S06",name:"S-06",mechanic:"伊藤"},
-      {id:"S07",name:"S-07",mechanic:"加藤"},
-      {id:"S08",name:"S-08",mechanic:"松本"},
+      {id:"S01",name:"S-01",mechanic:""},
+      {id:"S02",name:"S-02",mechanic:""},
+      {id:"S03",name:"S-03",mechanic:""},
+      {id:"S04",name:"S-04",mechanic:""},
+      {id:"S05",name:"S-05",mechanic:""},
+      {id:"S06",name:"S-06",mechanic:""},
+      {id:"S07",name:"S-07",mechanic:""},
+      {id:"S08",name:"S-08",mechanic:""},
     ];
 
     const STATUSES = ["作業待ち","当日来店/預かり","連絡待ち","部品待ち","一時中断","検査・保適待ち","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
@@ -836,7 +703,7 @@ react-dom/cjs/react-dom-client.production.js:
 
 
     // ── ステータス一覧 ──
-    function ShelvedList({ shelvedJobs, allJobs, stalls, openReAssign, removeJob, setEditJob, updStatus, flashJobId }) {
+    function ShelvedList({ shelvedJobs, allJobs, stalls, openReAssign, removeJob, setEditJob, updStatus }) {
       const [filt, setFilt] = useState("すべて");
       const [sortOrder, setSortOrder] = useState("new");
       const [groupMode, setGroupMode] = useState("none"); // "none" | "mechanic" | "receptionist"
@@ -886,11 +753,8 @@ react-dom/cjs/react-dom-client.production.js:
       const renderGrid = (jobList) => React.createElement('div', { style: { display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:7 }},
         jobList.map(job => {
           const sc = SC[job.status]||SC["作業待ち"]; const jt = JT[job.type]||JT["一般整備"];
-          const isFlash = flashJobId === job.id;
           return (
             React.createElement('div', { key: job.id,
-              id: `status-card-${job.id}`,
-              className: isFlash ? "search-flash" : "",
               onDoubleClick: () => setEditJob(job),
               style: { background:"#0d1625", border:`1px solid ${sc.accent}55`,
               borderLeft:`3px solid ${sc.accent}`, borderRadius:9, padding:"9px 10px",
@@ -1239,7 +1103,7 @@ react-dom/cjs/react-dom-client.production.js:
                   isWaiting ? "ストールボードに配置する" : "ボードに戻す")
               )
               , React.createElement('div', { style: { marginBottom:10 }}
-                , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "作業日")
+                , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "作業日")
                 , React.createElement('input', { type:"date", value:ra.date, onChange: e => setRa(p=>({...p,date:e.target.value})),
                   style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                     padding:"8px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
@@ -1251,7 +1115,7 @@ react-dom/cjs/react-dom-client.production.js:
                   {key:"end",   label:"終了予定", opts:HOURS_20.map(t=>[String(t),fmtH(t)])},
                 ].map(f =>
                   React.createElement('div', { key: f.key }
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label)
                     , React.createElement('select', { value: ra[f.key], onChange: e => setRa(p=>({...p,[f.key]:e.target.value})),
                       style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                         padding:"7px 6px", color:"#e2e8f0", fontSize:11, outline:"none" }}
@@ -1277,7 +1141,7 @@ react-dom/cjs/react-dom-client.production.js:
     // ── ロールカードパネル ──
     const ROLE_TYPES = [
       { key:"inspector", label:"検査員",    color:"#3b82f6", bg:"#0e2444" },
-      { key:"hsub",      label:"Hサブ",     color:"#ef4444", bg:"#2a0a0a", borderColor:"#ffffff" },
+      { key:"hsub",      label:"Hサブ",     color:"#a855f7", bg:"#1a0e2a" },
       { key:"kensa",     label:"検査・保適", color:"#f59e0b", bg:"#2a1a08" },
       { key:"delivery",  label:"納車準備",  color:"#22c55e", bg:"#0a2018" },
       { key:"noentry",   label:"入庫不可",  color:"#f43f5e", bg:"#2a0a14" },
@@ -1291,13 +1155,6 @@ react-dom/cjs/react-dom-client.production.js:
       { key:"telcall",   label:"TELコール", color:"#4ade80", bg:"#0a1e10" },
       { key:"nyuken",    label:"入検",      color:"#e879f9", bg:"#1e0a2a" },
     ];
-    const ROLE_BAR_BG = {
-      inspector:"#1e3a5f", hsub:"#7f1d1d", kensa:"#78350f",
-      delivery:"#14532d", noentry:"#881337", pickup:"#164e63",
-      rest:"#1e293b", help:"#7f1d1d", bp:"#713f12",
-      office:"#334155", estimate:"#0c4a6e", tire:"#7c2d12",
-      telcall:"#14532d", nyuken:"#701a75"
-    };
 
     // ── ガントボード ──
     function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob }) {
@@ -1638,9 +1495,8 @@ react-dom/cjs/react-dom-client.production.js:
                       return (
                         React.createElement('div', { key: card.id, style: { position:"absolute", top:2, height:ROW_H-4,
                           left:(card.start-8)*CELL_W+2, width:w-4,
-                          background: ROLE_BAR_BG[card.type] || rt.bg,
-                          border:`2px solid ${rt.borderColor||rt.color}`,
-                          borderLeft:`4px solid ${rt.borderColor||rt.color}`,
+                          background:rt.bg, border:`1px solid ${rt.color}88`,
+                          borderLeft:`3px solid ${rt.color}`,
                           borderRadius:6, zIndex:4, overflow:"hidden",
                           boxShadow:`0 0 8px ${rt.color}44`, display:"flex", alignItems:"stretch" }}
                           /* 左リサイズハンドル */
@@ -1667,11 +1523,7 @@ react-dom/cjs/react-dom-client.production.js:
                               )
                             )
                             , React.createElement('span', { onMouseDown: e=>e.stopPropagation(), onClick: e=>{ e.stopPropagation(); setRoleCards(p=>p.filter(c2=>c2.id!==card.id)); },
-                              style: { fontSize:13, fontWeight:900, color:"#ffffff", cursor:"pointer", flexShrink:0,
-                                paddingLeft:4, lineHeight:1, textShadow:"0 0 6px rgba(0,0,0,.8)", opacity:0.8 },
-                              onMouseEnter: e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.color="#fca5a5"; },
-                              onMouseLeave: e=>{ e.currentTarget.style.opacity="0.8"; e.currentTarget.style.color="#ffffff"; }
-                            }, "✕")
+                              style: { fontSize:10, color:"#475569", cursor:"pointer", flexShrink:0, paddingLeft:4, lineHeight:1 }}, "✕")
                           )
                           /* 右リサイズハンドル */
                           , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
@@ -1695,7 +1547,6 @@ react-dom/cjs/react-dom-client.production.js:
                       const isFlash = flashJobId === job.id;
                       return (
                         React.createElement('div', { key: job.id,
-                          id: `job-bar-${job.id}`,
                           className: (working && !isGhost ? "bar-working" : "") + (isFlash ? " search-flash" : ""),
                           style: { position:"absolute", top:6, height:ROW_H-12,
                             left:(job.start-8)*CELL_W+2, width:w-4,
@@ -1787,7 +1638,7 @@ react-dom/cjs/react-dom-client.production.js:
                                 )
                               )
                             )
-                            /* 行2: オーナー名 + ナンバー4桁 + 車種 + 納車日 */
+                            /* 行2: オーナー名 + ナンバー4桁 */
                             , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:3, minWidth:0, height:"50%" }}
                               , React.createElement('span', { style: { fontSize:9, fontWeight:700, flexShrink:1, minWidth:"1.8em",
                                   color:done?"#475569":working?sc.text:"#94a3b8",
@@ -1796,11 +1647,6 @@ react-dom/cjs/react-dom-client.production.js:
                               , React.createElement('span', { style: { fontSize:8, fontWeight:700, fontFamily:"monospace",
                                   color:"#e2e8f0", whiteSpace:"nowrap", flexShrink:1, minWidth:0, overflow:"hidden", textOverflow:"clip" }},
                                 (job.plate&&job.plate.match(/\d{4}/)||[""])[0])
-                              , w > 90 && job.model && React.createElement('span', { style: { fontSize:7, fontWeight:600,
-                                  color:"#94a3b8", whiteSpace:"nowrap", flexShrink:1, overflow:"hidden", textOverflow:"ellipsis" }}, job.model)
-                              , w > 110 && job.deliveryDate && React.createElement('span', { style: { fontSize:7, fontWeight:700,
-                                  color:"#fbbf24", background:"#78350f44", border:"1px solid #fbbf2433", borderRadius:3,
-                                  padding:"0 3px", flexShrink:0, whiteSpace:"nowrap" }}, "🚗"+job.deliveryDate.slice(5))
                               , working && job.startedAt && React.createElement('span', { style: { fontSize:6, color:"#10b98166", flexShrink:0, marginLeft:"auto" }}, "▶", job.startedAt)
                               , done && job.endedAt && React.createElement('span', { style: { fontSize:6, color:"#33415566", flexShrink:0, marginLeft:"auto" }}, "✓", job.endedAt)
                             )
@@ -2115,13 +1961,13 @@ react-dom/cjs/react-dom-client.production.js:
           )
           /* 日付 */
           , React.createElement('div', { style: { marginBottom:12 }}
-            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "日付")
+            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "日付")
             , React.createElement('input', { type:"date", value:draft.date,
                 onChange: e => setDraft(p=>({...p, date:e.target.value})), style: inpStyle })
           )
           /* ストール選択 */
           , React.createElement('div', { style: { marginBottom:12 }}
-            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "ストール")
+            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "ストール")
             , React.createElement('div', { style: { display:"flex", flexWrap:"wrap", gap:5 }}
               , React.createElement('button', { onClick: toggleAll, style: btnBase(draft.stallIds.length===stalls.length) },
                   draft.stallIds.length===stalls.length ? "✓ 全て" : "全て選択")
@@ -2131,7 +1977,7 @@ react-dom/cjs/react-dom-client.production.js:
           )
           /* 時間帯 */
           , React.createElement('div', { style: { marginBottom:12 }}
-            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "時間帯")
+            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "時間帯")
             , React.createElement('div', { style: { display:"flex", gap:6 }}
               , PERIODS.map(p => React.createElement('button', { key: p.key, onClick: () => setDraft(d=>({...d, period:p.key})),
                   style: { ...btnBase(draft.period===p.key), flex:1 }}, p.label))
@@ -2139,7 +1985,7 @@ react-dom/cjs/react-dom-client.production.js:
           )
           /* 理由 */
           , React.createElement('div', { style: { marginBottom:16 }}
-            , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "理由")
+            , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "理由")
             , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap", marginBottom:6 }}
               , REASONS.map(r => React.createElement('button', { key: r, onClick: () => setDraft(p=>({...p, reason:r})),
                   style: btnBase(draft.reason===r, "#f87171") }, r))
@@ -2253,7 +2099,7 @@ react-dom/cjs/react-dom-client.production.js:
             )
             /* 作業種別 */
             , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "作業種別")
+              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "作業種別")
               , JT_GROUPS.map(group => (
                 React.createElement('div', { key: group.label, style: { marginBottom:6 }}
                   , React.createElement('div', { style: { fontSize:9, color:"#334155", marginBottom:3, letterSpacing:1 }}, group.label)
@@ -2272,18 +2118,18 @@ react-dom/cjs/react-dom-client.production.js:
             )
             , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
               , React.createElement('div', {}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付担当者")
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "受付担当者")
                   , React.createElement(StaffInput, { value: draft.receptionist,
                     onChange: v => setDraft(p=>({...p,receptionist:v})), placeholder: "担当者名", list: receptList||staffList, color:"#06b6d4" })
                 )
               , React.createElement('div', {}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "担当メカニック")
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "担当メカニック")
                   , React.createElement(StaffInput, { value: draft.mechanic,
                     onChange: v => setDraft(p=>({...p,mechanic:v})), placeholder: "メカニック名", list: mechList||staffList, color:"#10b981" })
                 )
               , [{key:"receptionDate",label:"受付日"},{key:"deliveryDate",label:"納車予定日"}].map(f=>(
                 React.createElement('div', { key: f.key}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label)
                   , React.createElement('input', { type: "date", value: draft[f.key], onChange: e=>setDraft(p=>({...p,[f.key]:e.target.value})),
                     style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                       padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
@@ -2297,7 +2143,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
               , React.createElement('div', { style: { gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}
                   , React.createElement('div', {}
-                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "ストール")
+                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "ストール")
                       , React.createElement('select', { value: draft.stall, onChange: e=>setDraft(p=>({...p,stall:e.target.value})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
@@ -2305,7 +2151,7 @@ react-dom/cjs/react-dom-client.production.js:
                       )
                   )
                   , React.createElement('div', {}
-                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "開始時間")
+                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "開始時間")
                       , React.createElement('select', { value: String(draft.start), onChange: e=>setDraft(p=>({...p,start:parseFloat(e.target.value)})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
@@ -2313,7 +2159,7 @@ react-dom/cjs/react-dom-client.production.js:
                       )
                   )
                   , React.createElement('div', {}
-                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "終了時間")
+                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "終了時間")
                       , React.createElement('select', { value: String(draft.end), onChange: e=>setDraft(p=>({...p,end:parseFloat(e.target.value)})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
@@ -2323,7 +2169,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
             )
             , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "代車")
+              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "代車")
               , React.createElement('div', { style: { display:"flex", gap:6 }}
                 , ["なし","あり"].map(v=>(
                   React.createElement('button', { key: v, onClick: ()=>setDraft(p=>({...p,loanCar:v})),
@@ -2336,7 +2182,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
             )
             , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "引取 / 納車"  )
+              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "引取 / 納車"  )
               , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap" }}
                 , ["なし","引取","納車","引取+納車"].map(v=>(
                   React.createElement('button', { key: v, onClick: ()=>setDraft(p=>({...p,transport:v})),
@@ -2350,7 +2196,7 @@ react-dom/cjs/react-dom-client.production.js:
             )
             /* 新規・既存 */
            , React.createElement('div', { style: { marginBottom:12 }}
-              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "顧客区分")
+              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "顧客区分")
               , React.createElement('div', { style: { display:"flex", gap:6 }}
                 , [["existing","既存客"],["new","新規客"],["newcar","車両のみ新規"]].map(([v,l]) =>
                   React.createElement('button', { key: v, onClick: () => setDraft(p=>({...p,isNew:v})),
@@ -2364,7 +2210,7 @@ react-dom/cjs/react-dom-client.production.js:
               )
             )
            , React.createElement('div', { style: { marginBottom:16 }}
-              , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "メモ")
+              , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "メモ")
               , React.createElement('input', { value: draft.memo, onChange: e=>setDraft(p=>({...p,memo:e.target.value})),
                 placeholder: "特記事項",
                 style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
@@ -2405,7 +2251,7 @@ react-dom/cjs/react-dom-client.production.js:
       const [itemTargets, setItemTargets] = useState(() => {
         try { const s = localStorage.getItem('garage_item_targets'); return s ? JSON.parse(s) : {}; } catch { return {}; }
       });
-      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v); };
+      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} }; if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v);
       // ── Sales Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
@@ -3423,26 +3269,12 @@ React.createElement('select', {
       const [showCarEdit, setShowCarEdit] = useState(false);
       const [loanModal, setLoanModal] = useState(null);
       const [loanDetail, setLoanDetail] = useState(null);
-      const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
-      const [resizeDrag, setResizeDrag] = useState(null);
-      const [moveDrag, setMoveDrag] = useState(null);
+      const [resizeDrag, setResizeDrag] = useState(null); // {loanId, side:'L'|'R', origDate}
 
-      const _lcInitialized = React.useRef(false);
-      useEffect(() => {
-        if (!_lcInitialized.current) { _lcInitialized.current = true; return; }
-        if (_lcFbIncoming.current) return;
-        localStorage.setItem('loancar_cars', JSON.stringify(lcCars));
-        if (typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars);
-      }, [lcCars]);
-      const _lcLoansInitialized = React.useRef(false);
-      useEffect(() => {
-        if (!_lcLoansInitialized.current) { _lcLoansInitialized.current = true; return; }
-        if (_lcFbIncoming.current) return;
-        localStorage.setItem('loancar_loans', JSON.stringify(lcLoans));
-        if (typeof window.fbSet==='function') window.fbSet('loancar_loans', lcLoans);
-      }, [lcLoans]);
+      useEffect(() => { localStorage.setItem('loancar_cars',  JSON.stringify(lcCars));  if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars); }, [lcCars]);
+      useEffect(() => { localStorage.setItem('loancar_loans', JSON.stringify(lcLoans)); if (!_lcFbIncoming.current && typeof window.fbSet==='function') window.fbSet('loancar_loans', lcLoans); }, [lcLoans]);
 
       // ── LoanCar Firebase リアルタイム同期 ──
       const _lcFbIncoming = React.useRef(false);
@@ -3458,9 +3290,9 @@ React.createElement('select', {
       }, []);
 
       useEffect(() => {
-        document.body.style.cursor = moveDrag ? 'grabbing' : dragState ? 'col-resize' : resizeDrag ? 'ew-resize' : '';
-        document.body.style.userSelect = (dragState||resizeDrag||moveDrag) ? 'none' : '';
-      }, [!!dragState, !!resizeDrag, !!moveDrag]);
+        document.body.style.cursor = dragState ? 'col-resize' : resizeDrag ? 'ew-resize' : '';
+        document.body.style.userSelect = (dragState||resizeDrag) ? 'none' : '';
+      }, [!!dragState, !!resizeDrag]);
 
       useEffect(() => {
         const onUp = () => {
@@ -3513,38 +3345,6 @@ React.createElement('select', {
         window.addEventListener('mousemove', onMove);
         return () => window.removeEventListener('mousemove', onMove);
       }, [resizeDrag, days, daysInMonth]);
-
-      useEffect(() => {
-        if (!moveDrag) return;
-        const onMove = e => {
-          if (!gridRef.current) return;
-          const rect = gridRef.current.getBoundingClientRect();
-          const dx = e.clientX - moveDrag.startX;
-          const dy = e.clientY - moveDrag.startY;
-          const gridW = rect.width - LEFT_W;
-          const dayW = gridW / daysInMonth;
-          const daysDelta = Math.round(dx / dayW);
-          const rowDelta = Math.round(dy / ROW_H);
-          if (daysDelta === 0 && rowDelta === 0) return;
-          setLcLoans(p => p.map(l => {
-            if (l.id !== moveDrag.loanId) return l;
-            const newStart = bpAddDays(moveDrag.origStart, daysDelta);
-            const newEnd   = bpAddDays(moveDrag.origEnd,   daysDelta);
-            let newCarId = l.carId;
-            if (rowDelta !== 0) {
-              const carIds = lcCars.map(c => c.id);
-              const origIdx = carIds.indexOf(moveDrag.origCarId);
-              const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + rowDelta));
-              newCarId = carIds[newIdx];
-            }
-            return { ...l, startDate: newStart, endDate: newEnd, carId: newCarId };
-          }));
-        };
-        const onUp = () => setMoveDrag(null);
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-      }, [moveDrag, daysInMonth, lcCars]);
 
       const prevMonth = () => {
         let y = viewY, m = viewM - 1;
@@ -3648,24 +3448,6 @@ React.createElement('select', {
             color:'#fff', fontSize:12, padding:'7px 14px',
             cursor:'pointer', fontWeight:700 }}, '⚙ 車両管理'),
 
-          /* 部門フィルター */
-          React.createElement('div', { style:{ display:'flex', gap:4, alignItems:'center' }},
-            [null, '整備', 'BP', '車販'].map(function(dept){
-              const colors = { '整備':'#10b981', 'BP':'#3b82f6', '車販':'#f59e0b' };
-              const active = deptFilter === dept;
-              const col = dept ? colors[dept] : '#94a3b8';
-              return React.createElement('button', { key:String(dept),
-                onClick:()=>setDeptFilter(dept),
-                style:{ padding:'5px 10px', borderRadius:6, fontSize:11, fontWeight:700,
-                  cursor:'pointer', border:'1px solid '+(active ? col : '#334155'),
-                  background: active ? col+'33' : 'transparent',
-                  color: active ? col : '#475569',
-                  boxShadow: active ? '0 0 8px '+col+'55' : 'none',
-                  transition:'all .15s' }},
-                dept || 'すべて');
-            })
-          ),
-
           React.createElement('button', { onClick:()=>setLoanModal({ carId:'', startDate:TODAY, endDate:TODAY, owner:'', memo:'' }), style:{
             background:'#2563eb', border:'none', borderRadius:8,
             color:'#fff', fontSize:13, padding:'7px 16px',
@@ -3713,7 +3495,7 @@ React.createElement('select', {
                   padding:'80px 0', textAlign:'center',
                   color:'#475569', fontSize:14 }},
                   '⚙ 「車両管理」ボタンで代車を登録してください')
-              : lcCars.filter(car => !deptFilter || car.dept === deptFilter).map((car, ri) => {
+              : lcCars.map((car, ri) => {
                 const carLoans = lcLoans.filter(l => l.carId===car.id);
                 const isOut = carLoans.some(l => l.startDate<=TODAY && !l.returnedDate && l.endDate>=TODAY);
                 const hasOverdue = carLoans.some(l => isOverdue(l));
@@ -3756,26 +3538,7 @@ React.createElement('select', {
                         color:'#cbd5e1', fontWeight:700, fontSize:11,
                         letterSpacing:'0.05em',
                         whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }},
-                        car.plate || '—'),
-                      car.shaken && (function(){
-                        var today = new Date(); today.setHours(0,0,0,0);
-                        var exp = new Date(car.shaken + 'T00:00:00');
-                        var diffDays = Math.ceil((exp - today) / 86400000);
-                        var diffMonths = Math.round(diffDays / 30);
-                        if (diffDays < 0) return React.createElement('span', { style:{
-                          fontSize:9, fontWeight:800, color:'#fca5a5', background:'#450a0a',
-                          border:'1px solid #ef444466', borderRadius:4, padding:'1px 5px' }},
-                          '⚠ 車検切れ');
-                        if (diffDays <= 30) return React.createElement('span', { style:{
-                          fontSize:9, fontWeight:800, color:'#fde68a', background:'#78350f',
-                          border:'1px solid #fbbf2466', borderRadius:4, padding:'1px 5px' }},
-                          '🔔 車検まで'+diffDays+'日');
-                        if (diffDays <= 60) return React.createElement('span', { style:{
-                          fontSize:9, fontWeight:800, color:'#fdba74', background:'#431407',
-                          border:'1px solid #f9731644', borderRadius:4, padding:'1px 5px' }},
-                          '⚠ 車検まで'+diffMonths+'ヶ月');
-                        return null;
-                      })()
+                        car.plate || '—')
                     )
                   ),
 
@@ -3865,13 +3628,7 @@ React.createElement('select', {
                           background: returned ? '#334155' : jc.bg,
                           color: returned ? '#94a3b8' : jc.badge }}, loan.jobType),
 
-                        React.createElement('div', {
-                          style:{ minWidth:0, flex:1, cursor: moveDrag ? 'grabbing' : 'grab' },
-                          onMouseDown: (function(l, carId){ return function(e) {
-                            e.stopPropagation(); e.preventDefault();
-                            setMoveDrag({ loanId:l.id, startX:e.clientX, startY:e.clientY,
-                              origStart:l.startDate, origEnd:l.endDate, origCarId:carId });
-                          }; })(loan, car.id)},
+                        React.createElement('div', { style:{ minWidth:0, flex:1 }},
                           React.createElement('div', { style:{
                             fontSize:12, fontWeight:800,
                             color: returned ? '#94a3b8' : '#f1f5f9',
@@ -4070,31 +3827,6 @@ React.createElement('select', {
                 lcCars.map(c=>React.createElement('option',{key:c.id,value:c.id},c.name+'　'+c.plate))
               )
             ),
-
-            (function(){
-              var car = lcCars.find(function(c){ return c.id === loanModal.carId; });
-              if (!car || !car.shaken) return null;
-              var today = new Date(); today.setHours(0,0,0,0);
-              var exp = new Date(car.shaken + 'T00:00:00');
-              var diffDays = Math.ceil((exp - today) / 86400000);
-              var diffMonths = Math.round(diffDays / 30);
-              if (diffDays < 0) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#450a0a', border:'1px solid #ef444466',
-                fontSize:12, fontWeight:700, color:'#fca5a5' }},
-                '⚠ この車両は車検が切れています！');
-              if (diffDays <= 30) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#78350f', border:'1px solid #fbbf2466',
-                fontSize:12, fontWeight:700, color:'#fde68a' }},
-                '🔔 この車両は車検まで'+diffDays+'日です！貸し出しの前に確認してください。');
-              if (diffDays <= 60) return React.createElement('div', { style:{
-                marginBottom:14, padding:'10px 14px', borderRadius:8,
-                background:'#431407', border:'1px solid #f9731644',
-                fontSize:12, fontWeight:700, color:'#fdba74' }},
-                '⚠ この車両は車検まで約'+diffMonths+'ヶ月です。ご注意ください。');
-              return null;
-            })(),
 
             /* 案件種別 */
             React.createElement('div', { style:{ marginBottom:14 }},
@@ -4305,15 +4037,6 @@ React.createElement('select', {
                           boxShadow:active?'0 0 6px '+dc+'55':'none',
                           transition:'all .15s' }}, dn);
                     })
-                  ),
-                  React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginTop:4 }},
-                    React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:'#94a3b8', whiteSpace:'nowrap' }}, '🔍 車検満了日'),
-                    React.createElement('input', { type:'date',
-                      value: car.shaken || '',
-                      onChange: e => setCarDraft(p => p.map((c,i) => i===idx ? {...c, shaken:e.target.value} : c)),
-                      style:{ flex:1, background:'#0f172a', border:'1px solid #334155',
-                        borderRadius:8, color:'#f1f5f9', padding:'6px 10px',
-                        fontSize:12, boxSizing:'border-box', colorScheme:'dark' }})
                   )
                 ),
                 React.createElement('button', {
@@ -4365,39 +4088,11 @@ React.createElement('select', {
         setBpDayoff(d);
         try { localStorage.setItem('bp_dayoff', JSON.stringify(d)); } catch {} if (typeof window.fbSet==='function') window.fbSet('bp_dayoff', d);
       };
-      const [bpCompletedLog, setBpCompletedLog] = useState(function(){
-        try { var s = localStorage.getItem('bp_completed_log'); return s ? JSON.parse(s) : []; } catch { return []; }
-      });
-      const saveBpCompletedLog = function(logs) {
-        setBpCompletedLog(logs);
-        try { localStorage.setItem('bp_completed_log', JSON.stringify(logs)); } catch {}
-        if (typeof window.fbSet==='function') window.fbSet('bp_completed_log', logs);
-      };
-      const getMonthOptions = function() {
-        var opts=[]; var now=new Date(today);
-        for(var i=12;i>=-1;i--){ var d=new Date(now.getFullYear(),now.getMonth()-i,1); opts.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
-        return opts;
-      };
-      const openCompleteModal = function(job) {
-        setCompleteModal({job:job, month:today.slice(0,7), amount:job.estimatedAmount||0});
-      };
-      const completeAndLog = function(job) {
-        var log = {
-          id: job.id, plate: job.plate||"", owner: job.owner||"", carModel: job.carModel||"",
-          estimatedAmount: job.estimatedAmount||0, inDate: job.inDate||"", outDate: job.outDate||"",
-          staffName: job.staffName||"", completedAt: today, month: today.slice(0,7),
-          nyukoType: job.nyukoType||"", damage: job.damage||"", memo: job.memo||""
-        };
-        saveBpCompletedLog([...bpCompletedLog, log]);
-        saveBpJobs(bpJobs.filter(function(x){ return x.id !== job.id; }));
-      };
-      const [completeModal, setCompleteModal] = useState(null);
       const [dayoffModal, setDayoffModal] = useState(null); // {date, dateLabel}
       // 表示月 (YYYY-MM)
       const [viewMonth, setViewMonth] = useState(() => today.slice(0,7));
       const [bpView, setBpView] = useState("gantt");
       const [showConfirmedPanel, setShowConfirmedPanel] = useState(false);
-      const [showCompletedLog, setShowCompletedLog] = useState(false);
       const [editingTarget, setEditingTarget] = useState(false);
       const [targetInput, setTargetInput] = useState("");
             const [bpSalesTarget, setBpSalesTarget] = useState(function(){
@@ -4434,8 +4129,6 @@ React.createElement('select', {
         };
       }, []);
       const [editStall, setEditStall] = useState(null);
-      const [showBpStaffModal, setShowBpStaffModal] = useState(false);
-      const [newBpWorkerName, setNewBpWorkerName] = useState("");
       const [dragState, setDragState] = useState(null); // {jobId, type:"move"|"resizeR"|"resizeL", startX, origIn, origOut, stall}
       const boardRef = useRef(null);
 
@@ -4459,8 +4152,7 @@ React.createElement('select', {
         window.fbOn('bp_workers', function(val) { if (Array.isArray(val)) setBpWorkers(val); });
         window.fbOn('bp_dayoff',  function(val) { if (Array.isArray(val)) setBpDayoff(val); });
         window.fbOn('bp_sales_target', function(val) { if (val !== null && !isNaN(Number(val))) setBpSalesTarget(Number(val)); });
-        window.fbOn && window.fbOn('bp_completed_log', function(val) { if (Array.isArray(val)) { setBpCompletedLog(val); try { localStorage.setItem('bp_completed_log', JSON.stringify(val)); } catch {} } });
-        return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target','bp_completed_log'].forEach(window.fbOff); };
+        return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target'].forEach(window.fbOff); };
       }, []);
 
       // 月の日数・開始日
@@ -4486,21 +4178,15 @@ React.createElement('select', {
         if (!dragState) return;
         const onMove = e => {
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
           const dx = clientX - dragState.startX;
-          const dy = clientY - dragState.startY;
           const daysDelta = Math.round(dx / BP_DAY_W);
-          const stallDelta = dragState.type === "move" ? Math.round(dy / BP_ROW_H) : 0;
-          if (daysDelta === 0 && stallDelta === 0) return;
+          if (daysDelta === 0) return;
           setBpJobs(prev => prev.map(j => {
             if (j.id !== dragState.jobId) return j;
             if (dragState.type === "move") {
               const newIn  = bpAddDays(dragState.origIn,  daysDelta);
               const newOut = bpAddDays(dragState.origOut, daysDelta);
-              const stallIds = bpStalls.map(s => s.id);
-              const newIdx = Math.max(0, Math.min(stallIds.length - 1, dragState.origStallIdx + stallDelta));
-              const newStall = stallIds[newIdx];
-              return { ...j, inDate: newIn, outDate: newOut, stall: newStall };
+              return { ...j, inDate: newIn, outDate: newOut };
             } else if (dragState.type === "resizeR") {
               const newOut = bpAddDays(dragState.origOut, daysDelta);
               if (newOut <= j.inDate) return j;
@@ -4567,9 +4253,7 @@ React.createElement('select', {
           /* 月間売上合計 HPゲージ */
           (function(){
             var total = bpJobs.filter(function(j){ return j.counted && j.inDate && j.inDate.startsWith(viewMonth); })
-              .reduce(function(s,j){ return s + (Number(j.estimatedAmount)||0); }, 0)
-            + bpCompletedLog.filter(function(l){ return l.month === viewMonth; })
-              .reduce(function(s,l){ return s + (Number(l.estimatedAmount)||0); }, 0);
+              .reduce(function(s,j){ return s + (Number(j.estimatedAmount)||0); }, 0);
             var pct   = Math.min(total / Math.max(bpSalesTarget, 1) * 100, 100);
             var over  = total >= bpSalesTarget;
             var bonus = total - bpSalesTarget; /* 目標超過額 */
@@ -4869,13 +4553,6 @@ React.createElement('select', {
                 fontWeight:800, boxShadow:"0 0 10px #3b82f655, inset 0 1px 0 #bfdbfe33",
                 textShadow:"0 1px 2px #00000055" }}, "＋ 車両追加"),
 
-            React.createElement('button', {
-              onClick:()=>setShowBpStaffModal(true),
-              style:{ background:"linear-gradient(135deg,#065f46,#10b981)", border:"1px solid #34d39988",
-                borderRadius:6, color:"#fff", fontSize:11, padding:"4px 12px", cursor:"pointer",
-                fontWeight:800, whiteSpace:"nowrap", textShadow:"0 1px 2px #00000066" }},
-              "👷 スタッフ管理"),
-
             (function(){
               var confirmedCnt = bpJobs.filter(function(j){ return j.confirmed; }).length;
               return React.createElement('button', {
@@ -4922,23 +4599,7 @@ React.createElement('select', {
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:"14px" }}, cnt)
               );
-            })(),
-
-            React.createElement('button', {
-              onClick:()=>setShowCompletedLog(v=>!v),
-              style:{ position:"relative",
-                background: showCompletedLog ? "linear-gradient(135deg,#1e3a5f,#3b82f6)" : "linear-gradient(135deg,#0f1e35,#1e3a5f)",
-                border:"1px solid #3b82f688", borderRadius:6, color:"#fff",
-                fontSize:11, padding:"4px 12px", cursor:"pointer",
-                fontWeight:800, whiteSpace:"nowrap",
-                boxShadow: showCompletedLog ? "0 0 14px #3b82f688" : "none",
-                textShadow:"0 1px 2px #00000066" }},
-              "📋 完了ログ",
-              bpCompletedLog.filter(l=>l.month===viewMonth).length > 0 && React.createElement('span', { style:{ position:"absolute", top:-5, right:-5,
-                background:"#3b82f6", color:"#fff", borderRadius:"50%", width:14, height:14, fontSize:8, fontWeight:700,
-                display:"flex", alignItems:"center", justifyContent:"center", lineHeight:"14px" }},
-                bpCompletedLog.filter(l=>l.month===viewMonth).length)
-            )
+            })()
           )
         ),
 
@@ -5010,12 +4671,11 @@ React.createElement('select', {
                     background: d.str===today ? "#1e3a5f" : d.isWeekend ? "#0a1020" : "transparent",
                     paddingTop:3, paddingBottom:2,
                     transition:"background .1s" }},
-                  React.createElement('div', { style:{ fontSize:11,
-                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#f87171":"#38bdf8") : "#94a3b8",
-                    fontWeight: d.str===today ? 800 : d.isWeekend ? 700 : 500 }}, d.num),
                   React.createElement('div', { style:{ fontSize:10,
-                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#f87171":"#38bdf8") : "#64748b",
-                    fontWeight: d.isWeekend ? 700 : 400 }}, d.dow),
+                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#ef4444":"#38bdf8") : "#64748b",
+                    fontWeight: d.str===today ? 700 : 400 }}, d.num),
+                  React.createElement('div', { style:{ fontSize:9,
+                    color: d.str===today ? "#60a5fa" : d.isWeekend ? (d.dow==="日"?"#ef4444":"#38bdf8") : "#334155" }}, d.dow),
                   /* 休業スタッフ カラードット + 定休日マーク */
                   (() => {
                     const e = bpDayoff.find(x => x.date === d.str);
@@ -5078,7 +4738,7 @@ React.createElement('select', {
                   ...days.map(d => {
                     const de = bpDayoff.find(x => x.date === d.str);
                     const isTeikyu = de && de.workerIds.includes("__teikyu__");
-                    const bg = isTeikyu ? "rgba(245,158,11,.18)"
+                    const bg = isTeikyu ? "rgba(245,158,11,.08)"
                       : d.str===today ? "rgba(59,130,246,.07)"
                       : d.isWeekend ? "rgba(255,255,255,.015)" : "transparent";
                     return React.createElement('div', { key:d.num,
@@ -5099,10 +4759,8 @@ React.createElement('select', {
                         style:{ position:"absolute",
                           left: (d.num-1)*BP_DAY_W + i*bw, top:0,
                           width:bw, height:"100%",
-                          background:wc.color+"55",
-                          borderLeft: i===0 ? "3px solid "+wc.color+"cc" : "none",
-                          borderRight: "1px solid "+wc.color+"44",
-                          boxShadow: i===0 ? "inset 2px 0 8px "+wc.color+"33" : "none",
+                          background:wc.color+"22",
+                          borderLeft: i===0 ? "2px solid "+wc.color+"88" : "none",
                           pointerEvents:"none" }}));
                     });
                     return acc;
@@ -5186,40 +4844,27 @@ React.createElement('select', {
                           cursor: dragState ? "grabbing" : "grab",
                           display:"flex", flexDirection:"column", justifyContent:"space-between" },
                         onMouseDown:e=>{ e.stopPropagation();
-                          const stallIdx = bpStalls.findIndex(s => s.id === stall.id);
-                          setDragState({jobId:job.id, type:"move", startX:e.clientX, startY:e.clientY,
-                            origIn:job.inDate, origOut:job.outDate, origStall:stall.id,
-                            origStallIdx:stallIdx}); },
+                          setDragState({jobId:job.id, type:"move", startX:e.clientX,
+                            origIn:job.inDate, origOut:job.outDate}); },
                         onClick:e=>{ if(!dragState) setModalJob({...job}); }},
 
-                        /* ── 上段: ナンバー ＋ オーナー名 ＋ 納車予定日 ── */
-                        React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5, overflow:"hidden" }},
+                        /* ── 上段: ナンバー ＋ オーナー名 ── */
+                        React.createElement('div', { style:{ display:"flex", alignItems:"baseline", gap:5, overflow:"hidden" }},
                           React.createElement('span', { style:{ fontSize:12, fontWeight:900,
                             color:"#f1f5f9", whiteSpace:"nowrap", flexShrink:0, lineHeight:1.2 }},
                             job.plate || "(未入力)"),
                           React.createElement('span', { style:{ fontSize:10, fontWeight:600,
                             color:sc.accent, whiteSpace:"nowrap", overflow:"hidden",
                             textOverflow:"ellipsis", flexShrink:1 }},
-                            job.owner || ""),
-                          job.noshaDate && React.createElement('span', { style:{
-                            fontSize:11, fontWeight:800, flexShrink:0,
-                            color:"#fde68a", background:"#78350f",
-                            border:"1px solid #fbbf2466", borderRadius:5,
-                            padding:"1px 6px", whiteSpace:"nowrap",
-                            boxShadow:"0 0 6px rgba(251,191,36,.4)" }},
-                            "🚗 "+job.noshaDate.slice(5)+(job.noshaAmPm?" "+job.noshaAmPm:"")+(job.noshaTime?" "+job.noshaTime:""))
+                            job.owner || "")
                         ),
 
-                        /* ── 中段: ステータス ＋ 車種 ＋ 種別 ＋ 担当 ── */
+                        /* ── 中段: ステータス ＋ 種別 ＋ 担当 ── */
                         React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:3, overflow:"hidden" }},
                           React.createElement('span', { style:{ fontSize:8, padding:"1px 4px", borderRadius:3,
                             fontWeight:700, background:sc.bar, color:sc.text,
                             border:"1px solid "+sc.accent+"88", flexShrink:0, whiteSpace:"nowrap" }},
                             job.status || "入庫待ち"),
-                          job.carModel && React.createElement('span', { style:{ fontSize:9, fontWeight:600,
-                            color:"#cbd5e1", flexShrink:1,
-                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }},
-                            job.carModel),
                           job.type && React.createElement('span', { style:{ fontSize:8, padding:"1px 4px",
                             borderRadius:3, color:"#93c5fd", background:"#0d1b2e",
                             border:"1px solid #1e3a5f55", flexShrink:1,
@@ -5263,6 +4908,10 @@ React.createElement('select', {
                           job.hikitori==="あり" && React.createElement('span', { style:{ fontSize:8,
                             padding:"0px 4px", borderRadius:3, flexShrink:0,
                             color:"#a855f7", background:"#1a0a2a" }}, "引取"),
+                          job.noshaDate && React.createElement('span', { style:{ fontSize:8, padding:"0px 4px",
+                            borderRadius:3, flexShrink:0, background:"#1a1200", color:"#fbbf24",
+                            whiteSpace:"nowrap" }},
+                            "🚗"+job.noshaDate.slice(5)+(job.noshaAmPm?" "+job.noshaAmPm:"")),
                           job.estimatedAmount > 0 && React.createElement('span', { style:{ fontSize:8,
                             padding:"0px 4px", borderRadius:3, flexShrink:0,
                             background:"#1a1200", color:"#fbbf24" }},
@@ -5460,13 +5109,13 @@ React.createElement('select', {
                     c.type==="納車" && React.createElement('button', {
                       onClick: function(e) {
                         e.stopPropagation();
-                        openCompleteModal(j);
+                        saveBpJobs(bpJobs.filter(function(x){ return x.id !== j.id; }));
                       },
                       style:{ marginTop:6, width:"100%", padding:"5px", borderRadius:5,
                         border:"1px solid #fbbf2466", background:"#78350f",
                         color:"#fde68a", fontSize:10, fontWeight:800, cursor:"pointer",
                         boxShadow:"0 0 8px #f59e0b33" }},
-                      "🏁 完了・計上"
+                      "🏁 引渡完了（完全削除）"
                     )
                   );
                 });
@@ -5588,120 +5237,18 @@ React.createElement('select', {
                     /* 引渡完了ボタン */
                     React.createElement('button', {
                       onClick:function(e){ e.stopPropagation();
-                        openCompleteModal(j); },
+                        saveBpJobs(bpJobs.filter(function(x){ return x.id!==j.id; })); },
                       style:{ width:"100%", padding:"5px", borderRadius:5,
                         border:"1px solid #fbbf2466", background:"#78350f",
                         color:"#fde68a", fontSize:10, fontWeight:800, cursor:"pointer",
                         boxShadow:"0 0 8px #f59e0b33" }},
-                      "🏁 完了・計上"
+                      "🏁 引渡完了（完全削除）"
                     )
                   );
                 });
               })()
             )
           ) /* 完成確定済みパネル閉じ */
-
-        , completeModal && React.createElement('div', {
-          onClick:()=>setCompleteModal(null),
-          style:{position:"fixed",inset:0,background:"rgba(0,0,0,.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000}},
-          React.createElement('div', {onClick:e=>e.stopPropagation(),
-            style:{background:"#0d1625",border:"1px solid #1e3a5f",borderRadius:16,padding:28,width:360,boxShadow:"0 24px 64px rgba(0,0,0,.8)"}},
-            React.createElement('div', {style:{fontSize:15,fontWeight:900,color:"#fde68a",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between"}},
-              "💰 完了・計上",
-              React.createElement('button', {onClick:()=>setCompleteModal(null),style:{background:"none",border:"none",color:"#475569",fontSize:18,cursor:"pointer"}}, "✕")
-            ),
-            React.createElement('div', {style:{background:"#070f1c",borderRadius:8,padding:"10px 14px",marginBottom:16,border:"1px solid #1e3a5f"}},
-              React.createElement('div', {style:{fontSize:12,fontWeight:800,color:"#7dd3fc",marginBottom:3}}, completeModal.job.plate+(completeModal.job.owner?"　"+completeModal.job.owner:"")),
-              React.createElement('div', {style:{fontSize:11,color:"#94a3b8"}}, completeModal.job.carModel||"")
-            ),
-            React.createElement('div', {style:{marginBottom:14}},
-              React.createElement('label', {style:{fontSize:11,fontWeight:700,color:"#94a3b8",display:"block",marginBottom:6}}, "📅 計上月"),
-              React.createElement('select', {value:completeModal.month, onChange:e=>setCompleteModal(p=>({...p,month:e.target.value})),
-                style:{width:"100%",background:"#0f172a",border:"1px solid #334155",borderRadius:8,color:"#f1f5f9",padding:"9px 12px",fontSize:13,colorScheme:"dark"}},
-                getMonthOptions().map(m=>{const[y,mo]=m.split('-');return React.createElement('option',{key:m,value:m},y+"年"+parseInt(mo)+"月"+(m===today.slice(0,7)?"（今月）":""));})
-              )
-            ),
-            React.createElement('div', {style:{marginBottom:24}},
-              React.createElement('label', {style:{fontSize:11,fontWeight:700,color:"#94a3b8",display:"block",marginBottom:6}}, "💴 計上金額"),
-              React.createElement('div', {style:{display:"flex",alignItems:"center",gap:6}},
-                React.createElement('span', {style:{color:"#94a3b8",fontSize:13}}, "¥"),
-                React.createElement('input', {type:"number",value:completeModal.amount,onChange:e=>setCompleteModal(p=>({...p,amount:parseInt(e.target.value)||0})),
-                  style:{flex:1,background:"#0f172a",border:"1px solid #334155",borderRadius:8,color:"#f1f5f9",padding:"9px 12px",fontSize:13,boxSizing:"border-box"}})
-              )
-            ),
-            React.createElement('button', {
-              onClick:()=>{
-                var job=completeModal.job;
-                var log={id:job.id,plate:job.plate||"",owner:job.owner||"",carModel:job.carModel||"",
-                  estimatedAmount:completeModal.amount,inDate:job.inDate||"",outDate:job.outDate||"",
-                  staffName:job.staffName||"",completedAt:today,month:completeModal.month,
-                  nyukoType:job.nyukoType||"",damage:job.damage||"",memo:job.memo||""};
-                saveBpCompletedLog([...bpCompletedLog,log]);
-                saveBpJobs(bpJobs.filter(function(x){return x.id!==job.id;}));
-                setCompleteModal(null);
-              },
-              style:{width:"100%",background:"linear-gradient(135deg,#78350f,#92400e)",border:"1px solid #fbbf2466",borderRadius:10,color:"#fde68a",fontSize:14,fontWeight:800,padding:"13px",cursor:"pointer"}},
-              "✅ 確定"
-            )
-          )
-        )
-        , showCompletedLog && React.createElement('div', {
-          style:{ position:"fixed", top:0, right:0, width:420, height:"100vh",
-            background:"#070f1c", borderLeft:"1px solid #1e3a5f",
-            zIndex:1500, display:"flex", flexDirection:"column",
-            boxShadow:"-8px 0 32px rgba(0,0,0,.7)" }},
-          React.createElement('div', { style:{ padding:"16px 20px", borderBottom:"1px solid #1e3a5f",
-            display:"flex", justifyContent:"space-between", alignItems:"center" }},
-            React.createElement('div', { style:{ fontSize:14, fontWeight:800, color:"#60a5fa" }}, "📋 引渡完了ログ"),
-            React.createElement('div', { style:{ display:"flex", gap:8, alignItems:"center" }},
-              React.createElement('span', { style:{ fontSize:11, color:"#64748b" }}, viewMonth),
-              React.createElement('button', { onClick:()=>setShowCompletedLog(false),
-                style:{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}, "✕")
-            )
-          ),
-          React.createElement('div', { style:{ padding:"12px 20px", borderBottom:"1px solid #1e3a5f", background:"#0a1628" }},
-            React.createElement('div', { style:{ display:"flex", justifyContent:"space-between", alignItems:"center" }},
-              React.createElement('span', { style:{ fontSize:11, color:"#94a3b8", fontWeight:600 }}, "今月完了台数"),
-              React.createElement('span', { style:{ fontSize:16, fontWeight:800, color:"#34d399", fontFamily:"'Orbitron',monospace" }},
-                bpCompletedLog.filter(l=>l.month===viewMonth).length, " 台")
-            ),
-            React.createElement('div', { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:4 }},
-              React.createElement('span', { style:{ fontSize:11, color:"#94a3b8", fontWeight:600 }}, "今月完了売上"),
-              React.createElement('span', { style:{ fontSize:16, fontWeight:800, color:"#fbbf24", fontFamily:"'Orbitron',monospace" }},
-                "¥"+bpCompletedLog.filter(l=>l.month===viewMonth).reduce((s,l)=>s+(Number(l.estimatedAmount)||0),0).toLocaleString())
-            )
-          ),
-          React.createElement('div', { style:{ flex:1, overflowY:"auto", padding:"8px 12px" }},
-            bpCompletedLog.filter(l=>l.month===viewMonth).length === 0
-              ? React.createElement('div', { style:{ fontSize:12, color:"#475569", textAlign:"center", padding:"40px 0" }}, "完了ログはありません")
-              : [...bpCompletedLog].filter(l=>l.month===viewMonth).reverse().map((l,i) =>
-                  React.createElement('div', { key:l.id+"-"+i,
-                    style:{ padding:"10px 12px", marginBottom:6, background:"#0d1625", border:"1px solid #1e3a5f", borderRadius:8 }},
-                    React.createElement('div', { style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }},
-                      React.createElement('span', { style:{ fontSize:12, fontWeight:800, color:"#38bdf8", fontFamily:"monospace" }}, l.plate),
-                      React.createElement('span', { style:{ fontSize:11, fontWeight:700, color:"#fbbf24", fontFamily:"'Orbitron',monospace" }},
-                        l.estimatedAmount > 0 ? "¥"+Number(l.estimatedAmount).toLocaleString() : "-")
-                    ),
-                    React.createElement('div', { style:{ fontSize:11, color:"#e2e8f0", fontWeight:600, marginBottom:2 }}, l.owner, l.carModel ? " / "+l.carModel : ""),
-                    React.createElement('div', { style:{ display:"flex", gap:8, flexWrap:"wrap" }},
-                      l.inDate && React.createElement('span', { style:{ fontSize:10, color:"#64748b" }}, "入庫: "+l.inDate),
-                      l.outDate && React.createElement('span', { style:{ fontSize:10, color:"#64748b" }}, "完了: "+l.outDate),
-                      l.staffName && React.createElement('span', { style:{ fontSize:10, color:"#10b981" }}, "👷 "+l.staffName),
-                      l.nyukoType && React.createElement('span', { style:{ fontSize:10, color:"#a78bfa" }}, l.nyukoType),
-                      l.completedAt && React.createElement('span', { style:{ fontSize:9, color:"#334155" }}, "引渡: "+l.completedAt)
-                    ),
-                    l.memo && React.createElement('div', { style:{ fontSize:10, color:"#fcd34d", marginTop:3 }}, "📝 "+l.memo)
-                  )
-                )
-          ),
-          React.createElement('div', { style:{ padding:"12px 20px", borderTop:"1px solid #1e3a5f" }},
-            React.createElement('button', {
-              onClick:()=>{ if(window.confirm("今月の完了ログを削除しますか？")) saveBpCompletedLog(bpCompletedLog.filter(l=>l.month!==viewMonth)); },
-              style:{ width:"100%", padding:"8px", borderRadius:6, border:"1px solid #7f1d1d",
-                background:"#1a0a0a", color:"#f87171", fontSize:11, fontWeight:700, cursor:"pointer" }},
-              "🗑 今月のログを削除")
-          )
-        )
 
         ), /* メインエリア閉じ */
 
@@ -5728,71 +5275,6 @@ React.createElement('select', {
         }),
 
         /* ── ストール編集モーダル ── */
-        showBpStaffModal && React.createElement('div', {
-          onClick:()=>setShowBpStaffModal(false),
-          style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex",
-            alignItems:"center", justifyContent:"center", zIndex:2000 }},
-          React.createElement('div', {
-            onClick:e=>e.stopPropagation(),
-            style:{ background:"#0d1b2e", border:"1px solid #1e3a5f", borderRadius:16,
-              padding:24, width:380, maxHeight:"85vh", overflowY:"auto",
-              boxShadow:"0 24px 64px rgba(0,0,0,.8)" }},
-            React.createElement('div', { style:{ display:"flex", justifyContent:"space-between",
-              alignItems:"center", marginBottom:20 }},
-              React.createElement('div', { style:{ fontSize:14, fontWeight:800, color:"#10b981" }}, "👷 BPスタッフ管理"),
-              React.createElement('button', { onClick:()=>setShowBpStaffModal(false),
-                style:{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}, "✕")
-            ),
-            React.createElement('div', { style:{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }},
-              bpWorkers.length === 0
-                ? React.createElement('div', { style:{ fontSize:12, color:"#475569", textAlign:"center", padding:"20px 0" }}, "スタッフが登録されていません")
-                : bpWorkers.map((w) => {
-                    const wc = BP_WORKER_COLORS[w.colorIdx % BP_WORKER_COLORS.length];
-                    return React.createElement('div', { key:w.id,
-                      style:{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px",
-                        background:"#070f1c", border:`1px solid ${wc.color}44`, borderRadius:8 }},
-                      React.createElement('div', { style:{ width:12, height:12, borderRadius:"50%",
-                        background:wc.color, flexShrink:0, boxShadow:`0 0 6px ${wc.color}88` }}),
-                      React.createElement('span', { style:{ flex:1, fontSize:13, fontWeight:700, color:"#e2e8f0" }}, w.name),
-                      React.createElement('span', { style:{ fontSize:10, color:wc.color, background:wc.color+"18",
-                        border:`1px solid ${wc.color}33`, borderRadius:4, padding:"1px 6px" }}, wc.label),
-                      React.createElement('button', {
-                        onClick:()=>{ saveBpWorkers(bpWorkers.filter(x=>x.id!==w.id)); },
-                        style:{ background:"#7f1d1d", border:"none", borderRadius:5,
-                          color:"#fca5a5", fontSize:12, width:28, height:28,
-                          cursor:"pointer", fontWeight:700 }}, "×")
-                    );
-                  })
-            ),
-            React.createElement('div', { style:{ display:"flex", gap:8 }},
-              React.createElement('input', {
-                value: newBpWorkerName,
-                onChange: e => setNewBpWorkerName(e.target.value),
-                onKeyDown: e => {
-                  if (e.key === "Enter" && newBpWorkerName.trim()) {
-                    const colorIdx = bpWorkers.length % BP_WORKER_COLORS.length;
-                    saveBpWorkers([...bpWorkers, { id:Date.now().toString(), name:newBpWorkerName.trim(), colorIdx }]);
-                    setNewBpWorkerName("");
-                  }
-                },
-                placeholder: "スタッフ名を入力...",
-                style:{ flex:1, background:"#070f1c", border:"1px solid #1e3a5f", borderRadius:8,
-                  color:"#e2e8f0", fontSize:13, padding:"9px 12px", outline:"none" }
-              }),
-              React.createElement('button', {
-                onClick:()=>{
-                  if (!newBpWorkerName.trim()) return;
-                  const colorIdx = bpWorkers.length % BP_WORKER_COLORS.length;
-                  saveBpWorkers([...bpWorkers, { id:Date.now().toString(), name:newBpWorkerName.trim(), colorIdx }]);
-                  setNewBpWorkerName("");
-                },
-                style:{ background:"linear-gradient(135deg,#065f46,#10b981)", border:"none",
-                  borderRadius:8, color:"#fff", fontSize:13, fontWeight:700,
-                  padding:"9px 16px", cursor:"pointer" }}, "追加")
-            )
-          )
-        ),
-
         editStall && React.createElement('div', {
           style:{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex",
             alignItems:"center", justifyContent:"center", zIndex:2000 }},
@@ -5941,7 +5423,7 @@ React.createElement('select', {
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
       const [jobs,     setJobs]    = useState(INIT);
-      const [stalls,   setStalls]  = useState(INIT_STALLS);
+      const [stalls,   setStalls]  = useState(function(){ try { var s=localStorage.getItem('garage_stalls'); return s?JSON.parse(s):INIT_STALLS; } catch{ return INIT_STALLS; } });
       const [sel,      setSel]     = useState(null);
       const [selPos,   setSelPos]  = useState({x:0,y:0});
       const [filt,     setFilt]    = useState("すべて");
@@ -5955,11 +5437,6 @@ React.createElement('select', {
       const [showLoanTomorrow, setShowLoanTomorrow] = useState(false);
       const [showDeadline, setShowDeadline] = useState(false);
       const [showMemo, setShowMemo] = useState(false);
-      const [showTodayLog, setShowTodayLog] = useState(false);
-      const [todayLog, setTodayLog] = useState(() => {
-        try { const s = localStorage.getItem('garage_today_log'); return s ? JSON.parse(s) : []; } catch { return []; }
-      });
-      const saveTodayLog = v => { setTodayLog(v); try { localStorage.setItem('garage_today_log', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_today_log', v); };
       const [memoText, setMemoText] = useState(() => {
         try { const s = localStorage.getItem('garage_memo_'+TODAY_STR); return s||""; } catch { return ""; }
       });
@@ -6005,7 +5482,6 @@ React.createElement('select', {
       const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
-      const [stallDraft, setStallDraft] = useState([]);
       const [showStatsLog, setShowStatsLog] = useState(null); // null | "inspection" | "sales"
       const [manualLog, setManualLog] = useState(() => {
         try { const s = localStorage.getItem('garage_manuallog'); return s ? JSON.parse(s) : {}; } catch { return {}; }
@@ -6037,7 +5513,7 @@ React.createElement('select', {
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_stalls', function(val) {
-          if (val && Array.isArray(val)) { _fbIncoming.current = true; setStalls(val); try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} setTimeout(() => { _fbIncoming.current = false; }, 50); }
+          if (val && Array.isArray(val)) { _fbIncoming.current = true; setStalls(val); setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
@@ -6056,18 +5532,9 @@ React.createElement('select', {
         };
       }, []);
 
-      const _jobsInitialized = React.useRef(false);
-      React.useEffect(() => {
-        if (!_jobsInitialized.current) { _jobsInitialized.current = true; return; }
-        if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
-        window.fbSet('garage_jobs', jobs, 400);
-      }, [jobs]);
-      const _stallsInitialized = React.useRef(false);
-      React.useEffect(() => {
-        if (!_stallsInitialized.current) { _stallsInitialized.current = true; return; }
-        if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
-        window.fbSet('garage_stalls', stalls, 400);
-      }, [stalls]);
+      // jobs/stalls変更をFirebaseへ書き込み
+      React.useEffect(() => { if (_fbIncoming.current || typeof window.fbSet !== 'function') return; window.fbSet('garage_jobs', jobs, 400); }, [jobs]);
+      React.useEffect(() => { if (_fbIncoming.current || typeof window.fbSet !== 'function') return; window.fbSet('garage_stalls', stalls, 400); }, [stalls]);
 
       const [showRevenueInput, setShowRevenueInput] = useState(false);
       const [revenueDraft, setRevenueDraft] = useState(0);
@@ -6078,13 +5545,6 @@ React.createElement('select', {
       const [resetMonthAt, setResetMonthAt] = useState(null); // ISO文字列 or null
       const [endModal, setEndModal] = useState(null);
       const [roleCards, setRoleCards] = useState([]);
-      const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
-      useEffect(() => {
-        if (boardDate !== roleCardsDate) {
-          setRoleCards([]);
-          setRoleCardsDate(boardDate);
-        }
-      }, [boardDate]);
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
@@ -6200,30 +5660,18 @@ React.createElement('select', {
           return;
         }
         setAddError([]);
-        const newJobId = Date.now();
-        setJobs(p => [...p, { id:newJobId, date:nj.date||boardDate, stall:nj.stall,
+        setJobs(p => [...p, { id:Date.now(), date:nj.date||boardDate, stall:nj.stall,
           owner:nj.owner, plate:nj.plate, model:nj.model, type:nj.type,
           start:parseFloat(nj.start), end:parseFloat(nj.start)+(["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label) ? 1 : 2/3),
           status:asWaiting ? "当日来店/預かり" : "作業待ち", memo:nj.memo, priority:nj.priority,
           workState:"idle", startedAt:null, endedAt:null,
           receptionDate:nj.receptionDate, receptionist:nj.receptionist, mechanic:nj.mechanic||"", deliveryDate:nj.deliveryDate,
           loanCar:nj.loanCar, transport:nj.transport, isNew:nj.isNew }]);
-        const logEntry = { id:newJobId, registeredAt:TODAY_STR,
-          registeredTime:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
-          plate:nj.plate, owner:nj.owner, model:nj.model, type:nj.type,
-          mechanic:nj.mechanic||"", receptionist:nj.receptionist,
-          date:nj.date||boardDate, deliveryDate:nj.deliveryDate };
-        saveTodayLog([...todayLog, logEntry]);
         setShowAdd(false);
         setNj({date:TODAY_STR,stall:"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
       };
       const saveEditJob = (id, patch) => {
-        setJobs(p => p.map(j => {
-          if (j.id !== id) return j;
-          const dateChanged = patch.date && patch.date !== j.date;
-          const reset = dateChanged ? { workState:"idle", startedAt:null, endedAt:null, status:"作業待ち", displayDate:undefined } : {};
-          return { ...j, ...patch, ...reset };
-        }));
+        setJobs(p => p.map(j => j.id===id ? {...j,...patch} : j));
         setSel(p => _optionalChain([p, 'optionalAccess', _25 => _25.id])===id ? {...p,...patch} : p);
         setEditJob(null);
       };
@@ -6237,7 +5685,7 @@ React.createElement('select', {
         setJobs(p => p.map(j => j.id===reAssign.jobId ? {
           ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
           end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
-          workState:"idle", startedAt:null, endedAt:null, displayDate:undefined
+          workState:"idle", startedAt:null, endedAt:null
         } : j));
         setReAssign(null);
       };
@@ -6667,30 +6115,11 @@ React.createElement('select', {
                       return (
                         React.createElement('div', { key: job.id,
                           onClick: () => {
-                            const SHELVE_ON = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
-                            const isShelved = SHELVE_ON.has(job.status) || job.workState === "shelved";
-                            setShowSearchResults(false); setSearchQuery(""); setSearchResults([]);
-                            setFlashJobId(job.id);
-                            if (isShelved) {
-                              setTab("shelved");
-                              setTimeout(() => {
-                                const el = document.getElementById("status-card-"+job.id);
-                                if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
-                              }, 300);
-                            } else {
-                              setBoardDate(job.displayDate || job.date);
-                              setSel(job);
-                              setTab("board");
-                              setTimeout(() => {
-                                const el = document.getElementById("job-bar-"+job.id);
-                                if (el) el.scrollIntoView({ behavior:"smooth", block:"center", inline:"center" });
-                                else {
-                                  const s = document.getElementById("stall-"+job.stall);
-                                  if (s) s.scrollIntoView({ behavior:"smooth", block:"center" });
-                                }
-                              }, 300);
-                            }
-                            setTimeout(() => setFlashJobId(null), 4700);
+                            setBoardDate(job.date); setSel(job);
+                            const r = document.getElementById("stall-"+job.stall);
+                            if (r) r.scrollIntoView({ behavior:"smooth", block:"center" });
+                            setShowSearchResults(false); setSearchQuery(""); setSearchResults([]); setTab("board");
+                            setFlashJobId(job.id); setTimeout(() => setFlashJobId(null), 4700);
                           },
                           style: { display:"flex", alignItems:"center", gap:10, padding:"8px 12px",
                             borderTop:"1px solid #1a2540", cursor:"pointer", transition:"background .12s" },
@@ -6737,12 +6166,12 @@ React.createElement('select', {
                       display:"flex", flexDirection:"column", gap:4 }}
                       /* 1行目：ラベル + 台数 + プログレス */
                       , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:10 }}
-                        , React.createElement('div', { style: { fontSize:11, color:"#94a3b8", letterSpacing:1.5, fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}, "月間車検完了")
+                        , React.createElement('div', { style: { fontSize:9, color:"#64748b", letterSpacing:1.5, fontWeight:700, whiteSpace:"nowrap", flexShrink:0 }}, "月間車検完了")
                         , React.createElement('div', { style: { display:"flex", alignItems:"baseline", gap:5, flexShrink:0 }}
                           , React.createElement('span', { style: { fontSize:26, fontWeight:900, color:over?"#fb923c":"#f97316",
                             fontFamily:"'Orbitron',monospace", lineHeight:1,
                             textShadow:over?"0 0 16px rgba(251,146,60,.7)":"0 0 10px rgba(249,115,22,.4)" }}, current)
-                          , React.createElement('span', { style: { fontSize:13, color:"#64748b", fontWeight:700 }}, "/ ", target, " 台")
+                          , React.createElement('span', { style: { fontSize:12, color:"#475569", fontWeight:600 }}, "/ ", target, " 台")
                           , over && React.createElement('span', { style: { fontSize:9, background:"#f9731622", color:"#fb923c",
                             border:"1px solid #f9731644", borderRadius:4, padding:"1px 6px", fontWeight:700 }}, "✓ 達成")
                         )
@@ -6753,7 +6182,7 @@ React.createElement('select', {
                               transition:"width .5s ease", boxShadow:over?"0 0 8px #fbbf2466":"0 0 6px #f9731644" }})
                           )
                           , React.createElement('div', { style: { display:"flex", justifyContent:"flex-end" }}
-                            , React.createElement('span', { style: { fontSize:10, fontWeight:800, color:over?"#fbbf24":"#94a3b8" }}, Math.round(pct), "%")
+                            , React.createElement('span', { style: { fontSize:9, fontWeight:800, color:over?"#fbbf24":"#64748b" }}, Math.round(pct), "%")
                           )
                         )
                       )
@@ -6764,28 +6193,28 @@ React.createElement('select', {
                             onClick: () => { setRevenueDraft(currentRevenue); setShowRevenueInput(true); },
                             style: { flexShrink:0, display:"flex", flexDirection:"column", gap:2,
                               padding:"3px 8px", cursor:"pointer",
-                              background: revOver?"#1a1200":"#0c1a2e",
-                              border:`1px solid ${revOver?"#fbbf24":"#3b82f6"}`,
+                              background: revOver?"#1a1200":"#1a0a2e",
+                              border:`1px solid ${revOver?"#fbbf24":"#a78bfa33"}`,
                               borderRadius:6, minWidth:90,
-                              boxShadow: revOver?"0 0 14px rgba(251,191,36,.35)":"0 0 12px rgba(59,130,246,.4)" }}
+                              boxShadow: revOver?"0 0 10px rgba(251,191,36,.2)":"none" }}
                             , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                              , React.createElement('span', { style: { fontSize:9, color: revOver?"#fbbf24":"#60a5fa", fontWeight:700, letterSpacing:1 }}, "売上目標")
-                              , React.createElement('span', { style: { fontSize:11, fontWeight:800, color: revOver?"#fde68a":"#93c5fd", fontFamily:"'Orbitron',monospace" }}, targets.revenue.toLocaleString())
+                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#ca8a04":"#7c3aed", fontWeight:700, letterSpacing:1 }}, "売上目標")
+                              , React.createElement('span', { style: { fontSize:11, fontWeight:800, color: revOver?"#92400e":"#64748b", fontFamily:"'Orbitron',monospace" }}, targets.revenue.toLocaleString())
                             )
                             , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                              , React.createElement('span', { style: { fontSize:9, color: revOver?"#fbbf24":"#38bdf8", fontWeight:700, letterSpacing:1 }}, "現在売上")
+                              , React.createElement('span', { style: { fontSize:8, color: revOver?"#fbbf24":"#475569", fontWeight:700, letterSpacing:1 }}, "現在売上")
                               , React.createElement('span', { style: { fontSize:13, fontWeight:800,
-                                  color: revOver?"#fde68a":"#7dd3fc",
+                                  color: revOver?"#fde68a":"#94a3b8",
                                   fontFamily:"'Orbitron',monospace",
-                                  textShadow: revOver?"0 0 14px rgba(251,191,36,.8)":"0 0 12px rgba(56,189,248,.8)" }},
+                                  textShadow: revOver?"0 0 10px rgba(251,191,36,.7)":"none" }},
                                 currentRevenue > 0 ? currentRevenue.toLocaleString() : "---")
                             )
-                            , React.createElement('div', { style: { height:3, background: revOver?"#78350f":"#1e3a5f", borderRadius:2, overflow:"hidden" }}
+                            , React.createElement('div', { style: { height:3, background: revOver?"#78350f":"#2d1657", borderRadius:2, overflow:"hidden" }}
                               , React.createElement('div', { style: { height:"100%", width:`${revPct}%`, borderRadius:2,
-                                  background: revOver?"linear-gradient(90deg,#f59e0b,#fde68a)":"linear-gradient(90deg,#1d4ed8,#38bdf8)",
+                                  background: revOver?"linear-gradient(90deg,#f59e0b,#fde68a)":"linear-gradient(90deg,#4c1d95,#7c3aed)",
                                   transition:"width .5s ease" }})
                             )
-                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fde68a", fontWeight:800, textAlign:"right", textShadow:"0 0 10px rgba(251,191,36,.8)" }}, "✨ 達成！")
+                            , revOver && React.createElement('div', { style: { fontSize:8, color:"#fbbf24", fontWeight:800, textAlign:"right", textShadow:"0 0 8px rgba(251,191,36,.6)" }}, "✓ 達成")
                           );
                         })()
                     )
@@ -6798,7 +6227,7 @@ React.createElement('select', {
                       flex:1, background:"#0a0f1a", border:"1px solid #1e3a5f",
                       borderRadius:10, padding:"8px 16px",
                       display:"flex", flexDirection:"column", justifyContent:"center", gap:4 }}
-                    , React.createElement('div', { style: { fontSize:11, color:"#60a5fa", letterSpacing:2, fontWeight:700 }}, "今月の車検予約")
+                    , React.createElement('div', { style: { fontSize:9, color:"#475569", letterSpacing:2, fontWeight:700 }}, "今月の車検予約")
                     , React.createElement('div', { style: { display:"flex", alignItems:"baseline", gap:6 }}
                       , React.createElement('span', { style: { fontSize:32, fontWeight:900, color:"#38bdf8",
                           fontFamily:"'Orbitron',monospace", lineHeight:1,
@@ -6810,12 +6239,12 @@ React.createElement('select', {
                       flex:1, background:"#0a0f1a", border:"1px solid #1e3a5f33",
                       borderRadius:10, padding:"8px 16px",
                       display:"flex", flexDirection:"column", justifyContent:"center", gap:4 }}
-                    , React.createElement('div', { style: { fontSize:11, color:"#475569", letterSpacing:2, fontWeight:700 }}, "来月の車検予約")
+                    , React.createElement('div', { style: { fontSize:9, color:"#334155", letterSpacing:2, fontWeight:700 }}, "来月の車検予約")
                     , React.createElement('div', { style: { display:"flex", alignItems:"baseline", gap:6 }}
-                      , React.createElement('span', { style: { fontSize:32, fontWeight:900, color:"#94a3b8",
+                      , React.createElement('span', { style: { fontSize:32, fontWeight:900, color:"#64748b",
                           fontFamily:"'Orbitron',monospace", lineHeight:1,
-                          textShadow:"0 0 12px rgba(148,163,184,.6)" }}, statsCounters.nextMonthReserved||0)
-                      , React.createElement('span', { style: { fontSize:13, color:"#64748b", fontWeight:700 }}, "台")
+                          textShadow:"0 0 8px rgba(100,116,139,.4)" }}, statsCounters.nextMonthReserved||0)
+                      , React.createElement('span', { style: { fontSize:12, color:"#334155", fontWeight:600 }}, "台")
                     )
                   )
                 )
@@ -6869,7 +6298,7 @@ React.createElement('select', {
             )
 
 
-          , React.createElement('div', { style: { padding:"16px 20px" }}
+          , React.createElement('div', { style: { padding:"16px 20px", maxWidth:1500, margin:"0 auto" }}
             /* フィルターカード */
             , filt!=="すべて" && (
               React.createElement(FilterCards, { filt: filt, jobs: jobs, stalls: stalls, setFilt: setFilt, updStatus: updStatus, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob})
@@ -7072,36 +6501,11 @@ React.createElement('select', {
                         lineHeight:"14px", boxShadow:"0 0 6px "+badgeColor+"88" }}, alertJobs.length)
                     );
                   })()
-                  /* 予約ログボタン */
-                  , (()=>{
-                    const todayCount = todayLog.filter(l => l.registeredAt === TODAY_STR).length;
-                    return React.createElement('button', {
-                      onClick:()=>{ var next=!showTodayLog; setShowTodayLog(next); if(next){ setShowMemo(false); setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); } },
-                      style:{ position:"relative", flexShrink:0,
-                        background: showTodayLog ? "linear-gradient(135deg,#0c2a3a,#0e4d6e)" : "linear-gradient(135deg,#06111e,#0a1a2e)",
-                        border: showTodayLog ? "1px solid #38bdf888" : "1px solid #1e3a5f55",
-                        borderRadius:5, color: showTodayLog ? "#7dd3fc" : "#38bdf8",
-                        fontSize:11, fontWeight:700, cursor:"pointer",
-                        width:42, height:42, display:"flex", flexDirection:"column",
-                        alignItems:"center", justifyContent:"center",
-                        gap:1, padding:0, lineHeight:1.1,
-                        boxShadow: showTodayLog ? "0 0 10px #38bdf844" : "none" }},
-                      "📋",
-                      React.createElement('span', { style:{ fontSize:7, fontWeight:800, whiteSpace:"nowrap" }}, "予約ログ"),
-                      todayCount > 0 && React.createElement('span', { style:{
-                        position:"absolute", top:-4, right:-4,
-                        background:"#3b82f6", color:"#fff", borderRadius:"50%",
-                        width:14, height:14, fontSize:8, fontWeight:700,
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        lineHeight:"14px" }}, todayCount)
-                    );
-                  })()
-
                   /* メモパッドボタン */
                   , (()=>{
                     var hasMemo = memoText.trim().length > 0;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showMemo; setShowMemo(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); setShowTodayLog(false); } },
+                      onClick:()=>{ var next=!showMemo; setShowMemo(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showMemo ? "linear-gradient(135deg,#3b2a00,#78350f)" : "linear-gradient(135deg,#0d0a00,#1a1000)",
                         border: showMemo ? "1px solid #f59e0b88" : "1px solid #3a2a0055",
@@ -7170,7 +6574,7 @@ React.createElement('select', {
 
             /* ステータス一覧 */
             , tab==="shelved" && (
-              React.createElement(ShelvedList, { shelvedJobs: shelvedJobs, allJobs: jobs, stalls: stalls, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob, updStatus: updStatus, flashJobId: flashJobId})
+              React.createElement(ShelvedList, { shelvedJobs: shelvedJobs, allJobs: jobs, stalls: stalls, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob, updStatus: updStatus})
             )
 
             , tab==="bp" && (
@@ -7731,70 +7135,6 @@ React.createElement('select', {
             );
           })()
 
-          /* 予約ログパネル */
-          , showTodayLog && React.createElement('div', { style:{
-              position:"fixed", top:108, right:0, bottom:0, width:380, zIndex:197,
-              background:"#06111e", borderLeft:"2px solid #1e3a5f88",
-              display:"flex", flexDirection:"column",
-              boxShadow:"-4px 0 20px rgba(0,0,0,0.6)" }},
-            React.createElement('div', { style:{ padding:"10px 14px", background:"linear-gradient(135deg,#0a1628,#0d1e3a)",
-              borderBottom:"1px solid #1e3a5f", flexShrink:0 }},
-              React.createElement('div', { style:{ display:"flex", alignItems:"center", marginBottom:4 }},
-                React.createElement('span', { style:{ fontSize:13, fontWeight:900, color:"#60a5fa", flex:1 }}, "📋 予約ログ"),
-                React.createElement('button', { onClick:function(){setShowTodayLog(false);},
-                  style:{ background:"none", border:"none", color:"#475569", fontSize:14, cursor:"pointer" }}, "✕")
-              ),
-              React.createElement('div', { style:{ display:"flex", gap:6, flexWrap:"wrap" }},
-                (()=>{ const dates=[...new Set(todayLog.map(l=>l.registeredAt))].sort().reverse();
-                  return dates.map(d=>React.createElement('button',{key:d,
-                    onClick:()=>{if(window.confirm(d+"の"+todayLog.filter(l=>l.registeredAt===d).length+"件を削除しますか？"))saveTodayLog(todayLog.filter(l=>l.registeredAt!==d));},
-                    style:{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:4,background:"#1a2540",border:"1px solid #2a3a52",color:"#64748b",cursor:"pointer"}},
-                    "🗑 "+d.slice(5))); })(),
-                todayLog.length>0 && React.createElement('button',{
-                  onClick:()=>{if(window.confirm("全ての予約ログ("+todayLog.length+"件)を削除しますか？"))saveTodayLog([]);},
-                  style:{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:4,background:"#1a0a0a",border:"1px solid #7f1d1d",color:"#f87171",cursor:"pointer",marginLeft:"auto"}},
-                  "🗑 全削除")
-              )
-            ),
-            React.createElement('div', { style:{ flex:1, overflowY:"auto", padding:"8px 10px" }},
-              todayLog.length===0
-                ? React.createElement('div',{style:{textAlign:"center",color:"#334155",fontSize:12,padding:"40px 0"}},"登録はありません")
-                : (()=>{
-                    const dates=[...new Set(todayLog.map(l=>l.registeredAt))].sort().reverse();
-                    return dates.map(d=>{
-                      const dayLogs=todayLog.filter(l=>l.registeredAt===d).reverse();
-                      return React.createElement('div',{key:d,style:{marginBottom:16}},
-                        React.createElement('div',{style:{fontSize:11,fontWeight:800,color:"#38bdf8",borderBottom:"1px solid #1e3a5f",paddingBottom:4,marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}},
-                          React.createElement('span',null,d===TODAY_STR?"📅 本日 ("+d+")":"📅 "+d),
-                          React.createElement('span',{style:{fontSize:10,color:"#475569"}},dayLogs.length+"件")
-                        ),
-                        dayLogs.map((l,i)=>{
-                          const fullJob=jobs.find(j=>j.id===l.id);
-                          return React.createElement('div',{key:l.id+"-"+i,
-                            onDoubleClick:()=>{if(fullJob){setEditJob(fullJob);setShowTodayLog(false);}},
-                            style:{background:"#0d1625",border:"1px solid #1e3a5f",borderRadius:7,padding:"8px 10px",marginBottom:5,cursor:fullJob?"pointer":"default"}},
-                            React.createElement('div',{style:{display:"flex",alignItems:"center",gap:6,marginBottom:3}},
-                              React.createElement('span',{style:{fontSize:9,color:"#64748b"}},l.registeredTime),
-                              React.createElement('span',{style:{fontSize:12,fontWeight:800,color:"#7dd3fc",fontFamily:"monospace"}},l.plate),
-                              React.createElement('span',{style:{fontSize:11,fontWeight:600,color:"#e2e8f0"}},l.owner)
-                            ),
-                            React.createElement('div',{style:{fontSize:10,color:"#94a3b8",marginBottom:2}},l.model||""),
-                            React.createElement('div',{style:{display:"flex",gap:5,flexWrap:"wrap"}},
-                              l.type&&React.createElement('span',{style:{fontSize:9,padding:"1px 5px",borderRadius:3,background:"#0d1b2e",color:"#93c5fd",border:"1px solid #1e3a5f"}},l.type),
-                              l.mechanic&&React.createElement('span',{style:{fontSize:9,color:"#10b981"}},"🔧 "+l.mechanic),
-                              l.receptionist&&React.createElement('span',{style:{fontSize:9,color:"#06b6d4"}},"📋 "+l.receptionist),
-                              l.date&&React.createElement('span',{style:{fontSize:9,color:"#60a5fa"}},"入庫:"+l.date.slice(5)),
-                              l.deliveryDate&&React.createElement('span',{style:{fontSize:9,color:"#fbbf24"}},"納車:"+l.deliveryDate.slice(5)),
-                              !fullJob&&React.createElement('span',{style:{fontSize:8,color:"#475569",fontStyle:"italic"}},"削除済み")
-                            )
-                          );
-                        })
-                      );
-                    });
-                  })()
-            )
-          )
-
           /* メモパッドパネル */
           , showMemo && React.createElement('div', { style:{
               position:"fixed", top:108, right:0, bottom:0, width:260, zIndex:197,
@@ -7956,7 +7296,7 @@ React.createElement('select', {
                   , React.createElement('button', { onClick: () => setShowRevenueInput(false), style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18 }}, "✕")
                 )
                 , React.createElement('div', { style: { marginBottom:16 }}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "今月の整備売上金額")
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "今月の整備売上金額")
                   , React.createElement('input', { type:"number", min:"0", step:"1000", autoFocus:true,
                     value: revenueDraft,
                     onChange: e => setRevenueDraft(Math.max(0, parseInt(e.target.value)||0)),
@@ -8017,24 +7357,24 @@ React.createElement('select', {
                 )
                 , [{key:"owner",label:"オーナー名",ph:"田中 太郎"},{key:"plate",label:"ナンバープレート",ph:"品川330あ1234"},{key:"model",label:"車種",ph:"トヨタ プリウス"}].map(f => (
                   React.createElement('div', { key: f.key, style: { marginBottom:12 }}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label, React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label, React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement('input', { value: nj[f.key], onChange: e => updateNj(p=>({...p,[f.key]:e.target.value})), placeholder: f.ph,
-                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
-                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box" }})
+                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
+                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box" }})
                   )
                 ))
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1968}}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "入庫日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "入庫日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement('input', { type: "date", value: nj.date, onChange: e => updateNj(p=>({...p,date:e.target.value})),
-                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
-                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
+                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
+                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                   )
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1974}}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "納車予定日")
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "納車予定日")
                     , React.createElement('input', { type: "date", value: nj.deliveryDate, onChange: e => updateNj(p=>({...p,deliveryDate:e.target.value})),
-                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
-                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
+                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
+                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                   )
                 )
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}
@@ -8044,7 +7384,7 @@ React.createElement('select', {
                     {key:"end",  label:"終了予定",  opts:HOURS_20.map(t=>[String(t),fmtH(t)])},
                   ].map(f => (
                     React.createElement('div', { key: f.key}
-                      , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
+                      , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, f.label)
                       , React.createElement('select', { value: nj[f.key], onChange: e => updateNj(p=>({...p,[f.key]:e.target.value})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none" }}
@@ -8054,11 +7394,11 @@ React.createElement('select', {
                   ))
                 )
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:8, letterSpacing:1, fontWeight:600 }}, "作業種別", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:8, letterSpacing:1 }}, "作業種別", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                   , JT_GROUPS.map(group => (
                     React.createElement('div', { key: group.label, style: { marginBottom:8 }}
-                      , React.createElement('div', { style: { fontSize:11, color:"#64748b", letterSpacing:1, marginBottom:5, fontWeight:700,
-                        borderLeft:"2px solid #3b82f6", paddingLeft:6 }}, group.label)
+                      , React.createElement('div', { style: { fontSize:9, color:"#334155", letterSpacing:1, marginBottom:5,
+                        borderLeft:"2px solid #1e3a5f", paddingLeft:6 }}, group.label)
                       , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap" }}
                         , group.items.map(item => (
                            React.createElement('button', { key: item.key, onClick: () => updateNj(p=>({...p,type:item.key})), style: {
@@ -8077,19 +7417,19 @@ React.createElement('select', {
                  )
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
                   , React.createElement('div', {}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "受付日", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement('input', { type: "date", value: nj.receptionDate, onChange: e => updateNj(p=>({...p,receptionDate:e.target.value})),
-                      style: { width:"100%", background:"#0d1625", border:"1px solid #334155", borderRadius:8,
-                        padding:"9px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
+                      style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
+                        padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                   )
                   , React.createElement('div', {}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付担当者", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "受付担当者", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                     , React.createElement(StaffInput, { value: nj.receptionist,
                       onChange: v => updateNj(p=>({...p,receptionist:v})), placeholder: "担当者名", list: receptList, color:"#06b6d4" })
                   )
                 )
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "担当メカニック")
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "担当メカニック")
                   , React.createElement(StaffInput, { value: nj.mechanic,
                     onChange: v => updateNj(p=>({...p,mechanic:v})), placeholder: "メカニック名", list: mechList, color:"#10b981" })
                 )
@@ -8097,7 +7437,7 @@ React.createElement('select', {
                 , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}
                   /* 代車 */
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2028}}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "代車")
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "代車")
                     , React.createElement('div', { style: { display:"flex", gap:5 }}
                       , ["なし","あり"].map(v => (
                         React.createElement('button', { key: v, onClick: () => updateNj(p=>({...p,loanCar:v})),
@@ -8112,7 +7452,7 @@ React.createElement('select', {
                   )
                   /* 引取・納車 */
                   , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2043}}
-                    , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "引取 / 納車"  )
+                    , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "引取 / 納車"  )
                     , React.createElement('div', { style: { display:"flex", gap:4, flexWrap:"wrap" }}
                       , ["なし","引取","納車","引取+納車"].map(v => (
                         React.createElement('button', { key: v, onClick: () => updateNj(p=>({...p,transport:v})),
@@ -8128,7 +7468,7 @@ React.createElement('select', {
                 )
                 /* 新規・既存 */
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "顧客区分", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:6, letterSpacing:1 }}, "顧客区分", React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
                   , React.createElement('div', { style: { display:"flex", gap:6 }}
                     , [["existing","既存客"],["new","新規客"],["newcar","車両のみ新規"]].map(([v,l]) =>
                       React.createElement('button', { key: v, onClick: () => updateNj(p=>({...p,isNew:v})),
@@ -8144,7 +7484,7 @@ React.createElement('select', {
                 )
                 /* メモ */
                 , React.createElement('div', { style: { marginBottom:12 }}
-                  , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "メモ")
+                  , React.createElement('div', { style: { fontSize:10, color:"#475569", marginBottom:4, letterSpacing:1 }}, "メモ")
                   , React.createElement('input', { value: nj.memo, onChange: e => updateNj(p=>({...p,memo:e.target.value})), placeholder: "特記事項があれば入力",
                     style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                       padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box" }})
@@ -8226,130 +7566,4 @@ React.createElement('select', {
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2124}} ));
-  </script>
-<!--
-================================================================================
-  GARAGE SMB BOARD v6 - チェックリスト（修正時に必ず全項目確認すること）
-  最終更新: 2026-03-16
-================================================================================
-
-【必須チェックスクリプト】
-新しいチャットで作業する際は、アップロードされたindex.htmlに対して
-以下のPythonスクリプトを実行して全項目✅を確認してから納品すること。
-
-import re, subprocess, tempfile, os
-
-content = open('index.html').read()
-code = content
-
-# Reactバンドル内の[script>文字列を除外してカウント
-real_opens = [m for m in re.finditer(r'[script', content)
-              if 'innerHTML' not in content[max(0,m.start()-20):m.start()]]
-real_closes = len(re.findall(r'[/script]', content))
-style_inner = re.search(r'[style]([\s\S]*?)[/style]', content).group(1)
-
-checks = {
-    # ===== 構造チェック =====
-    'JS構文エラーなし':           len(real_opens) == real_closes,
-    'styleタグ正常(1個)':         content.count('[style]') == 1,
-    'styleにHTML混入なし':        '-->' not in style_inner and '<html' not in style_inner,
-    '古いloginCSS混入なし':       'login-glow-pulse' not in style_inner and 'login-bg-move' not in style_inner,
-
-    # ===== バグ修正 =====
-    '販売ブラックアウト修正': '} }; if' not in code,
-
-    # ===== スタッフ名 =====
-    'スタッフFirebase同期(recept)': "localStorage.setItem('garage_recept'" in content,
-    'スタッフFirebase同期(mech)':   "localStorage.setItem('garage_mech'" in content,
-    'スタッフデフォルト値空':        '"田中","佐藤"' not in code,
-
-    # ===== Firebase安全保護 =====
-    '代車初回書込み防止(_lcInitialized)':       '_lcInitialized' in content,
-    'BPstalls/workersFirebase同期':             "localStorage.setItem('bp_stalls'" in content,
-    'garage_stalls_localStorage保存':           "localStorage.setItem('garage_stalls'" in content,
-    'jobs初回書込み防止(_jobsInitialized)':     '_jobsInitialized' in content,
-    'stalls初回書込み防止(_stallsInitialized)': '_stallsInitialized' in content,
-
-    # ===== BP札表示 =====
-    'BP札納車予定日(🚗ゴールド)': '"🚗 "+job.noshaDate' in content,
-    'BP札車種(carModel)':         'job.carModel && React.createElement' in content,
-    'BP着工OK/NGバッジ':          '着工OK' in content,
-
-    # ===== ストールボード札 =====
-    'ストールボード車種表示':   'job.model && React.createElement' in content,
-    'ストールボード納車日表示': 'job.deliveryDate.slice(5)' in content,
-
-    # ===== ドラッグ =====
-    'BP上下ドラッグ(origStallIdx)': 'origStallIdx' in content,
-    'BP上下ドラッグ(stallDelta)':   'stallDelta' in content,
-    '代車上下ドラッグ(moveDrag)':   'moveDrag' in content,
-    '代車上下ドラッグ(origCarId)':  'origCarId' in content,
-
-    # ===== BP完了ログ =====
-    'BP完了ログ(bpCompletedLog)':        'bpCompletedLog' in content,
-    'BP完了ログボタン':                   '完了ログ' in content,
-    '引渡完了後売上維持(completeAndLog)': 'completeAndLog' in content,
-
-    # ===== 完了・計上モーダル =====
-    '完了・計上モーダル(completeModal)':   'completeModal' in content,
-    '完了・計上ボタン名':                   '完了・計上' in content,
-    '計上月選択(getMonthOptions)':         'getMonthOptions' in content,
-    '計上金額(estimatedAmount自動入力)':    'completeModal.amount' in content,
-
-    # ===== 検索機能 =====
-    '検索→ステータス一覧(status-card-)': 'status-card-' in content,
-    '検索→ガントボード(job-bar-)':       'job-bar-' in content,
-    '検索isShelved判定':                  'isShelved' in content,
-    'ShelvedListにflashJobId':            'flashJobId: flashJobId' in content,
-    '検索完了案件除外':                    '!j.completed &&' in content,
-
-    # ===== ROLES =====
-    'ROLE_BAR_BG(貼ったバー濃く)':  'ROLE_BAR_BG' in content,
-    'HサブROLE赤白(borderColor白)': 'borderColor:"#ffffff"' in content,
-    'ROLE×ボタン白':                 'color:"#ffffff", cursor:"pointer"' in content,
-
-    # ===== 予約ログ =====
-    '予約ログ(showTodayLog)':  'showTodayLog' in content,
-    '予約ログFirebase同期':     'garage_today_log' in content,
-    '予約ログ入庫登録時追記':    'saveTodayLog([...todayLog' in content,
-
-    # ===== 代車管理 =====
-    '代車車検満了日(car.shaken)':    'car.shaken' in content,
-    '代車車検バッジ表示':             '車検まで' in content,
-    '代車貸出時車検警告':             'ご注意ください' in content,
-    '代車部門フィルター(deptFilter)': 'deptFilter' in content,
-    '代車フィルター(すべて)':          'すべて' in content,
-
-    # ===== ログイン画面 =====
-    'ログイン認証(garage_auth_date)':      'garage_auth_date' in content,
-    'パスワード(auto8821)':                'auto8821' in content,
-    'マトリックス背景(login-canvas)':      'login-canvas' in content,
-    'AUTORUNNERアニメーション(MB)':        'AUTORUNNER MB' in content,
-    'ログイン後フェードアウト(_fadingOut)': '_fadingOut' in content,
-    'ログインボックス非表示':              "display='none'" in content,
-
-    # ===== その他機能 =====
-    'stallDraft宣言':                      'stallDraft, setStallDraft' in content,
-    'ストールボタン修正(maxWidth削除)':     'padding:"16px 20px" }}' in content,
-    'ROLEカード翌日リセット(roleCardsDate)':'roleCardsDate' in content,
-    '入庫日変更リセット(dateChanged)':      'dateChanged' in content,
-    'confirmReAssign_displayDate':          'displayDate:undefined' in content,
-    'BP👷スタッフ管理ボタン':              'showBpStaffModal' in content,
-    '月リセット確認ダイアログ':             'confirm(' in content,
-}
-
-all_ok = True
-for k, v in checks.items():
-    s = '✅' if v else '❌'
-    if not v: all_ok = False
-    print(f'{s} {k}')
-print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
-
-================================================================================
-  Firebase URL: https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app
-  GitHub URL:   https://github.com/autorunner3216-beep/garage-board-
-  公開URL:      https://autorunner3216-beep.github.io/garage-board-/
-  ログインリセット(Consoleに貼る): localStorage.removeItem('garage_auth_date');location.reload();
-================================================================================
--->
-</body></html>
+  </script></body></html>
