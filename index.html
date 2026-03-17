@@ -6643,6 +6643,130 @@ React.createElement('select', {
       }, [jobs, manualLog]);
 
       // 詳細ポップオーバー
+
+      // カードビュー
+      const CardView = ({ jobs: cardJobs }) => {
+        const list = filt==="すべて" ? cardJobs : cardJobs.filter(j => j.status===filt);
+        return (
+          React.createElement('div', { style: { display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(278px,1fr))", gap:10 }}
+            , list.map(job => {
+              const sc = SC[job.status]; const jt = JT[job.type]||JT["一般整備"];
+              const working = job.workState==="working"; const done = job.workState==="shelved";
+              return (
+                React.createElement('div', { key: job.id,
+                  className: (working?"bar-working":"") + (flashJobId===job.id?" search-flash":""),
+                  onClick: e => { const r=e.currentTarget.getBoundingClientRect();setSelPos({x:r.left+r.width/2,y:r.bottom+6});setSel(_optionalChain([sel, 'optionalAccess', _34 => _34.id])===job.id?null:job); },
+                  onDoubleClick: e => { e.stopPropagation(); setSel(null); setEditJob(job); },
+                  style: { background:_optionalChain([sel, 'optionalAccess', _35 => _35.id])===job.id?sc.bg:"#0d1625",
+                    border:`1px solid ${_optionalChain([sel, 'optionalAccess', _36 => _36.id])===job.id?sc.accent:"#1e293b"}`,
+                    borderLeft:`4px solid ${done?"#334155":jt.badge}`,
+                    borderRadius:12, padding:14, cursor:"pointer", opacity:done?0.7:1 }}
+                  , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}
+                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1557}}
+                      , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:5, marginBottom:3 }}
+                        , React.createElement('span', { style: { fontSize:13, fontWeight:700, color:done?"#475569":"#38bdf8", fontFamily:"monospace" }}, job.plate)
+                      )
+                      , React.createElement('div', { style: { fontSize:11, color:"#94a3b8" }}, job.owner, " / "  , React.createElement('span', { style: {color:"#e2e8f0",fontWeight:600}}, job.model))
+                    )
+                    , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:5 }}
+                      , working && React.createElement('span', { className: "dot-blink", style: { width:6,height:6,borderRadius:"50%",background:"#10b981",display:"inline-block" }})
+                      , React.createElement('span', { style: { background:working?"#0a1e14":sc.bg, border:`1px solid ${working?"#10b981":sc.accent}`, color:working?"#6ee7b7":sc.text, fontSize:10, borderRadius:6, padding:"3px 7px" }}, working ? "作業中" : job.status)
+                    )
+                  )
+                  , React.createElement('div', { style: { display:"flex", gap:10, fontSize:11, color:"#475569", marginBottom:8 }}
+                    , React.createElement('span', { style: { color:jt.badge }}, "■"), React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1569}}, job.type)
+                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1570}}, "👨‍🔧 " , _optionalChain([stalls, 'access', _37 => _37.find, 'call', _38 => _38(s=>s.id===job.stall), 'optionalAccess', _39 => _39.mechanic]))
+                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1571}}, "🕐 " , fmtH(job.start))
+                  )
+                  , !done && (
+                    React.createElement('div', { onClick: e=>e.stopPropagation()}
+                      , !working
+                        ? React.createElement('button', { onClick: ()=>startWork(job.id), style: { width:"100%", background:"#10b981", border:"none", borderRadius:6, color:"#fff", padding:"6px", fontSize:11, fontWeight:700, cursor:"pointer" }}, "▶ 作業開始" )
+                        : React.createElement('button', { onClick: ()=>endWork(job.id), style: { width:"100%", background:"#1e293b", border:"1px solid #475569", borderRadius:6, color:"#94a3b8", padding:"6px", fontSize:11, fontWeight:700, cursor:"pointer" }}, "■ 作業終了" )
+                      
+                    )
+                  )
+                  , done && React.createElement('div', { style: { fontSize:10, color:"#475569", textAlign:"center", marginTop:4 }}, "✓ 完了 "  , job.endedAt)
+                  , job.memo && React.createElement('div', { style: { marginTop:6, fontSize:10, color:"#fcd34d", background:"#1a1200", borderRadius:5, padding:"3px 8px" }}, "📝 " , job.memo)
+                  , React.createElement('div', { style: { marginTop:4 }}, React.createElement(InfoBadges, { job: job}))
+                )
+              );
+            })
+          )
+        );
+      };
+
+      // ── 全ての state と action を返す ──
+      return {
+        // データ
+        jobs, setJobs, stalls, setStalls,
+        todayLog, saveTodayLog,
+        memoText, saveMemo,
+        blockDays, saveBlockDays,
+        receptList, saveReceptList,
+        mechList, saveMechList,
+        staffList,
+        manualLog, saveManualLog,
+        salesRecords, saveSalesRecords,
+        targets, saveTargets,
+        currentRevenue, saveCurrentRevenue,
+        // UI状態
+        tab, setTab, view, setView,
+        sel, setSel, selPos, setSelPos,
+        filt, setFilt,
+        boardDate, setBoardDate,
+        showCal, setShowCal, calPos, setCalPos,
+        showAdd, setShowAdd, addError, setAddError,
+        showTomorrow, setShowTomorrow,
+        showTodayDelivery, setShowTodayDelivery,
+        showLoanTomorrow, setShowLoanTomorrow,
+        showDeadline, setShowDeadline,
+        showMemo, setShowMemo,
+        showTodayLog, setShowTodayLog,
+        showStaff, setShowStaff,
+        showBlock, setShowBlock,
+        showStallEdit, setShowStallEdit,
+        stallDraft, setStallDraft,
+        showStatsLog, setShowStatsLog,
+        showTargetEdit, setShowTargetEdit,
+        targetDraft, setTargetDraft,
+        showRevenueInput, setShowRevenueInput,
+        revenueDraft, setRevenueDraft,
+        resetOffset, setResetOffset,
+        resetMonthAt, setResetMonthAt,
+        endModal, setEndModal,
+        roleCards, setRoleCards,
+        roleCardsDate, setRoleCardsDate,
+        reAssign, setReAssign,
+        editJob, setEditJob,
+        ra, setRa,
+        nj, setNj, updateNj,
+        searchQuery, setSearchQuery,
+        searchResults, setSearchResults,
+        showSearchResults, setShowSearchResults,
+        flashJobId, setFlashJobId,
+        loanTomorrowTick,
+        // アクション
+        startWork, endWork, confirmEndWork, rolloverWork,
+        updPit, updStatus, addJob, saveEditJob,
+        openReAssign, confirmReAssign, confirmStatusOnly, removeJob,
+        // 派生データ
+        boardJobs, waitingJobs, shelvedJobs, cnt,
+        statsCounters, yearlyLog,
+        SHELVE_ON_STATUS, FIELD_ERROR_MAP,
+        HOLIDAY_TYPES_H, HOLIDAY_TYPES_HJ, HOLIDAY_TYPES_I,
+        OTHER_SHAKEN_TYPES, ALL_SHAKEN, DONE_STATUSES, isNewCust,
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LAYER 4 — UI コンポーネント（App が頂点）
+    //  ルール: データ操作は save* / saveToDb 経由のみ。
+    //          db.ref() を直接呼ばない。
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── メインApp（表示のみ担当）──
+    function App() {
       const Detail = ({ job, pos }) => {
         const sc = SC[job.status]||SC["作業待ち"];
         const jt = JT[job.type]||JT["一般整備"];
@@ -6783,130 +6907,6 @@ React.createElement('select', {
           )
         );
       };
-
-      // カードビュー
-      const CardView = ({ jobs: cardJobs }) => {
-        const list = filt==="すべて" ? cardJobs : cardJobs.filter(j => j.status===filt);
-        return (
-          React.createElement('div', { style: { display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(278px,1fr))", gap:10 }}
-            , list.map(job => {
-              const sc = SC[job.status]; const jt = JT[job.type]||JT["一般整備"];
-              const working = job.workState==="working"; const done = job.workState==="shelved";
-              return (
-                React.createElement('div', { key: job.id,
-                  className: (working?"bar-working":"") + (flashJobId===job.id?" search-flash":""),
-                  onClick: e => { const r=e.currentTarget.getBoundingClientRect();setSelPos({x:r.left+r.width/2,y:r.bottom+6});setSel(_optionalChain([sel, 'optionalAccess', _34 => _34.id])===job.id?null:job); },
-                  onDoubleClick: e => { e.stopPropagation(); setSel(null); setEditJob(job); },
-                  style: { background:_optionalChain([sel, 'optionalAccess', _35 => _35.id])===job.id?sc.bg:"#0d1625",
-                    border:`1px solid ${_optionalChain([sel, 'optionalAccess', _36 => _36.id])===job.id?sc.accent:"#1e293b"}`,
-                    borderLeft:`4px solid ${done?"#334155":jt.badge}`,
-                    borderRadius:12, padding:14, cursor:"pointer", opacity:done?0.7:1 }}
-                  , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}
-                    , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1557}}
-                      , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:5, marginBottom:3 }}
-                        , React.createElement('span', { style: { fontSize:13, fontWeight:700, color:done?"#475569":"#38bdf8", fontFamily:"monospace" }}, job.plate)
-                      )
-                      , React.createElement('div', { style: { fontSize:11, color:"#94a3b8" }}, job.owner, " / "  , React.createElement('span', { style: {color:"#e2e8f0",fontWeight:600}}, job.model))
-                    )
-                    , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:5 }}
-                      , working && React.createElement('span', { className: "dot-blink", style: { width:6,height:6,borderRadius:"50%",background:"#10b981",display:"inline-block" }})
-                      , React.createElement('span', { style: { background:working?"#0a1e14":sc.bg, border:`1px solid ${working?"#10b981":sc.accent}`, color:working?"#6ee7b7":sc.text, fontSize:10, borderRadius:6, padding:"3px 7px" }}, working ? "作業中" : job.status)
-                    )
-                  )
-                  , React.createElement('div', { style: { display:"flex", gap:10, fontSize:11, color:"#475569", marginBottom:8 }}
-                    , React.createElement('span', { style: { color:jt.badge }}, "■"), React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1569}}, job.type)
-                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1570}}, "👨‍🔧 " , _optionalChain([stalls, 'access', _37 => _37.find, 'call', _38 => _38(s=>s.id===job.stall), 'optionalAccess', _39 => _39.mechanic]))
-                    , React.createElement('span', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1571}}, "🕐 " , fmtH(job.start))
-                  )
-                  , !done && (
-                    React.createElement('div', { onClick: e=>e.stopPropagation()}
-                      , !working
-                        ? React.createElement('button', { onClick: ()=>startWork(job.id), style: { width:"100%", background:"#10b981", border:"none", borderRadius:6, color:"#fff", padding:"6px", fontSize:11, fontWeight:700, cursor:"pointer" }}, "▶ 作業開始" )
-                        : React.createElement('button', { onClick: ()=>endWork(job.id), style: { width:"100%", background:"#1e293b", border:"1px solid #475569", borderRadius:6, color:"#94a3b8", padding:"6px", fontSize:11, fontWeight:700, cursor:"pointer" }}, "■ 作業終了" )
-                      
-                    )
-                  )
-                  , done && React.createElement('div', { style: { fontSize:10, color:"#475569", textAlign:"center", marginTop:4 }}, "✓ 完了 "  , job.endedAt)
-                  , job.memo && React.createElement('div', { style: { marginTop:6, fontSize:10, color:"#fcd34d", background:"#1a1200", borderRadius:5, padding:"3px 8px" }}, "📝 " , job.memo)
-                  , React.createElement('div', { style: { marginTop:4 }}, React.createElement(InfoBadges, { job: job}))
-                )
-              );
-            })
-          )
-        );
-      };
-
-      // ── 全ての state と action を返す ──
-      return {
-        // データ
-        jobs, setJobs, stalls, setStalls,
-        todayLog, saveTodayLog,
-        memoText, saveMemo,
-        blockDays, saveBlockDays,
-        receptList, saveReceptList,
-        mechList, saveMechList,
-        staffList,
-        manualLog, saveManualLog,
-        salesRecords, saveSalesRecords,
-        targets, saveTargets,
-        currentRevenue, saveCurrentRevenue,
-        // UI状態
-        tab, setTab, view, setView,
-        sel, setSel, selPos, setSelPos,
-        filt, setFilt,
-        boardDate, setBoardDate,
-        showCal, setShowCal, calPos, setCalPos,
-        showAdd, setShowAdd, addError, setAddError,
-        showTomorrow, setShowTomorrow,
-        showTodayDelivery, setShowTodayDelivery,
-        showLoanTomorrow, setShowLoanTomorrow,
-        showDeadline, setShowDeadline,
-        showMemo, setShowMemo,
-        showTodayLog, setShowTodayLog,
-        showStaff, setShowStaff,
-        showBlock, setShowBlock,
-        showStallEdit, setShowStallEdit,
-        stallDraft, setStallDraft,
-        showStatsLog, setShowStatsLog,
-        showTargetEdit, setShowTargetEdit,
-        targetDraft, setTargetDraft,
-        showRevenueInput, setShowRevenueInput,
-        revenueDraft, setRevenueDraft,
-        resetOffset, setResetOffset,
-        resetMonthAt, setResetMonthAt,
-        endModal, setEndModal,
-        roleCards, setRoleCards,
-        roleCardsDate, setRoleCardsDate,
-        reAssign, setReAssign,
-        editJob, setEditJob,
-        ra, setRa,
-        nj, setNj, updateNj,
-        searchQuery, setSearchQuery,
-        searchResults, setSearchResults,
-        showSearchResults, setShowSearchResults,
-        flashJobId, setFlashJobId,
-        loanTomorrowTick,
-        // アクション
-        startWork, endWork, confirmEndWork, rolloverWork,
-        updPit, updStatus, addJob, saveEditJob,
-        openReAssign, confirmReAssign, confirmStatusOnly, removeJob,
-        // 派生データ
-        boardJobs, waitingJobs, shelvedJobs, cnt,
-        statsCounters, yearlyLog,
-        SHELVE_ON_STATUS, FIELD_ERROR_MAP,
-        HOLIDAY_TYPES_H, HOLIDAY_TYPES_HJ, HOLIDAY_TYPES_I,
-        OTHER_SHAKEN_TYPES, ALL_SHAKEN, DONE_STATUSES, isNewCust,
-      };
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  LAYER 4 — UI コンポーネント（App が頂点）
-    //  ルール: データ操作は save* / saveToDb 経由のみ。
-    //          db.ref() を直接呼ばない。
-    // ═══════════════════════════════════════════════════════════════
-
-    // ── メインApp（表示のみ担当）──
-    function App() {
       // 状態はすべて useAppState から受け取る
       const state = useAppState();
       const {
