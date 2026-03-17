@@ -223,6 +223,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script>
+  // ═══════════════════════════════════════════════════════════════
+  //  LAYER 2 — Firebase データアクセス層
+  //  ルール: fbSet / fbOn / fbOff だけがDBと通信する。
+  //  UIコンポーネントは直接 db.ref() を呼ばない。
+  // ═══════════════════════════════════════════════════════════════
   const firebaseConfig = {
     apiKey: "AIzaSyDAyqKSD4oxh3PqZW1UIjuqL73Ejp33_E0",
     authDomain: "garage-armb-board.firebaseapp.com",
@@ -250,6 +255,34 @@
     window.fbOff = function(key) {
       db.ref('garage/' + key).off();
     };
+
+    // ── saveToDb: localStorage + Firebase を同時に保存する統一関数 ──
+    // 使い方: window.saveToDb('garage_jobs', jobs)
+    // ・localStorage への書き込み（オフライン時のキャッシュ）
+    // ・Firebase への書き込み（リアルタイム同期）
+    window.saveToDb = function(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch(e) {
+        console.warn('[saveToDb] localStorage 書き込み失敗:', key, e);
+      }
+      if (typeof window.fbSet === 'function') {
+        window.fbSet(key, value);
+      }
+    };
+
+    // ── loadFromDb: localStorage からの読み込み統一関数 ──
+    // 使い方: window.loadFromDb('garage_stalls', INIT_STALLS)
+    window.loadFromDb = function(key, fallback) {
+      try {
+        var s = localStorage.getItem(key);
+        return s ? JSON.parse(s) : fallback;
+      } catch(e) {
+        console.warn('[loadFromDb] 読み込み失敗:', key, e);
+        return fallback;
+      }
+    };
+
     console.log('[Firebase] 初期化完了');
   </script>
 </head>
@@ -451,6 +484,27 @@ react-dom/cjs/react-dom-client.production.js:
 </script><script>const _jsxFileName = ""; function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
     const { useState, useRef, useCallback, useEffect, useMemo, memo } = React;
 
+    // ── ヘルパー関数（Firebaseスクリプトで定義済みの場合はそちらを優先）──
+    if (typeof window.loadFromDb !== 'function') {
+      window.loadFromDb = function(key, fallback) {
+        try { var s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
+        catch(e) { return fallback; }
+      };
+    }
+    if (typeof window.saveToDb !== 'function') {
+      window.saveToDb = function(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
+        if (typeof window.fbSet === 'function') window.fbSet(key, value);
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LAYER 1 — 定数・設定
+    //  ここの値を変える以外の修正はこのセクションに加えない。
+    //  UIもデータ層もここを読むだけで書き込まない。
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── ガントチャート表示パラメータ ──
     const HOURS   = Array.from({ length: 17 }, (_, i) => i + 8);
     const CELL_W  = 160;
     const ROW_H   = 62;
@@ -459,6 +513,7 @@ react-dom/cjs/react-dom-client.production.js:
     const HOURS_20 = [8.0,8.333,8.667,9.0,9.333,9.667,10.0,10.333,10.667,11.0,11.333,11.667,12.0,12.333,12.667,13.0,13.333,13.667,14.0,14.333,14.667,15.0,15.333,15.667,16.0,16.333,16.667,17.0,17.333,17.667,18.0,18.333,18.667,19.0,19.333,19.667,20.0,20.333,20.667,21.0,21.333,21.667,22.0,22.333,22.667,23.0,23.333,23.667,24.0];
     const MIN_DUR = 1/3;
 
+    // ── ストール初期値（ユーザーが設定変更するまでのデフォルト）──
     const INIT_STALLS = [
       {id:"S01",name:"S-01",mechanic:""},
       {id:"S02",name:"S-02",mechanic:""},
@@ -470,6 +525,7 @@ react-dom/cjs/react-dom-client.production.js:
       {id:"S08",name:"S-08",mechanic:""},
     ];
 
+    // ── ステータス一覧 ──
     const STATUSES = ["作業待ち","当日来店/預かり","連絡待ち","部品待ち","一時中断","検査・保適待ち","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
     const PITS = [null,"P1","P2","P3","P4","P5","P6","板金"];
     const PITS_LABELS = ["P1","P2","P3","P4","P5","P6","板金"];
@@ -486,6 +542,8 @@ react-dom/cjs/react-dom-client.production.js:
       const idx = PITS.indexOf(cur);
       return PITS[(idx + 1) % PITS.length];
     };
+    // ── ステータス別カラー定義（SC）──
+    // bg=カード背景, accent=枠線, text=文字色, glow=発光色
     const SC = {
       "作業待ち":      {bg:"#1a2235",accent:"#475569",text:"#94a3b8",glow:"rgba(71,85,105,.4)"},
       "当日来店/預かり":{bg:"#0e1a2e",accent:"#38bdf8",text:"#7dd3fc",glow:"rgba(56,189,248,.4)"},
@@ -500,6 +558,8 @@ react-dom/cjs/react-dom-client.production.js:
       "完成":        {bg:"#0a1e10",accent:"#22c55e",text:"#86efac",glow:"rgba(34,197,94,.35)"},
     };
 
+    // ── 作業タイプ定義（JT）──
+    // badge=バッジ色, short=短縮表示名
     const JT_GROUPS = [
       { label:"車検系", items:[
         {key:"ホリデー車検",        badge:"#f97316",short:"ホリデー車検"},
@@ -538,11 +598,13 @@ react-dom/cjs/react-dom-client.production.js:
     ];
     const JT = Object.fromEntries(JT_GROUPS.flatMap(g => g.items.map(i => [i.key, i])));
 
+    // ── ユーティリティ関数（純粋関数・副作用なし）──
     const fmtH   = h => { const hh=Math.floor(h); const mm=Math.round((h-hh)*60); return `${hh}:${String(mm).padStart(2,"0")}`; };
     const nowStr = () => new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
     const snap   = v => Math.round(v / SNAP) * SNAP;
     const clamp  = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+    // ── アニメーション CSS（JS注入用）──
     const CSS = `
     @keyframes blinkBorder {
       0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0),inset 0 0 0 0 rgba(16,185,129,0);}
@@ -574,6 +636,7 @@ react-dom/cjs/react-dom-client.production.js:
     .ghost-bar { animation: ghostPulse .8s ease-in-out infinite; pointer-events:none; }
     `;
 
+    // ── 日付ユーティリティ ──
     const toLocaleDateStr = d => {
       const y = d.getFullYear();
       const m = String(d.getMonth()+1).padStart(2,'0');
@@ -2399,13 +2462,13 @@ react-dom/cjs/react-dom-client.production.js:
 
       // 物品名リスト
       const [items, setItems] = useState(() => {
-        try { const s = localStorage.getItem('garage_salesitems'); return s ? JSON.parse(s) : DEFAULT_ITEMS; } catch { return DEFAULT_ITEMS; }
+        return window.loadFromDb('garage_salesitems', DEFAULT_ITEMS)
       });
-      const saveItems = v => { setItems(v); try { localStorage.setItem('garage_salesitems', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_salesitems', v); };
+      const saveItems = v => { setItems(v); window.saveToDb('garage_salesitems', v); };
       const [itemTargets, setItemTargets] = useState(() => {
-        try { const s = localStorage.getItem('garage_item_targets'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+        return window.loadFromDb('garage_item_targets', {})
       });
-      const saveItemTargets = v => { setItemTargets(v); try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_item_targets', v); };
+      const saveItemTargets = v => { setItemTargets(v); window.saveToDb('garage_item_targets', v); };
       // ── Sales Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
@@ -2882,7 +2945,13 @@ react-dom/cjs/react-dom-client.production.js:
     const BP_LEFT_W = 120;  // 左ラベル幅(px)
 
     // 日付ユーティリティ
-    function bpDateStr(d){ return d.toISOString().slice(0,10); }
+    function bpDateStr(d){
+      // toISOString() はUTC基準のため日本時間でズレる → ローカル時刻で生成
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+day;
+    }
     function bpAddDays(str, n){
       const d = new Date(str + "T00:00:00"); d.setDate(d.getDate()+n); return bpDateStr(d);
     }
@@ -3414,10 +3483,10 @@ React.createElement('select', {
       const TODAY = bpDateStr(new Date());
 
       const [lcCars, setLcCars] = useState(() => {
-        try { const s = localStorage.getItem('loancar_cars'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('loancar_cars', [])
       });
       const [lcLoans, setLcLoans] = useState(() => {
-        try { const s = localStorage.getItem('loancar_loans'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('loancar_loans', [])
       });
       const [viewMonth, setViewMonth] = useState(() => TODAY.slice(0,7));
       const [showCarEdit, setShowCarEdit] = useState(false);
@@ -3429,7 +3498,7 @@ React.createElement('select', {
       const [dragState, setDragState] = useState(null);
       // 貸出モーダル用: 受付スタッフリスト
       var receptList = (function(){
-        try{ var s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; }catch{ return []; }
+        return window.loadFromDb('garage_recept', [])
       })();
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
@@ -3437,23 +3506,29 @@ React.createElement('select', {
       React.useEffect(() => { _lcCarsRef.current = lcCars; }, [lcCars]);
 
 
+      // _lcFbIncoming は下の useEffect より先に宣言する必要がある
+      const _lcFbIncoming = React.useRef(false);
+
       const _lcInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcInitialized.current) { _lcInitialized.current = true; return; }
         if (_lcFbIncoming.current) return;
-        localStorage.setItem('loancar_cars', JSON.stringify(lcCars));
-        if (typeof window.fbSet==='function') window.fbSet('loancar_cars', lcCars);
+        _lcFbIncoming.current = true;
+        window.saveToDb('loancar_cars', lcCars);
+        setTimeout(() => { _lcFbIncoming.current = false; }, 1000);
       }, [lcCars]);
       const _lcLoansInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcLoansInitialized.current) { _lcLoansInitialized.current = true; return; }
         if (_lcFbIncoming.current) return;
-        localStorage.setItem('loancar_loans', JSON.stringify(lcLoans));
-        if (typeof window.fbSet==='function') window.fbSet('loancar_loans', lcLoans);
+        // Firebase に書き込んだ直後に自分の fbOn が反応するのを防ぐ
+        // fbSet は 300ms 遅延があるため、それより長くフラグを立てておく
+        _lcFbIncoming.current = true;
+        window.saveToDb('loancar_loans', lcLoans);
+        setTimeout(() => { _lcFbIncoming.current = false; }, 1000);
       }, [lcLoans]);
 
       // ── LoanCar Firebase リアルタイム同期 ──
-      const _lcFbIncoming = React.useRef(false);
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('loancar_cars', function(val) {
@@ -3544,41 +3619,41 @@ React.createElement('select', {
           const scrollLeft = gridRef.current.scrollLeft || 0;
           const gridW = rect.width - LEFT_W;
           const dayW = gridW / daysInMonth;
-          // マウスのグリッド内X位置（スクロール考慮）→ 何日目か
-          const mouseXInGrid = e.clientX - rect.left - LEFT_W + scrollLeft;
-          const currentDay = Math.floor(mouseXInGrid / dayW);
-          // ドラッグ開始時のマウスが何日目にいたか
-          const startXInGrid = moveDrag.startX - rect.left - LEFT_W + scrollLeft;
-          const startDay = Math.floor(startXInGrid / dayW);
-          lastDaysDelta = currentDay - startDay;
+          const dx = (e.clientX + scrollLeft) - (moveDrag.startX + scrollLeft);
+          lastDaysDelta = Math.floor(dx / dayW + 0.5);
           const dy = e.clientY - moveDrag.startY;
           lastRowDelta  = Math.round(dy / ROW_H);
           barEl.style.transform = 'translate(' + (lastDaysDelta * dayW) + 'px, ' + (lastRowDelta * ROW_H) + 'px)';
         };
 
-        const onUp = () => {
-          // 見た目を元に戻す
+        const onUp = (e) => {
+          // 左クリック以外の release は無視（右クリックで誤確定しない）
+          if (e && e.button !== 0) return;
+          // 1. まずデータを確定保存（見た目リセットより先）
+          if (lastDaysDelta !== 0 || lastRowDelta !== 0) {
+            setLcLoans(p => {
+              const next = p.map(l => {
+                if (l.id !== moveDrag.loanId) return l;
+                const newStart = bpAddDays(moveDrag.origStart, lastDaysDelta);
+                const newEnd   = bpAddDays(moveDrag.origEnd,   lastDaysDelta);
+                let newCarId = l.carId;
+                if (lastRowDelta !== 0) {
+                  const carIds = _lcCarsRef.current.map(c => c.id);
+                  const origIdx = carIds.indexOf(moveDrag.origCarId);
+                  const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + lastRowDelta));
+                  newCarId = carIds[newIdx];
+                }
+                return { ...l, startDate: newStart, endDate: newEnd, carId: newCarId };
+              });
+              window.saveToDb('loancar_loans', next);
+              return next;
+            });
+          }
+          // 2. 見た目を元に戻す（データ保存の後）
           barEl.style.transform = origTransform;
           barEl.style.zIndex = origZIndex;
           barEl.style.opacity = origOpacity;
           barEl.style.cursor = '';
-
-          // マウスを離した時だけstateを更新（データ確定）
-          if (lastDaysDelta !== 0 || lastRowDelta !== 0) {
-            setLcLoans(p => p.map(l => {
-              if (l.id !== moveDrag.loanId) return l;
-              const newStart = bpAddDays(moveDrag.origStart, lastDaysDelta);
-              const newEnd   = bpAddDays(moveDrag.origEnd,   lastDaysDelta);
-              let newCarId = l.carId;
-              if (lastRowDelta !== 0) {
-                const carIds = _lcCarsRef.current.map(c => c.id);
-                const origIdx = carIds.indexOf(moveDrag.origCarId);
-                const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + lastRowDelta));
-                newCarId = carIds[newIdx];
-              }
-              return { ...l, startDate: newStart, endDate: newEnd, carId: newCarId };
-            }));
-          }
           setMoveDrag(null);
         };
 
@@ -3878,6 +3953,7 @@ React.createElement('select', {
                           setLoanModal(Object.assign({},l));
                         }; })(loan),
                         onMouseDown: (function(l, carId){ return function(e) {
+                          if (e.button !== 0) return;
                           if (e.target.closest && e.target.closest('[data-resize]')) return;
                           e.stopPropagation(); e.preventDefault();
                           setMoveDrag({ loanId:l.id, startX:e.clientX, startY:e.clientY,
@@ -3926,6 +4002,7 @@ React.createElement('select', {
                         React.createElement('div', {
                           style:{ minWidth:0, flex:1, cursor: moveDrag ? 'grabbing' : 'grab' },
                           onMouseDown: (function(l, carId){ return function(e) {
+                            if (e.button !== 0) return;
                             e.stopPropagation(); e.preventDefault();
                             setMoveDrag({ loanId:l.id, startX:e.clientX, startY:e.clientY,
                               origStart:l.startDate, origEnd:l.endDate, origCarId:carId });
@@ -4465,34 +4542,33 @@ React.createElement('select', {
     function BPBoard({ boardJobs }) {
       const today = bpDateStr(new Date());
       const [bpJobs, setBpJobs] = useState(() => {
-        try { const s = localStorage.getItem('bp_jobs'); const v = s ? JSON.parse(s) : []; window.__bpJobs = v; return v; } catch { return []; }
+        const v = window.loadFromDb('bp_jobs', []); window.__bpJobs = v; return v;
       });
       const [bpStalls, setBpStalls] = useState(() => {
-        try { const s = localStorage.getItem('bp_stalls'); return s ? JSON.parse(s) : INIT_BP_STALLS; } catch { return INIT_BP_STALLS; }
+        return window.loadFromDb('bp_stalls', INIT_BP_STALLS)
       });
       // BP担当者リスト
       const [bpWorkers, setBpWorkers] = useState(() => {
-        try { const s = localStorage.getItem('bp_workers'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('bp_workers', [])
       });
       const saveBpWorkers = ws => {
         setBpWorkers(ws);
-        try { localStorage.setItem('bp_workers', JSON.stringify(ws)); } catch {} if (typeof window.fbSet==='function') window.fbSet('bp_workers', ws);
+        window.saveToDb('bp_workers', ws);
       };
       // BP休業設定 [{date:"YYYY-MM-DD", workerIds:[...]}]
       const [bpDayoff, setBpDayoff] = useState(() => {
-        try { const s = localStorage.getItem('bp_dayoff'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('bp_dayoff', [])
       });
       const saveBpDayoff = d => {
         setBpDayoff(d);
-        try { localStorage.setItem('bp_dayoff', JSON.stringify(d)); } catch {} if (typeof window.fbSet==='function') window.fbSet('bp_dayoff', d);
+        window.saveToDb('bp_dayoff', d);
       };
       const [bpCompletedLog, setBpCompletedLog] = useState(function(){
-        try { var s = localStorage.getItem('bp_completed_log'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('bp_completed_log', [])
       });
       const saveBpCompletedLog = function(logs) {
         setBpCompletedLog(logs);
-        try { localStorage.setItem('bp_completed_log', JSON.stringify(logs)); } catch {}
-        if (typeof window.fbSet==='function') window.fbSet('bp_completed_log', logs);
+        window.saveToDb('bp_completed_log', logs);
       };
       const getMonthOptions = function() {
         var opts=[]; var now=new Date(today);
@@ -4521,9 +4597,8 @@ React.createElement('select', {
       const [showCompletedLog, setShowCompletedLog] = useState(false);
       const [editingTarget, setEditingTarget] = useState(false);
       const [targetInput, setTargetInput] = useState("");
-            const [bpSalesTarget, setBpSalesTarget] = useState(function(){
-        var v = localStorage.getItem('bp_sales_target');
-        return v ? Number(v) : 3000000;
+      const [bpSalesTarget, setBpSalesTarget] = useState(function(){
+        return Number(window.loadFromDb('bp_sales_target', 3000000)) || 3000000;
       });
       const [modalJob, setModalJob] = useState(null);  // null | {} (new) | {id,...} (edit)
       const [bpFlashJobId, setBpFlashJobId] = useState(null);
@@ -4562,25 +4637,24 @@ React.createElement('select', {
 
       const _bpFbIncoming = React.useRef(false);
       const saveBpJobs = jobs => {
-        if (!_bpFbIncoming.current) { setBpJobs(jobs); window.__bpJobs = jobs; try { localStorage.setItem('bp_jobs', JSON.stringify(jobs)); } catch {} if (typeof window.fbSet==='function') window.fbSet('bp_jobs', jobs); }
+        if (!_bpFbIncoming.current) { setBpJobs(jobs); window.__bpJobs = jobs; window.saveToDb('bp_jobs', jobs); }
       };
       const saveBpStalls = stalls => {
         setBpStalls(stalls);
-        try { localStorage.setItem('bp_stalls', JSON.stringify(stalls)); } catch {}
-        if (typeof window.fbSet==='function') window.fbSet('bp_stalls', stalls);
+        window.saveToDb('bp_stalls', stalls);
       };
 
       // ── BP Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('bp_jobs', function(val) {
-          if (Array.isArray(val)) { _bpFbIncoming.current = true; setBpJobs(val); window.__bpJobs = val; try { localStorage.setItem('bp_jobs', JSON.stringify(val)); } catch {} setTimeout(() => { _bpFbIncoming.current = false; }, 50); }
+          if (Array.isArray(val)) { _bpFbIncoming.current = true; setBpJobs(val); window.__bpJobs = val; try { localStorage.setItem('bp_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */ setTimeout(() => { _bpFbIncoming.current = false; }, 50); }
         });
         window.fbOn('bp_stalls', function(val) { if (Array.isArray(val)) setBpStalls(val); });
         window.fbOn('bp_workers', function(val) { if (Array.isArray(val)) setBpWorkers(val); });
         window.fbOn('bp_dayoff',  function(val) { if (Array.isArray(val)) setBpDayoff(val); });
         window.fbOn('bp_sales_target', function(val) { if (val !== null && !isNaN(Number(val))) setBpSalesTarget(Number(val)); });
-        window.fbOn && window.fbOn('bp_completed_log', function(val) { if (Array.isArray(val)) { setBpCompletedLog(val); try { localStorage.setItem('bp_completed_log', JSON.stringify(val)); } catch {} } });
+        window.fbOn && window.fbOn('bp_completed_log', function(val) { if (Array.isArray(val)) { setBpCompletedLog(val); try { localStorage.setItem('bp_completed_log', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */ } });
         return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target','bp_completed_log'].forEach(window.fbOff); };
       }, []);
 
@@ -4637,7 +4711,7 @@ React.createElement('select', {
         const onUp = e => {
           // 確定保存
           setBpJobs(prev => {
-            try { localStorage.setItem('bp_jobs', JSON.stringify(prev)); } catch {}
+            window.saveToDb('bp_jobs', prev);
             return prev;
           });
           setDragState(null);
@@ -4777,7 +4851,7 @@ React.createElement('select', {
                           onKeyDown: function(e){
                             if (e.key==="Enter") {
                               var n = parseInt(targetInput.replace(/[^0-9]/g,""), 10);
-                              if (!isNaN(n) && n > 0) { setBpSalesTarget(n); localStorage.setItem('bp_sales_target', n); if (typeof window.fbSet==='function') window.fbSet('bp_sales_target', n); }
+                              if (!isNaN(n) && n > 0) { setBpSalesTarget(n); window.saveToDb('bp_sales_target', n); }
                               setEditingTarget(false);
                             }
                             if (e.key==="Escape") setEditingTarget(false);
@@ -4790,7 +4864,7 @@ React.createElement('select', {
                         React.createElement('button', {
                           onClick: function(){
                             var n = Number(targetInput.replace(/,/g,""));
-                            if (!isNaN(n) && n > 0) { setBpSalesTarget(n); localStorage.setItem('bp_sales_target', n); if (typeof window.fbSet==='function') window.fbSet('bp_sales_target', n); }
+                            if (!isNaN(n) && n > 0) { setBpSalesTarget(n); window.saveToDb('bp_sales_target', n); }
                             setEditingTarget(false);
                           },
                           style:{ fontSize:10, padding:"1px 6px", borderRadius:4,
@@ -6057,12 +6131,18 @@ React.createElement('select', {
 
 
 
-    // ── メインApp ──
-    function App() {
+    // ═══════════════════════════════════════════════════════════════
+    //  LAYER 3 — 状態管理 / useAppState カスタムhook
+    //  useAppState — カスタムhook（状態管理を App から分離）
+    //  App コンポーネントは const state = useAppState() で受け取るだけ。
+    //  このhook内でのみ useState / useEffect を使う（Appの中では使わない）。
+    // ═══════════════════════════════════════════════════════════════
+    function useAppState() {
+      // ── §A UI 表示状態（タブ・モーダル開閉・選択状態等）──
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
       const [jobs,     setJobs]    = useState(INIT);
-      const [stalls,   setStalls]  = useState(function(){ try { var s=localStorage.getItem('garage_stalls'); return s?JSON.parse(s):INIT_STALLS; } catch{ return INIT_STALLS; } });
+      const [stalls,   setStalls]  = useState(() => window.loadFromDb('garage_stalls', INIT_STALLS));
       const [sel,      setSel]     = useState(null);
       const [selPos,   setSelPos]  = useState({x:0,y:0});
       const [filt,     setFilt]    = useState("すべて");
@@ -6077,16 +6157,17 @@ React.createElement('select', {
       const [showDeadline, setShowDeadline] = useState(false);
       const [showMemo, setShowMemo] = useState(false);
       const [showTodayLog, setShowTodayLog] = useState(false);
+      // ── §B 永続化データ（localStorage / Firebase 同期）──
       const [todayLog, setTodayLog] = useState(() => {
-        try { const s = localStorage.getItem('garage_today_log'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('garage_today_log', [])
       });
-      const saveTodayLog = v => { setTodayLog(v); try { localStorage.setItem('garage_today_log', JSON.stringify(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_today_log', v); };
+      const saveTodayLog = v => { setTodayLog(v); window.saveToDb('garage_today_log', v); };
       const [memoText, setMemoText] = useState(() => {
-        try { const s = localStorage.getItem('garage_memo_'+TODAY_STR); return s||""; } catch { return ""; }
+        return window.loadFromDb('garage_memo_'+TODAY_STR, '') || ''
       });
       const saveMemo = (text) => {
         setMemoText(text);
-        try { localStorage.setItem('garage_memo_'+TODAY_STR, text); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_memo_'+TODAY_STR, text);
+        window.saveToDb('garage_memo_'+TODAY_STR, text);
       };
       const [loanTomorrowTick, setLoanTomorrowTick] = useState(0); // 更新トリガー
       useEffect(() => {
@@ -6108,59 +6189,57 @@ React.createElement('select', {
       const [showStaff, setShowStaff] = useState(false);
       const [showBlock, setShowBlock] = useState(null); // null or { stallId, stallName }
       const [blockDays, setBlockDays] = useState(() => {
-        try {
-          const s = localStorage.getItem('garage_blockdays');
-          const list = s ? JSON.parse(s) : [];
+        const list = window.loadFromDb('garage_blockdays', []);
           // 午前ブロックのend:13→12を自動修正
           return list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b);
-        } catch { return []; }
       });
-      const saveBlockDays = list => { setBlockDays(list); try { localStorage.setItem('garage_blockdays', JSON.stringify(list)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_blockdays', list); };
+      const saveBlockDays = list => { setBlockDays(list); window.saveToDb('garage_blockdays', list); };
       const [receptList, setReceptList] = useState(() => {
-        try { const s = localStorage.getItem('garage_recept'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('garage_recept', [])
       });
       const [mechList, setMechList] = useState(() => {
-        try { const s = localStorage.getItem('garage_mech'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('garage_mech', [])
       });
-      const saveReceptList = list => { setReceptList(list); try { localStorage.setItem('garage_recept', JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_recept', list); };
-      const saveMechList   = list => { setMechList(list);   try { localStorage.setItem('garage_mech',   JSON.stringify(list)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_mech', list); };
+      const saveReceptList = list => { setReceptList(list); window.saveToDb('garage_recept', list); };
+      const saveMechList   = list => { setMechList(list);   window.saveToDb('garage_mech', list); };
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
       const [stallDraft, setStallDraft] = useState([]);
       const [showStatsLog, setShowStatsLog] = useState(null); // null | "inspection" | "sales"
       const [manualLog, setManualLog] = useState(() => {
-        try { const s = localStorage.getItem('garage_manuallog'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+        return window.loadFromDb('garage_manuallog', {})
       });
-      const saveManualLog = m => { setManualLog(m); try { localStorage.setItem('garage_manuallog', JSON.stringify(m)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_manuallog', m); };
+      const saveManualLog = m => { setManualLog(m); window.saveToDb('garage_manuallog', m); };
       const [salesRecords, setSalesRecords] = useState(() => {
-        try { const s = localStorage.getItem('garage_salesrecords'); return s ? JSON.parse(s) : []; } catch { return []; }
+        return window.loadFromDb('garage_salesrecords', [])
       });
-      const saveSalesRecords = s => { setSalesRecords(s); try { localStorage.setItem('garage_salesrecords', JSON.stringify(s)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_salesrecords', s); };
+      const saveSalesRecords = s => { setSalesRecords(s); window.saveToDb('garage_salesrecords', s); };
       const [searchQuery, setSearchQuery] = useState("");
       const [searchResults, setSearchResults] = useState([]);
       const [showSearchResults, setShowSearchResults] = useState(false);
       const [flashJobId, setFlashJobId] = useState(null);
-      const [targets, setTargets] = useState(() => { try { const s = localStorage.getItem('garage_targets'); return s ? JSON.parse(s) : { total: 70, revenue: 0 }; } catch { return { total: 70, revenue: 0 }; } });
-      const saveTargets = v => { setTargets(v); try { localStorage.setItem('garage_targets', JSON.stringify(v)); } catch {}  if (typeof window.fbSet==='function') window.fbSet('garage_targets', v); };
+      const [targets, setTargets] = useState(() => { return window.loadFromDb('garage_targets', { total: 70, revenue: 0 }) });
+      const saveTargets = v => { setTargets(v); window.saveToDb('garage_targets', v); };
       const [showTargetEdit, setShowTargetEdit] = useState(false);
       const [targetDraft, setTargetDraft] = useState({ total: 70, revenue: 0 });
-      const [currentRevenue, setCurrentRevenue] = useState(() => { try { const s = localStorage.getItem("garage_current_revenue"); return s ? parseInt(s) : 0; } catch { return 0; } });
-      const saveCurrentRevenue = v => { setCurrentRevenue(v); try { localStorage.setItem("garage_current_revenue", String(v)); } catch {} if (typeof window.fbSet==='function') window.fbSet('garage_current_revenue', v); };
+      const [currentRevenue, setCurrentRevenue] = useState(() => { return parseInt(window.loadFromDb('garage_current_revenue', '0')) || 0 });
+      const saveCurrentRevenue = v => { setCurrentRevenue(v); window.saveToDb('garage_current_revenue', v); };
 
       // ── Firebase リアルタイム同期 ──
+      // ── §C Firebase リアルタイム同期 ──
       const _fbIncoming = React.useRef(false);
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_jobs', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true; setJobs(val);
-            try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {}
+            try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_stalls', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true;
-            try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {}
+            try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setStalls(val);
             setTimeout(() => { _fbIncoming.current = false; }, 50);
           }
@@ -6246,6 +6325,7 @@ React.createElement('select', {
         const t = nowStr();
         const now = new Date();
         const nowH = now.getHours() + now.getMinutes() / 60;
+      // ── §D アクション（jobs を変更する関数群）──
         setJobs(p => p.map(j => {
           if (j.id !== id) return j;
           const dur = j.end - j.start;
@@ -6705,10 +6785,124 @@ React.createElement('select', {
         );
       };
 
+      // ── 全ての state と action を返す ──
+      return {
+        // データ
+        jobs, setJobs, stalls, setStalls,
+        todayLog, saveTodayLog,
+        memoText, saveMemo,
+        blockDays, saveBlockDays,
+        receptList, saveReceptList,
+        mechList, saveMechList,
+        staffList,
+        manualLog, saveManualLog,
+        salesRecords, saveSalesRecords,
+        targets, saveTargets,
+        currentRevenue, saveCurrentRevenue,
+        // UI状態
+        tab, setTab, view, setView,
+        sel, setSel, selPos, setSelPos,
+        filt, setFilt,
+        boardDate, setBoardDate,
+        showCal, setShowCal, calPos, setCalPos,
+        showAdd, setShowAdd, addError, setAddError,
+        showTomorrow, setShowTomorrow,
+        showTodayDelivery, setShowTodayDelivery,
+        showLoanTomorrow, setShowLoanTomorrow,
+        showDeadline, setShowDeadline,
+        showMemo, setShowMemo,
+        showTodayLog, setShowTodayLog,
+        showStaff, setShowStaff,
+        showBlock, setShowBlock,
+        showStallEdit, setShowStallEdit,
+        stallDraft, setStallDraft,
+        showStatsLog, setShowStatsLog,
+        showTargetEdit, setShowTargetEdit,
+        targetDraft, setTargetDraft,
+        showRevenueInput, setShowRevenueInput,
+        revenueDraft, setRevenueDraft,
+        resetOffset, setResetOffset,
+        resetMonthAt, setResetMonthAt,
+        endModal, setEndModal,
+        roleCards, setRoleCards,
+        roleCardsDate, setRoleCardsDate,
+        reAssign, setReAssign,
+        editJob, setEditJob,
+        ra, setRa,
+        nj, setNj, updateNj,
+        searchQuery, setSearchQuery,
+        searchResults, setSearchResults,
+        showSearchResults, setShowSearchResults,
+        flashJobId, setFlashJobId,
+        loanTomorrowTick,
+        // アクション
+        startWork, endWork, confirmEndWork, rolloverWork,
+        updPit, updStatus, addJob, saveEditJob,
+        openReAssign, confirmReAssign, confirmStatusOnly, removeJob,
+        // 派生データ
+        boardJobs, waitingJobs, shelvedJobs, cnt,
+        statsCounters, yearlyLog,
+        SHELVE_ON_STATUS, FIELD_ERROR_MAP,
+        HOLIDAY_TYPES_H, HOLIDAY_TYPES_HJ, HOLIDAY_TYPES_I,
+        OTHER_SHAKEN_TYPES, ALL_SHAKEN, DONE_STATUSES, isNewCust,
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LAYER 4 — UI コンポーネント（App が頂点）
+    //  ルール: データ操作は save* / saveToDb 経由のみ。
+    //          db.ref() を直接呼ばない。
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── メインApp（表示のみ担当）──
+    function App() {
+      // 状態はすべて useAppState から受け取る
+      const state = useAppState();
+      const {
+        jobs, setJobs, stalls, setStalls,
+        todayLog, saveTodayLog,
+        memoText, saveMemo,
+        blockDays, saveBlockDays,
+        receptList, saveReceptList, mechList, saveMechList, staffList,
+        manualLog, saveManualLog, salesRecords, saveSalesRecords,
+        targets, saveTargets, currentRevenue, saveCurrentRevenue,
+        tab, setTab, view, setView,
+        sel, setSel, selPos, setSelPos, filt, setFilt,
+        boardDate, setBoardDate, showCal, setShowCal, calPos, setCalPos,
+        showAdd, setShowAdd, addError, setAddError,
+        showTomorrow, setShowTomorrow, showTodayDelivery, setShowTodayDelivery,
+        showLoanTomorrow, setShowLoanTomorrow, showDeadline, setShowDeadline,
+        showMemo, setShowMemo, showTodayLog, setShowTodayLog,
+        showStaff, setShowStaff, showBlock, setShowBlock,
+        showStallEdit, setShowStallEdit, stallDraft, setStallDraft,
+        showStatsLog, setShowStatsLog, showTargetEdit, setShowTargetEdit,
+        targetDraft, setTargetDraft, showRevenueInput, setShowRevenueInput,
+        revenueDraft, setRevenueDraft,
+        resetOffset, setResetOffset, resetMonthAt, setResetMonthAt,
+        endModal, setEndModal, roleCards, setRoleCards, roleCardsDate, setRoleCardsDate,
+        reAssign, setReAssign, editJob, setEditJob, ra, setRa,
+        nj, setNj, updateNj,
+        searchQuery, setSearchQuery, searchResults, setSearchResults,
+        showSearchResults, setShowSearchResults, flashJobId, setFlashJobId,
+        loanTomorrowTick,
+        startWork, endWork, confirmEndWork, rolloverWork,
+        updPit, updStatus, addJob, saveEditJob,
+        openReAssign, confirmReAssign, confirmStatusOnly, removeJob,
+        boardJobs, waitingJobs, shelvedJobs, cnt,
+        statsCounters, yearlyLog,
+        SHELVE_ON_STATUS, FIELD_ERROR_MAP,
+        HOLIDAY_TYPES_H, HOLIDAY_TYPES_HJ, HOLIDAY_TYPES_I,
+        OTHER_SHAKEN_TYPES, ALL_SHAKEN, DONE_STATUSES, isNewCust,
+      } = state;
+
+
       return (
         React.createElement('div', { style: { fontFamily:"'Noto Sans JP',sans-serif", background:"#070c14", minHeight:"100vh", color:"#e2e8f0", overflow:"visible" }}
           , React.createElement('style', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 1593}}, CSS)
 
+          // ─────────────────────────────────────────────
+          //  §1 ヘッダー（ロゴ・タブ・検索・ゲージ）
+          // ─────────────────────────────────────────────
           /* ヘッダー */
           , React.createElement('div', { style: { background:"linear-gradient(180deg,#1a2540,#111827)", borderBottom:"1px solid #1e3a5f" }}
             , React.createElement('div', { style: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 20px", gap:10, flexWrap:"wrap" }}
@@ -6738,7 +6932,7 @@ React.createElement('select', {
                         (j.memo||"").toLowerCase().includes(kw)
                       ).slice(0, 5).map(j => ({...j, _source:"board"}));
                       var rawBp = [];
-                      try { var bpStr = localStorage.getItem('bp_jobs'); if (bpStr) rawBp = JSON.parse(bpStr); } catch {}
+                      rawBp = window.loadFromDb('bp_jobs', []);
                       const bpHits = rawBp.filter(j =>
                         (j.plate||"").toLowerCase().includes(kw) ||
                         (j.owner||"").toLowerCase().includes(kw) ||
@@ -6996,6 +7190,12 @@ React.createElement('select', {
 
 
           , React.createElement('div', { style: { padding:"16px 20px" }}
+          // ─────────────────────────────────────────────
+          //  §2 メインコンテンツ（ボード / ステータス一覧 / BP / 代車）
+          // ─────────────────────────────────────────────
+          // ─────────────────────────────────────────────
+          //  §2 メインコンテンツ（ボード / ステータス一覧 / BP / 代車）
+          // ─────────────────────────────────────────────
             /* フィルターカード */
             , filt!=="すべて" && (
               React.createElement(FilterCards, { filt: filt, jobs: jobs, stalls: stalls, setFilt: setFilt, updStatus: updStatus, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob})
@@ -7065,7 +7265,7 @@ React.createElement('select', {
                   , (()=>{
                     const tmr = shiftDate(TODAY_STR, 1);
                     var bpRaw=[];
-                    try { var s=localStorage.getItem('bp_jobs'); if(s) bpRaw=JSON.parse(s); } catch {}
+                    bpRaw = window.loadFromDb('bp_jobs', []);
                     const cnt = jobs.filter(j=>j.date===tmr&&!j.displayDate&&!j.completed).length
                               + bpRaw.filter(j=>j.inDate===tmr&&!j.confirmed).length;
                     return React.createElement('button', {
@@ -7108,8 +7308,8 @@ React.createElement('select', {
                       return d;
                     })();
                     var lcLoansRaw=[], lcCarsRaw=[];
-                    try { var _ll=localStorage.getItem('loancar_loans'); if(_ll) lcLoansRaw=JSON.parse(_ll); } catch {}
-                    try { var _lc=localStorage.getItem('loancar_cars');  if(_lc) lcCarsRaw=JSON.parse(_lc);  } catch {}
+                    lcLoansRaw = window.loadFromDb('loancar_loans', []);
+                    lcCarsRaw  = window.loadFromDb('loancar_cars', []);
                     var loanCnt = lcLoansRaw.filter(function(l){ return l.startDate===nextBizDay && !l.returnedDate; }).length;
                     return React.createElement('button', {
                       onClick:()=>{ var next=!showLoanTomorrow; setShowLoanTomorrow(next); setShowTodayDelivery(false); if(next){ setShowTomorrow(false); setShowDeadline(false); setShowMemo(false); } },
@@ -7312,6 +7512,12 @@ React.createElement('select', {
 
           )
 
+          // ─────────────────────────────────────────────
+          //  §3 サイドパネル群（fixed表示 / 翌日来店・納車・メモ等）
+          // ─────────────────────────────────────────────
+          // ─────────────────────────────────────────────
+          //  §3 サイドパネル群（fixed表示 / 翌日来店・納車・メモ等）
+          // ─────────────────────────────────────────────
           /* 翌日来店サイドパネル（fixed右端） */
           , showTomorrow && (()=>{
             void loanTomorrowTick; // 自動更新トリガー参照
@@ -7332,8 +7538,8 @@ React.createElement('select', {
             var tmrObj = new Date(tmr+"T00:00:00");
             var tmrLabel = tmrObj.toLocaleDateString("ja-JP",{month:"numeric",day:"numeric",weekday:"short"});
             var bpRaw=[], bpWkRaw=[];
-            try { var s=localStorage.getItem('bp_jobs'); if(s) bpRaw=JSON.parse(s); } catch {}
-            try { var w=localStorage.getItem('bp_workers'); if(w) bpWkRaw=JSON.parse(w); } catch {}
+            bpRaw = window.loadFromDb('bp_jobs', []);
+            bpWkRaw = window.loadFromDb('bp_workers', []);
 
             var cards = [];
             jobs.filter(j=>j.date===tmr && !j.displayDate && !j.completed).forEach(function(j){
@@ -7614,8 +7820,8 @@ React.createElement('select', {
             })();
             // 代車データ読み込み
             var lcLoansRaw=[], lcCarsRaw=[];
-            try { var _ll2=localStorage.getItem('loancar_loans'); if(_ll2) lcLoansRaw=JSON.parse(_ll2); } catch {}
-            try { var _lc2=localStorage.getItem('loancar_cars');  if(_lc2) lcCarsRaw=JSON.parse(_lc2);  } catch {}
+            lcLoansRaw = window.loadFromDb('loancar_loans', []);
+            lcCarsRaw  = window.loadFromDb('loancar_cars', []);
             // 翌営業日に出庫（startDate）する貸出で未返却のもの
             var outLoans = lcLoansRaw.filter(function(l){ return l.startDate===nextBizDay && !l.returnedDate; });
             // ジョブカラー（代車管理と同じ）
@@ -7967,6 +8173,12 @@ React.createElement('select', {
               )
             )
 
+          // ─────────────────────────────────────────────
+          //  §4 モーダル群（編集・追加登録・設定等のオーバーレイ）
+          // ─────────────────────────────────────────────
+          // ─────────────────────────────────────────────
+          //  §4 モーダル群（編集・追加登録・設定等のオーバーレイ）
+          // ─────────────────────────────────────────────
           /* カレンダーポップアップ（overflow親の外に出す） */
           , showCal && React.createElement(BoardCalendar, { boardDate: boardDate,
               setBoardDate: date => { setBoardDate(date); setShowCal(false); setSel(null); },
@@ -8351,7 +8563,59 @@ React.createElement('select', {
       );
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2124}} ));
+    // ── ErrorBoundary: 機能ごとのクラッシュを白画面にしない ──
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+      }
+      componentDidCatch(error, info) {
+        console.error('[ErrorBoundary]', error, info.componentStack);
+      }
+      render() {
+        if (this.state.hasError) {
+          return React.createElement('div', {
+            style: {
+              margin: '40px auto', maxWidth: 520, background: '#1a0a0a',
+              border: '1px solid #ef4444', borderRadius: 12,
+              padding: '28px 32px', fontFamily: 'monospace'
+            }
+          },
+            React.createElement('div', { style: { fontSize: 16, color: '#ef4444', fontWeight: 700, marginBottom: 12 } },
+              '⚠ ' + (this.props.label || 'アプリ') + ' でエラーが発生しました'
+            ),
+            React.createElement('div', { style: { fontSize: 12, color: '#fca5a5', marginBottom: 20, lineHeight: 1.7 } },
+              String(this.state.error)
+            ),
+            React.createElement('button', {
+              onClick: () => window.location.reload(),
+              style: {
+                background: '#7f1d1d', border: '1px solid #ef4444', borderRadius: 8,
+                color: '#fca5a5', padding: '8px 20px', fontSize: 13,
+                cursor: 'pointer', marginRight: 10
+              }
+            }, '🔄 再読み込み'),
+            React.createElement('button', {
+              onClick: () => this.setState({ hasError: false, error: null }),
+              style: {
+                background: 'transparent', border: '1px solid #475569', borderRadius: 8,
+                color: '#94a3b8', padding: '8px 20px', fontSize: 13, cursor: 'pointer'
+              }
+            }, '無視して続ける')
+          );
+        }
+        return this.props.children;
+      }
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      React.createElement(ErrorBoundary, { label: 'アプリ全体' },
+        React.createElement(App, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2124}} )
+      )
+    );
   </script>
 <!--
 ================================================================================
