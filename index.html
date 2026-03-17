@@ -3433,6 +3433,8 @@ React.createElement('select', {
       })();
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
+      const _lcCarsRef = React.useRef(lcCars);
+      React.useEffect(() => { _lcCarsRef.current = lcCars; }, [lcCars]);
 
 
       const _lcInitialized = React.useRef(false);
@@ -3539,13 +3541,18 @@ React.createElement('select', {
         const onMove = e => {
           if (!gridRef.current) return;
           const rect = gridRef.current.getBoundingClientRect();
+          const scrollLeft = gridRef.current.scrollLeft || 0;
           const gridW = rect.width - LEFT_W;
           const dayW = gridW / daysInMonth;
-          const dx = e.clientX - moveDrag.startX;
+          // マウスのグリッド内X位置（スクロール考慮）→ 何日目か
+          const mouseXInGrid = e.clientX - rect.left - LEFT_W + scrollLeft;
+          const currentDay = Math.floor(mouseXInGrid / dayW);
+          // ドラッグ開始時のマウスが何日目にいたか
+          const startXInGrid = moveDrag.startX - rect.left - LEFT_W + scrollLeft;
+          const startDay = Math.floor(startXInGrid / dayW);
+          lastDaysDelta = currentDay - startDay;
           const dy = e.clientY - moveDrag.startY;
-          lastDaysDelta = Math.round(dx / dayW);
           lastRowDelta  = Math.round(dy / ROW_H);
-          // CSSのtransformで見た目だけ動かす（stateは触らない）
           barEl.style.transform = 'translate(' + (lastDaysDelta * dayW) + 'px, ' + (lastRowDelta * ROW_H) + 'px)';
         };
 
@@ -3564,7 +3571,7 @@ React.createElement('select', {
               const newEnd   = bpAddDays(moveDrag.origEnd,   lastDaysDelta);
               let newCarId = l.carId;
               if (lastRowDelta !== 0) {
-                const carIds = lcCars.map(c => c.id);
+                const carIds = _lcCarsRef.current.map(c => c.id);
                 const origIdx = carIds.indexOf(moveDrag.origCarId);
                 const newIdx = Math.max(0, Math.min(carIds.length - 1, origIdx + lastRowDelta));
                 newCarId = carIds[newIdx];
@@ -3588,7 +3595,7 @@ React.createElement('select', {
             barEl.style.cursor = '';
           }
         };
-      }, [moveDrag, daysInMonth, lcCars]);
+      }, [moveDrag, daysInMonth]);
 
       const prevMonth = () => {
         let y = viewY, m = viewM - 1;
@@ -8407,6 +8414,8 @@ checks = {
     'スタッフFirebase同期(mech)':      "localStorage.setItem('garage_mech'" in content,
     'スタッフデフォルト値空':          '"田中","佐藤"' not in code,
     # ===== ストールボード =====
+    'ストールボード4桁のみなし':      'plate.match' not in code,
+    'ストールボードフルナンバー':      'job.plate||""' in content,
     'INIT_STALLSデモ名なし':           'mechanic:""' in code,
     'stalls localStorage初期値':       "localStorage.getItem('garage_stalls')" in content,
     'ストールボード車種表示':          'job.model && React.createElement' in content,
@@ -8416,6 +8425,11 @@ checks = {
     'BP札車種':                        'job.carModel && React.createElement' in content,
     'BP着工OK/NGバッジ':               '着工OK' in content,
     # ===== ドラッグ =====
+    '代車ドラッグCSS transform':      'barEl.style.transform' in content,
+    '代車ドラッグonUpのみ確定':        'lastDaysDelta' in content,
+    '代車ドラッグ精度(Math.floor)':     'Math.floor(dx / dayW + 0.5)' in content,
+    '代車バーにid':                    "id:'loan-bar-'+loan.id" in content,
+    '代車札全体ドラッグ可能':          "e.target.closest('[data-resize]')" in content,
     'BP上下ドラッグ(origStallIdx)':    'origStallIdx' in content,
     'BP上下ドラッグ(stallDelta)':      'stallDelta' in content,
     '代車上下ドラッグ(moveDrag)':      'moveDrag' in content,
