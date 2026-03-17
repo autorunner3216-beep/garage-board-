@@ -6577,7 +6577,7 @@ React.createElement('select', {
 
         for (const j of jobs) {
           const d = new Date(j.date + "T00:00:00");
-          const isDone = DONE_STATUSES.includes(j.status);
+          const isDone = DONE_STATUSES.includes(j.status) || j.completed === true;
           const thisWeek = d >= startOfWeek && d < endOfWeek;
           const completedAt = j.completedAt ? new Date(j.completedAt) : (isDone ? d : null);
           const afterMonthReset = !monthCutoff || (completedAt && completedAt >= monthCutoff);
