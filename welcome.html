@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ウェルカムボード生成</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --border: #1e293b;
+    --accent1: #f43f5e;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --text: #e2e8f0;
+    --sub: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, #f43f5e, #8b5cf6, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .sub-title { font-size: 12px; color: var(--sub); letter-spacing: 2px; margin-bottom: 24px; }
+
+  .controls {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 24px;
+  }
+  .date-input {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 16px; border-radius: 8px;
+    font-size: 14px; font-family: inherit;
+  }
+  .btn {
+    padding: 10px 20px; border-radius: 8px; border: none;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all .15s; letter-spacing: 1px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #f43f5e, #8b5cf6);
+    color: #fff;
+  }
+  .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--accent3); color: var(--accent3); }
+  .btn-print {
+    background: linear-gradient(135deg, #06b6d4, #10b981);
+    color: #fff;
+  }
+  .btn-print:hover { opacity: 0.85; }
+
+  .status { font-size: 12px; color: var(--sub); padding: 8px 0; }
+  .status.ok { color: var(--accent4); }
+  .status.err { color: var(--accent1); }
+
+  /* プレビューエリア */
+  .preview-area { display: flex; gap: 20px; flex-wrap: wrap; }
+
+  /* A3印刷プレビュー */
+  .board-page {
+    background: #fff;
+    width: 420mm;
+    min-height: 297mm;
+    padding: 14mm;
+    color: #1a1a2e;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    border-radius: 4px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    transform-origin: top left;
+    transform: scale(0.38);
+    margin-bottom: -160mm;
+  }
+
+  .board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 10mm;
+    padding-bottom: 5mm;
+    border-bottom: 3px solid;
+  }
+  .board-header.am { border-color: #f43f5e; }
+  .board-header.pm { border-color: #8b5cf6; }
+
+  .board-date {
+    font-size: 18pt;
+    font-weight: 900;
+    color: #1a1a2e;
+    font-family: 'Montserrat', sans-serif;
+  }
+  .board-period {
+    font-size: 36pt;
+    font-weight: 900;
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: 2px;
+  }
+  .board-period.am { color: #f43f5e; }
+  .board-period.pm { color: #8b5cf6; }
+  .board-period-ja {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #64748b;
+  }
+  .board-welcome {
+    font-size: 13pt;
+    color: #64748b;
+    font-weight: 700;
+    letter-spacing: 4px;
+  }
+
+  .board-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12pt;
+  }
+  .board-table th {
+    padding: 4mm 5mm;
+    text-align: left;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .board-table td {
+    padding: 4mm 5mm;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+  .board-table tr:last-child td { border-bottom: none; }
+  .board-table tr:hover td { background: #f8fafc; }
+
+  .time-cell {
+    font-size: 14pt;
+    font-weight: 900;
+    font-family: 'Montserrat', sans-serif;
+    white-space: nowrap;
+    width: 30mm;
+  }
+  .name-cell {
+    font-size: 16pt;
+    font-weight: 700;
+    width: 80mm;
+  }
+  .type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .type-車検 { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+  .type-点検 { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
+  .type-整備 { background: #f0fdf4; color: #10b981; border: 1px solid #a7f3d0; }
+  .type-BP   { background: #fdf4ff; color: #a855f7; border: 1px solid #e9d5ff; }
+  .type-その他 { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; }
+
+  .board-footer {
+    margin-top: 8mm;
+    padding-top: 4mm;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8pt;
+    color: #94a3b8;
+  }
+  .board-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 10pt;
+    letter-spacing: 3px;
+    color: #cbd5e1;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 20mm;
+    color: #94a3b8;
+    font-size: 14pt;
+  }
+
+  .preview-label {
+    font-size: 11px;
+    color: var(--sub);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .preview-wrap { flex: 1; min-width: 320px; }
+
+  /* 印刷スタイル */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .controls, .sub-title, h1, .status, .preview-label, .no-print { display: none !important; }
+    .preview-area { display: block; gap: 0; }
+    .preview-wrap { page-break-after: always; }
+    .board-page {
+      transform: none !important;
+      margin: 0 !important;
+      box-shadow: none;
+      border-radius: 0;
+      width: 100%;
+      min-height: auto;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>Welcome Board Generator</h1>
+<p class="sub-title">翌日来店ウェルカムボード自動生成 / GARAGE SMB BOARD</p>
+
+<div class="controls">
+  <input type="date" id="targetDate" class="date-input">
+  <button class="btn btn-primary" onclick="loadAndGenerate()">📋 データ取得・生成</button>
+  <button class="btn btn-print no-print" onclick="window.print()">🖨️ 印刷</button>
+  <button class="btn btn-secondary no-print" onclick="setTomorrow()">📅 明日にセット</button>
+</div>
+<div id="status" class="status">日付を選択してデータを取得してください</div>
+
+<div class="preview-area" id="previewArea"></div>
+
+<script>
+  // Firebase設定
+  const firebaseConfig = {
+    apiKey: "AIzaSyDAyqKSD4oxh3PqZW1UIjuqL73Ejp33_E0",
+    authDomain: "garage-armb-board.firebaseapp.com",
+    databaseURL: "https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "garage-armb-board",
+    storageBucket: "garage-armb-board.firebasestorage.app",
+    messagingSenderId: "430667841584",
+    appId: "1:430667841584:web:81c17b57d4c6493875edf5"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // 明日の日付をセット
+  function setTomorrow() {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('targetDate').value = tomorrow.toISOString().slice(0, 10);
+  }
+
+  // 作業種別を判定
+  function getWorkType(type) {
+    if (!type) return 'その他';
+    if (type.includes('車検')) return '車検';
+    if (type.includes('点検')) return '点検';
+    if (type.includes('BP') || type.includes('板金') || type.includes('塗装')) return 'BP';
+    if (type.includes('整備') || type.includes('修理') || type.includes('交換')) return '整備';
+    return 'その他';
+  }
+
+  // 時間フォーマット
+  function fmtTime(h) {
+    if (h == null) return '--:--';
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  }
+
+  // データ取得・生成
+  function loadAndGenerate() {
+    const date = document.getElementById('targetDate').value;
+    if (!date) {
+      document.getElementById('status').textContent = '日付を選択してください';
+      document.getElementById('status').className = 'status err';
+      return;
+    }
+
+    document.getElementById('status').textContent = 'Firebaseからデータ取得中...';
+    document.getElementById('status').className = 'status';
+
+    db.ref('garage/garage_jobs').once('value', snap => {
+      const allJobs = snap.val();
+      if (!allJobs || !Array.isArray(allJobs)) {
+        document.getElementById('status').textContent = 'データが見つかりません';
+        document.getElementById('status').className = 'status err';
+        return;
+      }
+
+      // 対象日のジョブを絞り込み（未完了・当日来店/預かり以外）
+      const jobs = allJobs.filter(j =>
+        j &&
+        !j.completed &&
+        (j.date === date || j.displayDate === date) &&
+        j.status !== '当日来店/預かり'
+      );
+
+      // 時間でソート
+      jobs.sort((a, b) => (a.start || 0) - (b.start || 0));
+
+      // 午前・午後に分割（12:00 = 12）
+      const amJobs = jobs.filter(j => (j.start == null || j.start < 12));
+      const pmJobs = jobs.filter(j => j.start != null && j.start >= 12);
+
+      document.getElementById('status').textContent =
+        `✅ ${date} のデータ取得完了 — 午前 ${amJobs.length}件 / 午後 ${pmJobs.length}件`;
+      document.getElementById('status').className = 'status ok';
+
+      // 日付フォーマット
+      const d = new Date(date + 'T00:00:00');
+      const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+      const dateStr = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${weekDays[d.getDay()]}）`;
+
+      // プレビュー生成
+      const area = document.getElementById('previewArea');
+      area.innerHTML = '';
+
+      ['am', 'pm'].forEach(period => {
+        const periodJobs = period === 'am' ? amJobs : pmJobs;
+        const periodLabel = period === 'am' ? '午前' : '午後';
+        const periodEn = period === 'am' ? 'MORNING' : 'AFTERNOON';
+
+        // 15件ずつページ分割
+        const pages = [];
+        for (let i = 0; i < Math.max(1, Math.ceil(periodJobs.length / 15)); i++) {
+          pages.push(periodJobs.slice(i * 15, (i + 1) * 15));
+        }
+
+        pages.forEach((pageJobs, pageIdx) => {
+          const wrap = document.createElement('div');
+          wrap.className = 'preview-wrap';
+
+          const label = document.createElement('div');
+          label.className = 'preview-label no-print';
+          label.textContent = `${periodLabel} ${pages.length > 1 ? `(${pageIdx+1}/${pages.length})` : ''} — プレビュー`;
+          wrap.appendChild(label);
+
+          const page = document.createElement('div');
+          page.className = 'board-page';
+
+          // ヘッダー
+          const header = document.createElement('div');
+          header.className = `board-header ${period}`;
+          header.innerHTML = `
+            <div>
+              <div class="board-welcome">WELCOME TO OUR GARAGE</div>
+              <div class="board-date">${dateStr}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="board-period ${period}">${periodEn}</div>
+              <div class="board-period-ja">${periodLabel}の部</div>
+            </div>
+          `;
+          page.appendChild(header);
+
+          // テーブル
+          const table = document.createElement('table');
+          table.className = 'board-table';
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>TIME</th>
+                <th>お客様名</th>
+                <th>作業内容</th>
+              </tr>
+            </thead>
+          `;
+          const tbody = document.createElement('tbody');
+
+          if (pageJobs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" class="no-data">本日の予定はありません</td></tr>`;
+          } else {
+            pageJobs.forEach(job => {
+              const wtype = getWorkType(job.type);
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td class="time-cell">${fmtTime(job.start)}</td>
+                <td class="name-cell">${job.owner || job.plate || '—'}</td>
+                <td><span class="type-badge type-${wtype}">${wtype}</span></td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+
+          table.appendChild(tbody);
+          page.appendChild(table);
+
+          // フッター
+          const footer = document.createElement('div');
+          footer.className = 'board-footer';
+          footer.innerHTML = `
+            <div>本日もご来店ありがとうございます</div>
+            <div class="board-logo">GARAGE SMB BOARD</div>
+          `;
+          page.appendChild(footer);
+
+          wrap.appendChild(page);
+          area.appendChild(wrap);
+        });
+      });
+    });
+  }
+
+  // 初期値：明日
+  setTomorrow();
+</script>
+</body>
+</html>
