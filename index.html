@@ -6620,7 +6620,18 @@ React.createElement('select', {
           plate:nj.plate, owner:nj.owner, model:nj.model, type:nj.type,
           mechanic:nj.mechanic||"", receptionist:nj.receptionist,
           date:nj.date||boardDate, deliveryDate:nj.deliveryDate };
-        saveTodayLog([...todayLog, logEntry]);
+        // Firebaseの最新todayLogを取得してからマージ（他PCの登録を消さないため）
+        if (typeof window.fbOnce === 'function') {
+          window.fbOnce('garage_today_log', function(latest) {
+            var base = Array.isArray(latest) ? latest : todayLog;
+            // 同じIDが既に存在しなければ追加
+            if (!base.find(function(l){ return l.id === logEntry.id; })) {
+              saveTodayLog([...base, logEntry]);
+            }
+          });
+        } else {
+          saveTodayLog([...todayLog, logEntry]);
+        }
         setShowAdd(false);
         setNj({date:TODAY_STR,stall:"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
       };
