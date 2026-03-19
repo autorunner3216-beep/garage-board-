@@ -1190,7 +1190,7 @@ react-dom/cjs/react-dom-client.production.js:
         React.createElement('div', { style: { background:"#0a1228", border:`1px solid ${WC.accent}44`, borderRadius:12,
           padding:"12px 14px", width:220, flex:"0 0 auto", boxShadow:`0 2px 12px rgba(0,0,0,.4)`,
           position:"relative", display:"flex", flexDirection:"column", gap:8 },
-          onMouseEnter: showStatusPicker ? undefined : onHoverEnter, onMouseLeave: onHoverLeave, onDoubleClick: () => setEditJob(job) }
+          onMouseEnter: onHoverEnter, onMouseLeave: onHoverLeave, onDoubleClick: () => setEditJob(job) }
 
           /* ── 車両情報 ── */
           , React.createElement('div', { style: { display:"flex", alignItems:"flex-start", gap:8 }}
@@ -1245,7 +1245,7 @@ react-dom/cjs/react-dom-client.production.js:
 
             /* ステータス変更 + 編集・削除 */
             , React.createElement('div', { style: { display:"flex", gap:5 }}
-              , React.createElement('button', { onClick: () => { setShowStatusPicker(p => !p); onHoverLeave && onHoverLeave(); },
+              , React.createElement('button', { onClick: () => setShowStatusPicker(p => !p),
                 style: { flex:1, background: showStatusPicker ? "#1a2a1a" : "#0d1a10",
                   border:`1px solid ${showStatusPicker ? "#22c55e88" : "#22c55e44"}`,
                   borderRadius:8, color:"#4ade80", fontSize:10, fontWeight:700, padding:"6px 0",
@@ -1259,7 +1259,12 @@ react-dom/cjs/react-dom-client.production.js:
                 onMouseEnter: e => { e.currentTarget.style.borderColor="#475569"; e.currentTarget.style.color="#94a3b8"; },
                 onMouseLeave: e => { e.currentTarget.style.borderColor="#1e293b"; e.currentTarget.style.color="#475569"; }
               }, "✎")
-
+              , React.createElement('button', { onClick: () => removeJob(job.id),
+                style: { background:"#0d1625", border:"1px solid #1e293b", borderRadius:8,
+                  color:"#475569", fontSize:10, padding:"6px 10px", cursor:"pointer", transition:"all .15s" },
+                onMouseEnter: e => { e.currentTarget.style.borderColor="#ef4444"; e.currentTarget.style.color="#ef4444"; },
+                onMouseLeave: e => { e.currentTarget.style.borderColor="#1e293b"; e.currentTarget.style.color="#475569"; }
+              }, "✕")
             )
 
             /* ステータスピッカー（展開時） */
@@ -1969,7 +1974,7 @@ react-dom/cjs/react-dom-client.production.js:
             const estH = 230;
             const top = pos.y + estH > vh - 8 ? pos.y - estH - 14 : pos.y;
             return (
-              React.createElement('div', { style: { position:"fixed", top, left, width:popW, zIndex:50,
+              React.createElement('div', { style: { position:"fixed", top, left, width:popW, zIndex:480,
                 background:"#0a0f1a", border:`1px solid ${sc2.accent}66`,
                 borderRadius:12, padding:"12px 14px",
                 boxShadow:`0 8px 32px rgba(0,0,0,.8), 0 0 16px ${sc2.glow}`,
@@ -6529,11 +6534,12 @@ React.createElement('select', {
         setReAssign(null);
       };
       const removeJob = useCallback((id) => {
-        setJobs(p => {
-          const next = p.filter(j => j.id !== id);
-          if (typeof window.fbSet === 'function') window.fbSet('garage_jobs', next, 0);
-          return next;
-        });
+        const now = new Date().toISOString();
+        setJobs(p => p.map(j => j.id === id
+          ? (j.status === "当日来店/預かり"
+              ? {...j, status:"作業待ち", statusChangedAt:now}
+              : {...j, completed: true, completedAt: now})
+          : j));
         setSel(p => _optionalChain([p, 'optionalAccess', _27 => _27.id])===id ? null : p);
       }, []);
 
@@ -7210,7 +7216,7 @@ React.createElement('select', {
                 /* ── リセット・設定ボタン ── */
                 , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:5, marginLeft:4 }}
                   , React.createElement('div', { style: { display:"flex", gap:5 }}
-                    , React.createElement('button', { onClick: () => { if(!window.confirm('月リセットします。よろしいですか？')) return; const t = new Date().toISOString(); setResetMonthAt(t); if(window.fbSet) window.fbSet('garage_reset_month', t, 0); const cleaned = jobs.filter(j => !j.completed); setJobs(cleaned); if(window.fbSet) window.fbSet('garage_jobs', cleaned, 0); },
+                    , React.createElement('button', { onClick: () => { const t = new Date().toISOString(); setResetMonthAt(t); if(window.fbSet) window.fbSet('garage_reset_month', t, 0); },
                       style: { background:"#1a0a0a", border:"1px solid #7f1d1d44", borderRadius:6,
                         color:"#f87171", fontSize:10, padding:"5px 10px", cursor:"pointer", fontWeight:700,
                         transition:"all .15s", whiteSpace:"nowrap" },
