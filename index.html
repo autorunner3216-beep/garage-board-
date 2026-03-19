@@ -252,6 +252,71 @@
         callback(snap.val());
       });
     };
+    window.fbOnce = function(key, callback) {
+      db.ref('garage/' + key).once('value', function(snap) {
+        callback(snap.val());
+      });
+    };
+    // 安全なjobs更新: 最新データを取得してからマージ
+    // ── 楽観的ロック付き jobs 保存 ──
+    // 「Firebaseから最後に受け取ったjobs（_fbLastJobs）」と
+    // 「現在のlocalJobs」を比較して変更があったjobのIDを特定し、
+    // リモートの最新データにそのIDだけ上書きする。
+    // → 別PCが別の案件を同時保存しても互いの変更が消えない。
+    window._fbLastJobs = null; // Firebase受信時に更新される
+    window.fbSetJobsSafe = function(localJobs, delay) {
+      delay = delay || 400;
+      clearTimeout(window._fbJobsTimer);
+      window._fbJobsTimer = setTimeout(function() {
+        db.ref('garage/garage_jobs').once('value', function(snap) {
+          var remoteJobs = snap.val();
+          if (!remoteJobs || !Array.isArray(remoteJobs)) {
+            db.ref('garage/garage_jobs').set(localJobs);
+            return;
+          }
+
+          // 最後にFirebaseから受け取ったjobsをベースに差分を計算
+          var baseJobs = window._fbLastJobs || remoteJobs;
+          var baseMap = {};
+          baseJobs.forEach(function(j) { if (j && j.id) baseMap[j.id] = j; });
+
+          // 自分が変更・追加・削除したjobのIDを特定
+          var localMap = {};
+          localJobs.forEach(function(j) { if (j && j.id) localMap[j.id] = j; });
+          var changedIds = {};
+          // 変更・追加されたjob
+          localJobs.forEach(function(j) {
+            if (!j || !j.id) return;
+            var base = baseMap[j.id];
+            if (!base || JSON.stringify(base) !== JSON.stringify(j)) {
+              changedIds[j.id] = true;
+            }
+          });
+          // 削除されたjob（baseにあってlocalにない）
+          baseJobs.forEach(function(j) {
+            if (j && j.id && !localMap[j.id]) changedIds[j.id] = true;
+          });
+
+          // リモートをベースに、自分が変更したIDだけ上書きする
+          var remoteMap = {};
+          remoteJobs.forEach(function(j) { if (j && j.id) remoteMap[j.id] = j; });
+
+          // リモートの全jobをベースにする
+          var mergedMap = Object.assign({}, remoteMap);
+          // 自分が変更したIDだけ上書き（localMapにあれば更新、なければ削除）
+          Object.keys(changedIds).forEach(function(id) {
+            if (localMap[id]) {
+              mergedMap[id] = localMap[id]; // 変更・追加
+            } else {
+              delete mergedMap[id]; // 削除
+            }
+          });
+
+          var merged = Object.values(mergedMap);
+          db.ref('garage/garage_jobs').set(merged);
+        });
+      }, delay);
+    };
     window.fbOff = function(key) {
       db.ref('garage/' + key).off();
     };
@@ -1190,7 +1255,7 @@ react-dom/cjs/react-dom-client.production.js:
         React.createElement('div', { style: { background:"#0a1228", border:`1px solid ${WC.accent}44`, borderRadius:12,
           padding:"12px 14px", width:220, flex:"0 0 auto", boxShadow:`0 2px 12px rgba(0,0,0,.4)`,
           position:"relative", display:"flex", flexDirection:"column", gap:8 },
-          onMouseEnter: onHoverEnter, onMouseLeave: onHoverLeave, onDoubleClick: () => setEditJob(job) }
+          onMouseEnter: showStatusPicker ? undefined : onHoverEnter, onMouseLeave: onHoverLeave, onDoubleClick: () => setEditJob(job) }
 
           /* ── 車両情報 ── */
           , React.createElement('div', { style: { display:"flex", alignItems:"flex-start", gap:8 }}
@@ -1245,7 +1310,7 @@ react-dom/cjs/react-dom-client.production.js:
 
             /* ステータス変更 + 編集・削除 */
             , React.createElement('div', { style: { display:"flex", gap:5 }}
-              , React.createElement('button', { onClick: () => setShowStatusPicker(p => !p),
+              , React.createElement('button', { onClick: () => { setShowStatusPicker(p => !p); onHoverLeave && onHoverLeave(); },
                 style: { flex:1, background: showStatusPicker ? "#1a2a1a" : "#0d1a10",
                   border:`1px solid ${showStatusPicker ? "#22c55e88" : "#22c55e44"}`,
                   borderRadius:8, color:"#4ade80", fontSize:10, fontWeight:700, padding:"6px 0",
@@ -1259,12 +1324,7 @@ react-dom/cjs/react-dom-client.production.js:
                 onMouseEnter: e => { e.currentTarget.style.borderColor="#475569"; e.currentTarget.style.color="#94a3b8"; },
                 onMouseLeave: e => { e.currentTarget.style.borderColor="#1e293b"; e.currentTarget.style.color="#475569"; }
               }, "✎")
-              , React.createElement('button', { onClick: () => removeJob(job.id),
-                style: { background:"#0d1625", border:"1px solid #1e293b", borderRadius:8,
-                  color:"#475569", fontSize:10, padding:"6px 10px", cursor:"pointer", transition:"all .15s" },
-                onMouseEnter: e => { e.currentTarget.style.borderColor="#ef4444"; e.currentTarget.style.color="#ef4444"; },
-                onMouseLeave: e => { e.currentTarget.style.borderColor="#1e293b"; e.currentTarget.style.color="#475569"; }
-              }, "✕")
+
             )
 
             /* ステータスピッカー（展開時） */
@@ -1432,6 +1492,22 @@ react-dom/cjs/react-dom-client.production.js:
       const [hoverJob, setHoverJob] = useState(null);
       const [hoverPos, setHoverPos] = useState({x:0,y:0});
       const hoverTimerRef = useRef(null);
+      useEffect(() => {
+        if (hoverJob && hoverJob.id) {
+          const current = jobs.find(j => j.id === hoverJob.id);
+          if (current && current.completed) {
+            setHoverJob(null);
+          }
+        }
+      }, [jobs]);
+      useEffect(() => {
+        if (hoverJob && hoverJob.id) {
+          const current = jobs.find(j => j.id === hoverJob.id);
+          if (current && current.completed) {
+            setHoverJob(null);
+          }
+        }
+      }, [jobs]);
       const lastClickRef = useRef({ jobId:null, time:0 });
       const onBarMouseDown = useCallback((e, job) => {
         if (e.button !== 0) return;
@@ -1616,7 +1692,8 @@ react-dom/cjs/react-dom-client.production.js:
                 , waitingJobs.map(job => {
                   const jt = JT[job.type]||JT["一般整備"];
                   return React.createElement(WaitingCard, { key: job.id, job: job, jt: jt, WC: WC,
-                    updStatus: updStatus, openReAssign: openReAssign, setEditJob: setEditJob, removeJob: removeJob,
+                    updStatus: updStatus, openReAssign: openReAssign, setEditJob: setEditJob,
+                    removeJob: (id) => { clearTimeout(hoverTimerRef.current); setHoverJob(null); removeJob(id); },
                     onHoverEnter: e => {
                       clearTimeout(hoverTimerRef.current);
                       const r = e.currentTarget.getBoundingClientRect();
@@ -1945,7 +2022,7 @@ react-dom/cjs/react-dom-client.production.js:
             )
           )
           /* ホバーポップオーバー */
-          , hoverJob && (() => {
+          , hoverJob && !hoverJob.completed && (() => {
             const job = hoverJob; const pos = hoverPos;
             const sc2 = SC[job.status]||SC["作業待ち"];
             const jt2 = JT[job.type]||JT["一般整備"];
@@ -1957,7 +2034,7 @@ react-dom/cjs/react-dom-client.production.js:
             const estH = 230;
             const top = pos.y + estH > vh - 8 ? pos.y - estH - 14 : pos.y;
             return (
-              React.createElement('div', { style: { position:"fixed", top, left, width:popW, zIndex:480,
+              React.createElement('div', { style: { position:"fixed", top, left, width:popW, zIndex:50,
                 background:"#0a0f1a", border:`1px solid ${sc2.accent}66`,
                 borderRadius:12, padding:"12px 14px",
                 boxShadow:`0 8px 32px rgba(0,0,0,.8), 0 0 16px ${sc2.glow}`,
@@ -2325,21 +2402,33 @@ react-dom/cjs/react-dom-client.production.js:
 
     function EditModal({ job, onClose, onSave, onDelete, staffList, receptList, mechList, stalls }) {
       const [confirmDelete, setConfirmDelete] = React.useState(false);
-      const [draft, setDraft] = React.useState({
-        type:          job.type||"一般整備",
-        receptionDate: job.receptionDate||"",
-        receptionist:  job.receptionist||"",
-        mechanic:      job.mechanic||"",
-        deliveryDate:  job.deliveryDate||"",
-        loanCar:       job.loanCar||"なし",
-        transport:     job.transport||"なし",
-        memo:          job.memo||"",
-        isNew:         job.isNew||"existing",
-        date:          job.date||"",
-        stall:         job.stall||"",
-        start:         job.start||8,
-        end:           job.end||9,
-      });
+      const makeDraft = function(j) { return {
+        type:          j.type||"一般整備",
+        receptionDate: j.receptionDate||"",
+        receptionist:  j.receptionist||"",
+        mechanic:      j.mechanic||"",
+        deliveryDate:  j.deliveryDate||"",
+        loanCar:       j.loanCar||"なし",
+        transport:     j.transport||"なし",
+        memo:          j.memo||"",
+        isNew:         j.isNew||"existing",
+        date:          j.displayDate||j.date||"",
+        stall:         j.stall||"",
+        start:         j.start||8,
+        end:           j.end||9,
+      }; };
+      const [draft, setDraft] = React.useState(function(){ return makeDraft(job); });
+      const _userEditing = React.useRef(false);
+      // モーダルを開いている間に別PCがjobを更新した場合、ユーザーが未編集なら自動反映
+      React.useEffect(function() {
+        if (!_userEditing.current) {
+          setDraft(makeDraft(job));
+        }
+      }, [job]);
+      const updateDraft = function(updater) {
+        _userEditing.current = true;
+        setDraft(updater);
+      };
       const jt = JT[draft.type]||JT["一般整備"];
       return (
         React.createElement('div', { style: { position:"fixed", inset:0, background:"rgba(0,0,0,.8)",
@@ -2373,7 +2462,7 @@ react-dom/cjs/react-dom-client.production.js:
                   , React.createElement('div', { style: { fontSize:9, color:"#334155", marginBottom:3, letterSpacing:1 }}, group.label)
                   , React.createElement('div', { style: { display:"flex", flexWrap:"wrap", gap:4 }}
                     , group.items.map(item => (
-                      React.createElement('button', { key: item.key, onClick: ()=>setDraft(p=>({...p,type:item.key})),
+                      React.createElement('button', { key: item.key, onClick: ()=>updateDraft(p=>({...p,type:item.key})),
                         style: { padding:"4px 8px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
                           border:`1px solid ${draft.type===item.key ? item.badge : "#1e293b"}`,
                           background:draft.type===item.key ? item.badge+"22" : "transparent",
@@ -2388,31 +2477,31 @@ react-dom/cjs/react-dom-client.production.js:
               , React.createElement('div', {}
                   , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "受付担当者")
                   , React.createElement(StaffInput, { value: draft.receptionist,
-                    onChange: v => setDraft(p=>({...p,receptionist:v})), placeholder: "担当者名", list: receptList||staffList, color:"#06b6d4" })
+                    onChange: v => updateDraft(p=>({...p,receptionist:v})), placeholder: "担当者名", list: receptList||staffList, color:"#06b6d4" })
                 )
               , React.createElement('div', {}
                   , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "担当メカニック")
                   , React.createElement(StaffInput, { value: draft.mechanic,
-                    onChange: v => setDraft(p=>({...p,mechanic:v})), placeholder: "メカニック名", list: mechList||staffList, color:"#10b981" })
+                    onChange: v => updateDraft(p=>({...p,mechanic:v})), placeholder: "メカニック名", list: mechList||staffList, color:"#10b981" })
                 )
               , [{key:"receptionDate",label:"受付日"},{key:"deliveryDate",label:"納車予定日"}].map(f=>(
                 React.createElement('div', { key: f.key}
                   , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label)
-                  , React.createElement('input', { type: "date", value: draft[f.key], onChange: e=>setDraft(p=>({...p,[f.key]:e.target.value})),
+                  , React.createElement('input', { type: "date", value: draft[f.key], onChange: e=>updateDraft(p=>({...p,[f.key]:e.target.value})),
                     style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                       padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                 )
               ))
               , React.createElement('div', { style: { gridColumn:"1/-1" }}
                   , React.createElement('div', { style: { fontSize:10, color:"#06b6d4", marginBottom:4, letterSpacing:1, fontWeight:700 }}, "📅 入庫日（変更）")
-                  , React.createElement('input', { type:"date", value: draft.date, onChange: e=>setDraft(p=>({...p,date:e.target.value})),
+                  , React.createElement('input', { type:"date", value: draft.date, onChange: e=>updateDraft(p=>({...p,date:e.target.value})),
                     style: { width:"100%", background:"#070c14", border:"1px solid #06b6d444", borderRadius:8,
                       padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
               )
               , React.createElement('div', { style: { gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}
                   , React.createElement('div', {}
                       , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "ストール")
-                      , React.createElement('select', { value: draft.stall, onChange: e=>setDraft(p=>({...p,stall:e.target.value})),
+                      , React.createElement('select', { value: draft.stall, onChange: e=>updateDraft(p=>({...p,stall:e.target.value})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
                         , (stalls||[]).map(s => React.createElement('option', { key:s.id, value:s.id }, s.name||s.id))
@@ -2420,7 +2509,7 @@ react-dom/cjs/react-dom-client.production.js:
                   )
                   , React.createElement('div', {}
                       , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "開始時間")
-                      , React.createElement('select', { value: String(draft.start), onChange: e=>setDraft(p=>({...p,start:parseFloat(e.target.value)})),
+                      , React.createElement('select', { value: String(draft.start), onChange: e=>updateDraft(p=>({...p,start:parseFloat(e.target.value)})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
                         , HOURS_20.map(h => React.createElement('option', { key:h, value:String(h) }, fmtH(h)))
@@ -2428,7 +2517,7 @@ react-dom/cjs/react-dom-client.production.js:
                   )
                   , React.createElement('div', {}
                       , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "終了時間")
-                      , React.createElement('select', { value: String(draft.end), onChange: e=>setDraft(p=>({...p,end:parseFloat(e.target.value)})),
+                      , React.createElement('select', { value: String(draft.end), onChange: e=>updateDraft(p=>({...p,end:parseFloat(e.target.value)})),
                         style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 6px", color:"#e2e8f0", fontSize:12, outline:"none", colorScheme:"dark" }}
                         , HOURS_20.map(h => React.createElement('option', { key:h, value:String(h) }, fmtH(h)))
@@ -2440,7 +2529,7 @@ react-dom/cjs/react-dom-client.production.js:
               , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "代車")
               , React.createElement('div', { style: { display:"flex", gap:6 }}
                 , ["なし","あり"].map(v=>(
-                  React.createElement('button', { key: v, onClick: ()=>setDraft(p=>({...p,loanCar:v})),
+                  React.createElement('button', { key: v, onClick: ()=>updateDraft(p=>({...p,loanCar:v})),
                     style: { flex:1, padding:"7px 0", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer",
                       border:`1px solid ${draft.loanCar===v?"#3b82f6":"#1e293b"}`,
                       background:draft.loanCar===v?"#0e2444":"transparent",
@@ -2453,7 +2542,7 @@ react-dom/cjs/react-dom-client.production.js:
               , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "引取 / 納車"  )
               , React.createElement('div', { style: { display:"flex", gap:5, flexWrap:"wrap" }}
                 , ["なし","引取","納車","引取+納車"].map(v=>(
-                  React.createElement('button', { key: v, onClick: ()=>setDraft(p=>({...p,transport:v})),
+                  React.createElement('button', { key: v, onClick: ()=>updateDraft(p=>({...p,transport:v})),
                     style: { flex:1, minWidth:"40%", padding:"6px 4px", borderRadius:7, fontSize:11, fontWeight:700, cursor:"pointer",
                       border:`1px solid ${draft.transport===v?"#06b6d4":"#1e293b"}`,
                       background:draft.transport===v?"#0a1e24":"transparent",
@@ -2467,7 +2556,7 @@ react-dom/cjs/react-dom-client.production.js:
               , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:6, letterSpacing:1, fontWeight:600 }}, "顧客区分")
               , React.createElement('div', { style: { display:"flex", gap:6 }}
                 , [["existing","既存客"],["new","新規客"],["newcar","車両のみ新規"]].map(([v,l]) =>
-                  React.createElement('button', { key: v, onClick: () => setDraft(p=>({...p,isNew:v})),
+                  React.createElement('button', { key: v, onClick: () => updateDraft(p=>({...p,isNew:v})),
                     style: { flex:1, padding:"7px 0", borderRadius:7, fontSize:11, fontWeight:700, cursor:"pointer",
                       border:"1px solid "+(draft.isNew===v?(v==="existing"?"#3b82f6":v==="new"?"#ef4444":"#a78bfa"):"#1e293b"),
                       background:draft.isNew===v?(v==="existing"?"#0e2444":v==="new"?"#2a0a0a":"#1a0a2a"):"transparent",
@@ -2479,7 +2568,7 @@ react-dom/cjs/react-dom-client.production.js:
             )
            , React.createElement('div', { style: { marginBottom:16 }}
               , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, "メモ")
-              , React.createElement('input', { value: draft.memo, onChange: e=>setDraft(p=>({...p,memo:e.target.value})),
+              , React.createElement('input', { value: draft.memo, onChange: e=>updateDraft(p=>({...p,memo:e.target.value})),
                 placeholder: "特記事項",
                 style: { width:"100%", background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                   padding:"9px 12px", color:"#e2e8f0", fontSize:13, outline:"none", boxSizing:"border-box" }})
@@ -3547,10 +3636,18 @@ React.createElement('select', {
       const [deptFilter, setDeptFilter] = useState(null); // null=すべて | '整備' | 'BP' | '車販'
       const [carDraft, setCarDraft] = useState([]);
       const [dragState, setDragState] = useState(null);
-      // 貸出モーダル用: 受付スタッフリスト
-      var receptList = (function(){
-        return window.loadFromDb('garage_recept', [])
-      })();
+      // 貸出モーダル用: 受付スタッフリスト（Firebase同期）
+      const [receptList, setReceptList] = useState(() => window.loadFromDb('garage_recept', []));
+      React.useEffect(() => {
+        if (typeof window.fbOn !== 'function') return;
+        window.fbOn('garage_recept', function(val) {
+          if (Array.isArray(val)) {
+            setReceptList(val);
+            try { localStorage.setItem('garage_recept', JSON.stringify(val)); } catch {}
+          }
+        });
+        return () => { if (typeof window.fbOff === 'function') window.fbOff('garage_recept'); };
+      }, []);
       const [resizeDrag, setResizeDrag] = useState(null);
       const [moveDrag, setMoveDrag] = useState(null);
       const _lcCarsRef = React.useRef(lcCars);
@@ -4330,25 +4427,26 @@ React.createElement('select', {
             /* 担当スタッフ */
             React.createElement('div', { style:{ marginBottom:14 }},
               React.createElement('label', { style:{ fontSize:11, fontWeight:700, color:'#94a3b8', display:'block', marginBottom:6 }}, '担当スタッフ'),
-              receptList.length > 0
-                ? React.createElement('select', {
-                    value:loanModal.staffName||'',
-                    onChange:e=>setLoanModal(p=>({...p,staffName:e.target.value})),
-                    style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
-                      borderRadius:8, color:loanModal.staffName?'#f1f5f9':'#64748b',
-                      padding:'9px 12px', fontSize:13, boxSizing:'border-box', colorScheme:'dark' }},
-                    React.createElement('option', { value:'' }, '-- 未選択 --'),
-                    receptList.map(function(name){
-                      return React.createElement('option', { key:name, value:name }, name);
-                    })
-                  )
-                : React.createElement('input', {
-                    value:loanModal.staffName||'',
-                    onChange:e=>setLoanModal(p=>({...p,staffName:e.target.value})),
-                    placeholder:'担当者名を入力',
-                    style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
-                      borderRadius:8, color:'#f1f5f9', padding:'9px 12px',
-                      fontSize:13, boxSizing:'border-box' }})
+              (()=>{
+                const staffList = receptList.length > 0 ? receptList : (()=>{ try { const s=localStorage.getItem('garage_recept'); return s?JSON.parse(s):[]; } catch(e){ return []; } })();
+                return staffList.length > 0
+                  ? React.createElement('select', {
+                      value:loanModal.staffName||'',
+                      onChange:e=>setLoanModal(p=>({...p,staffName:e.target.value})),
+                      style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
+                        borderRadius:8, color:loanModal.staffName?'#f1f5f9':'#64748b',
+                        padding:'9px 12px', fontSize:13, boxSizing:'border-box', colorScheme:'dark' }},
+                      React.createElement('option', { value:'' }, '-- 未選択 --'),
+                      staffList.map(function(name){ return React.createElement('option', { key:name, value:name }, name); })
+                    )
+                  : React.createElement('input', {
+                      value:loanModal.staffName||'',
+                      onChange:e=>setLoanModal(p=>({...p,staffName:e.target.value})),
+                      placeholder:'担当者名を入力',
+                      style:{ width:'100%', background:'#0f172a', border:'1px solid #334155',
+                        borderRadius:8, color:'#f1f5f9', padding:'9px 12px',
+                        fontSize:13, boxSizing:'border-box' }});
+                })()
             ),
 
             /* 車種・ナンバー */
@@ -6192,7 +6290,7 @@ React.createElement('select', {
       // ── §A UI 表示状態（タブ・モーダル開閉・選択状態等）──
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
-      const [jobs,     setJobs]    = useState(INIT);
+      const [jobs,     setJobs]    = useState(() => window.loadFromDb('garage_jobs', INIT));
       const [stalls,   setStalls]  = useState(() => window.loadFromDb('garage_stalls', INIT_STALLS));
       const [sel,      setSel]     = useState(null);
       const [selPos,   setSelPos]  = useState({x:0,y:0});
@@ -6284,7 +6382,8 @@ React.createElement('select', {
         window.fbOn('garage_jobs', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true; setJobs(val);
-            try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
+            window._fbLastJobs = val; // 楽観的ロック用：最後にFirebaseから受け取ったjobsを記録
+            try { localStorage.setItem('garage_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_stalls', function(val) {
@@ -6305,10 +6404,30 @@ React.createElement('select', {
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
         window.fbOn('garage_current_revenue', function(val) { if (val !== null && val !== undefined) setCurrentRevenue(Number(val)); });
         window.fbOn('garage_memo_' + TODAY_STR, function(val) { if (typeof val === 'string') setMemoText(val); });
+        window.fbOn('garage_reset_month', function(val) { if (typeof val === 'string') setResetMonthAt(val); else setResetMonthAt(null); });
+        window.fbOn('garage_role_cards', function(val) {
+          if (val && typeof val === 'object') {
+            // 現在のboardDateに対応するカードを取得（Refで最新値を参照）
+            var targetDate = _boardDateRef.current;
+            var cards = val[targetDate];
+            if (Array.isArray(cards)) {
+              _fbIncomingRole.current = true;
+              setRoleCardsDate(targetDate);
+              setRoleCards(cards);
+              setTimeout(function(){ _fbIncomingRole.current = false; }, 50);
+            } else {
+              // その日付のデータがなければ空にする
+              _fbIncomingRole.current = true;
+              setRoleCardsDate(targetDate);
+              setRoleCards([]);
+              setTimeout(function(){ _fbIncomingRole.current = false; }, 50);
+            }
+          }
+        });
         return () => {
           ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
-           'garage_memo_'+TODAY_STR].forEach(window.fbOff);
+           'garage_memo_'+TODAY_STR,'garage_role_cards'].forEach(window.fbOff);
         };
       }, []);
 
@@ -6316,7 +6435,7 @@ React.createElement('select', {
       React.useEffect(() => {
         if (!_jobsInitialized.current) { _jobsInitialized.current = true; return; }
         if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
-        window.fbSet('garage_jobs', jobs, 400);
+        window.fbSetJobsSafe(jobs, 400);
       }, [jobs]);
       const _stallsInitialized = React.useRef(false);
       React.useEffect(() => {
@@ -6324,6 +6443,39 @@ React.createElement('select', {
         if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
         window.fbSet('garage_stalls', stalls, 400);
       }, [stalls]);
+
+      const [roleCards, setRoleCards] = useState([]);
+      const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
+      const _fbIncomingRole = React.useRef(false);
+      const _boardDateRef = React.useRef(TODAY_STR);
+      // boardDateが変わったらRefを更新し、その日付のカードをFirebaseから再取得
+      useEffect(() => {
+        _boardDateRef.current = boardDate;
+        if (boardDate !== roleCardsDate) {
+          setRoleCardsDate(boardDate);
+          // boardDate変更時にFirebaseから該当日のカードを再ロード
+          if (typeof window.fbOnce === 'function') {
+            window.fbOnce('garage_role_cards', function(val) {
+              if (val && typeof val === 'object') {
+                var cards = val[boardDate];
+                _fbIncomingRole.current = true;
+                setRoleCards(Array.isArray(cards) ? cards : []);
+                setTimeout(function(){ _fbIncomingRole.current = false; }, 50);
+              } else {
+                setRoleCards([]);
+              }
+            });
+          }
+        }
+      }, [boardDate]);
+
+      const _roleCardsInitialized = React.useRef(false);
+      React.useEffect(() => {
+        if (!_roleCardsInitialized.current) { _roleCardsInitialized.current = true; return; }
+        if (_fbIncomingRole.current || typeof window.fbSet !== 'function') return;
+        var data = {}; data[roleCardsDate] = roleCards;
+        window.fbSet('garage_role_cards', data, 300);
+      }, [roleCards, roleCardsDate]);
 
       const [showRevenueInput, setShowRevenueInput] = useState(false);
       const [revenueDraft, setRevenueDraft] = useState(0);
@@ -6333,14 +6485,7 @@ React.createElement('select', {
       const [resetOffset, setResetOffset] = useState({ weekHoliday:0, weekIppan:0 });
       const [resetMonthAt, setResetMonthAt] = useState(null); // ISO文字列 or null
       const [endModal, setEndModal] = useState(null);
-      const [roleCards, setRoleCards] = useState([]);
-      const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
-      useEffect(() => {
-        if (boardDate !== roleCardsDate) {
-          setRoleCards([]);
-          setRoleCardsDate(boardDate);
-        }
-      }, [boardDate]);
+
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
@@ -6419,10 +6564,12 @@ React.createElement('select', {
           if (j.id !== id) return j;
           const goShelved = SHELVE_ON_STATUS.has(s);
           const goBoard   = !goShelved && j.workState === "shelved";
+          const goWaiting = s === "当日来店/預かり";
           return {
             ...j,
             status: s,
             statusChangedAt: t,
+            ...(goWaiting  ? { displayDate:null, date:TODAY_STR } : {}),
             ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
             ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
           };
@@ -6477,9 +6624,21 @@ React.createElement('select', {
       const saveEditJob = (id, patch) => {
         setJobs(p => p.map(j => {
           if (j.id !== id) return j;
-          const dateChanged = patch.date && patch.date !== j.date;
-          const reset = dateChanged ? { workState:"idle", startedAt:null, endedAt:null, status:"作業待ち", displayDate:undefined } : {};
-          return { ...j, ...patch, ...reset };
+          const isAsWaiting = patch.status === "当日来店/預かり";
+          const newDate = patch.date || j.date;
+          // 実際の表示日（displayDate優先）と比較して変更判定
+          const currentDisplayDate = j.displayDate || j.date;
+          const dateChanged = newDate !== currentDisplayDate;
+          // 当日来店ボタンの場合：dateをpatch.date（モーダルで選択した日付）に、displayDateをnullに
+          if (isAsWaiting) {
+            return { ...j, ...patch, date:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null };
+          }
+          // 入庫日変更の場合：dateを新しい日付に、displayDateをnullに
+          if (dateChanged) {
+            return { ...j, ...patch, date:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null, status:"作業待ち" };
+          }
+          // それ以外（通常保存）：displayDateはそのまま維持
+          return { ...j, ...patch };
         }));
         setSel(p => _optionalChain([p, 'optionalAccess', _25 => _25.id])===id ? {...p,...patch} : p);
         setEditJob(null);
@@ -6494,7 +6653,7 @@ React.createElement('select', {
         setJobs(p => p.map(j => j.id===reAssign.jobId ? {
           ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
           end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
-          workState:"idle", startedAt:null, endedAt:null, displayDate:undefined
+          workState:"idle", startedAt:null, endedAt:null, displayDate:null
         } : j));
         setReAssign(null);
       };
@@ -6516,8 +6675,11 @@ React.createElement('select', {
         setReAssign(null);
       };
       const removeJob = useCallback((id) => {
-        const now = new Date().toISOString();
-        setJobs(p => p.map(j => j.id === id ? {...j, completed: true, completedAt: now} : j));
+        setJobs(p => {
+          const next = p.filter(j => j.id !== id);
+          if (typeof window.fbSet === 'function') window.fbSet('garage_jobs', next, 0);
+          return next;
+        });
         setSel(p => _optionalChain([p, 'optionalAccess', _27 => _27.id])===id ? null : p);
       }, []);
 
@@ -6555,7 +6717,7 @@ React.createElement('select', {
 
         for (const j of jobs) {
           const d = new Date(j.date + "T00:00:00");
-          const isDone = DONE_STATUSES.includes(j.status) || j.completed;
+          const isDone = DONE_STATUSES.includes(j.status);
           const thisWeek = d >= startOfWeek && d < endOfWeek;
           const completedAt = j.completedAt ? new Date(j.completedAt) : (isDone ? d : null);
           const afterMonthReset = !monthCutoff || (completedAt && completedAt >= monthCutoff);
@@ -6592,7 +6754,7 @@ React.createElement('select', {
             }
           }
           // 月車検予約（完了ステータス除外）
-          if (ALL_SHAKEN.includes(j.type) && !DONE_STATUSES.includes(j.status)) {
+          if (ALL_SHAKEN.includes(j.type) && !DONE_STATUSES.includes(j.status) && !j.completed) {
             if (d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()) monthReserved++;
             const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1);
             if (d.getFullYear()===nextMonth.getFullYear() && d.getMonth()===nextMonth.getMonth()) nextMonthReserved++;
@@ -6627,7 +6789,7 @@ React.createElement('select', {
           let holiday=0, ippan=0, reserved=0;
           for (const j of jobs) {
             const jd = new Date(j.date + "T00:00:00");
-            const isDone = DONE_STATUSES.includes(j.status) || j.completed;
+            const isDone = DONE_STATUSES.includes(j.status);
             if (jd.getFullYear()===yr && jd.getMonth()===mo) {
               if (HOLIDAY_TYPES_H.includes(j.type) && isDone) holiday++;
               if (HOLIDAY_TYPES_I.includes(j.type) && isDone) ippan++;
@@ -7194,7 +7356,7 @@ React.createElement('select', {
                 /* ── リセット・設定ボタン ── */
                 , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:5, marginLeft:4 }}
                   , React.createElement('div', { style: { display:"flex", gap:5 }}
-                    , React.createElement('button', { onClick: () => setResetMonthAt(new Date().toISOString()),
+                    , React.createElement('button', { onClick: () => { if(!window.confirm('月リセットします。よろしいですか？')) return; const t = new Date().toISOString(); setResetMonthAt(t); if(window.fbSet) window.fbSet('garage_reset_month', t, 0); const cleaned = jobs.filter(j => !j.completed); setJobs(cleaned); if(window.fbSet) window.fbSet('garage_jobs', cleaned, 0); },
                       style: { background:"#1a0a0a", border:"1px solid #7f1d1d44", borderRadius:6,
                         color:"#f87171", fontSize:10, padding:"5px 10px", cursor:"pointer", fontWeight:700,
                         transition:"all .15s", whiteSpace:"nowrap" },
@@ -8263,7 +8425,7 @@ React.createElement('select', {
           , editJob && (() => {
             const latestJob = jobs.find(j => j.id===editJob.id) || editJob;
             return React.createElement(EditModal, { job: latestJob, onClose: ()=>setEditJob(null), onSave: saveEditJob,
-              onDelete: id => { setJobs(p => p.filter(j => j.id!==id)); setEditJob(null); },
+              onDelete: id => { setJobs(p => p.filter(j => j.id!==id)); setEditJob(null); setHoverJob(null); clearTimeout(hoverTimerRef.current); },
               staffList: staffList, receptList: receptList, mechList: mechList, stalls: stalls });
           })()
 
