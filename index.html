@@ -6311,6 +6311,17 @@ React.createElement('select', {
         return window.loadFromDb('garage_today_log', [])
       });
       const saveTodayLog = v => { setTodayLog(v); window.saveToDb('garage_today_log', v); };
+      // 起動時にFirebaseから最新の予約ログを取得（localStorageキャッシュより優先）
+      React.useEffect(function() {
+        if (typeof window.fbOnce === 'function') {
+          window.fbOnce('garage_today_log', function(val) {
+            if (Array.isArray(val)) {
+              setTodayLog(val);
+              try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {}
+            }
+          });
+        }
+      }, []);
       const [memoText, setMemoText] = useState(() => {
         return window.loadFromDb('garage_memo_'+TODAY_STR, '') || ''
       });
