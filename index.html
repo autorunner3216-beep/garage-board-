@@ -6406,6 +6406,7 @@ React.createElement('select', {
           }
         });
         window.fbOn('garage_today_log', function(val) {
+          console.log('[fbOn] garage_today_log 受信:', val ? val.length + '件' : 'null');
           if (Array.isArray(val)) setTodayLog(val);
         });
         window.fbOn('garage_blockdays', function(val) {
