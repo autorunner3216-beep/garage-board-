@@ -247,10 +247,15 @@
         db.ref('garage/' + key).set(value);
       }, delay);
     };
+    window._fbListeners = {}; // key → handler の管理マップ
     window.fbOn = function(key, callback) {
-      db.ref('garage/' + key).on('value', function(snap) {
-        callback(snap.val());
-      });
+      // 既存のリスナーがあれば先に解除
+      if (window._fbListeners[key]) {
+        db.ref('garage/' + key).off('value', window._fbListeners[key]);
+      }
+      var handler = function(snap) { callback(snap.val()); };
+      window._fbListeners[key] = handler;
+      db.ref('garage/' + key).on('value', handler);
     };
     window.fbOnce = function(key, callback) {
       db.ref('garage/' + key).once('value', function(snap) {
@@ -318,7 +323,12 @@
       }, delay);
     };
     window.fbOff = function(key) {
-      db.ref('garage/' + key).off();
+      if (window._fbListeners && window._fbListeners[key]) {
+        db.ref('garage/' + key).off('value', window._fbListeners[key]);
+        delete window._fbListeners[key];
+      } else {
+        db.ref('garage/' + key).off();
+      }
     };
 
     // ── saveToDb: localStorage + Firebase を同時に保存する統一関数 ──
