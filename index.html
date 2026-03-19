@@ -6321,16 +6321,21 @@ React.createElement('select', {
         return window.loadFromDb('garage_today_log', [])
       });
       const saveTodayLog = v => { setTodayLog(v); window.saveToDb('garage_today_log', v); };
-      // 起動時にFirebaseから最新の予約ログを取得（localStorageキャッシュより優先）
+      // 予約ログ専用の独立したFirebaseリスナー
       React.useEffect(function() {
-        if (typeof window.fbOnce === 'function') {
-          window.fbOnce('garage_today_log', function(val) {
-            if (Array.isArray(val)) {
-              setTodayLog(val);
-              try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {}
-            }
-          });
-        }
+        if (typeof window.fbOn !== 'function') return;
+        console.log('[setup] garage_today_log fbOn 登録');
+        window.fbOn('garage_today_log', function(val) {
+          console.log('[fbOn] garage_today_log 受信:', val ? val.length + '件' : 'null');
+          if (Array.isArray(val)) {
+            setTodayLog(val);
+            try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {}
+          }
+        });
+        return function() {
+          console.log('[cleanup] garage_today_log fbOff');
+          window.fbOff('garage_today_log');
+        };
       }, []);
       const [memoText, setMemoText] = useState(() => {
         return window.loadFromDb('garage_memo_'+TODAY_STR, '') || ''
@@ -6415,10 +6420,6 @@ React.createElement('select', {
             setTimeout(() => { _fbIncoming.current = false; }, 50);
           }
         });
-        window.fbOn('garage_today_log', function(val) {
-          console.log('[fbOn] garage_today_log 受信:', val ? val.length + '件' : 'null');
-          if (Array.isArray(val)) setTodayLog(val);
-        });
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
@@ -6450,7 +6451,7 @@ React.createElement('select', {
           }
         });
         return () => {
-          ['garage_jobs','garage_stalls','garage_today_log','garage_blockdays','garage_recept','garage_mech',
+          ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
            'garage_memo_'+TODAY_STR,'garage_role_cards'].forEach(window.fbOff);
         };
