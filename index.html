@@ -6360,19 +6360,11 @@ React.createElement('select', {
       const _fbIncoming = React.useRef(false);
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
-        // 起動時にFirebaseから最新jobsを取得（localStorageキャッシュより優先）
-        window.fbOnce('garage_jobs', function(val) {
-          if (val && Array.isArray(val)) {
-            _fbIncoming.current = true; setJobs(val);
-            try { localStorage.setItem('garage_jobs', JSON.stringify(val)); } catch {}
-            setTimeout(() => { _fbIncoming.current = false; }, 50);
-          }
-        });
         window.fbOn('garage_jobs', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true; setJobs(val);
             try { localStorage.setItem('garage_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
-            setTimeout(() => { _fbIncoming.current = false; }, 50); }
+            setTimeout(() => { _fbIncoming.current = false; }, 1000); }
         });
         window.fbOn('garage_stalls', function(val) {
           if (val && Array.isArray(val)) {
