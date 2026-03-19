@@ -264,62 +264,12 @@
     };
     // 安全なjobs更新: 最新データを取得してからマージ
     // ── 楽観的ロック付き jobs 保存 ──
-    // 「Firebaseから最後に受け取ったjobs（_fbLastJobs）」と
-    // 「現在のlocalJobs」を比較して変更があったjobのIDを特定し、
-    // リモートの最新データにそのIDだけ上書きする。
-    // → 別PCが別の案件を同時保存しても互いの変更が消えない。
-    window._fbLastJobs = null; // Firebase受信時に更新される
+    // シンプルな jobs 保存（ローカルの状態をそのまま保存）
     window.fbSetJobsSafe = function(localJobs, delay) {
       delay = delay || 400;
       clearTimeout(window._fbJobsTimer);
       window._fbJobsTimer = setTimeout(function() {
-        db.ref('garage/garage_jobs').once('value', function(snap) {
-          var remoteJobs = snap.val();
-          if (!remoteJobs || !Array.isArray(remoteJobs)) {
-            db.ref('garage/garage_jobs').set(localJobs);
-            return;
-          }
-
-          // 最後にFirebaseから受け取ったjobsをベースに差分を計算
-          var baseJobs = window._fbLastJobs || remoteJobs;
-          var baseMap = {};
-          baseJobs.forEach(function(j) { if (j && j.id) baseMap[j.id] = j; });
-
-          // 自分が変更・追加・削除したjobのIDを特定
-          var localMap = {};
-          localJobs.forEach(function(j) { if (j && j.id) localMap[j.id] = j; });
-          var changedIds = {};
-          // 変更・追加されたjob
-          localJobs.forEach(function(j) {
-            if (!j || !j.id) return;
-            var base = baseMap[j.id];
-            if (!base || JSON.stringify(base) !== JSON.stringify(j)) {
-              changedIds[j.id] = true;
-            }
-          });
-          // 削除されたjob（baseにあってlocalにない）
-          baseJobs.forEach(function(j) {
-            if (j && j.id && !localMap[j.id]) changedIds[j.id] = true;
-          });
-
-          // リモートをベースに、自分が変更したIDだけ上書きする
-          var remoteMap = {};
-          remoteJobs.forEach(function(j) { if (j && j.id) remoteMap[j.id] = j; });
-
-          // リモートの全jobをベースにする
-          var mergedMap = Object.assign({}, remoteMap);
-          // 自分が変更したIDだけ上書き（localMapにあれば更新、なければ削除）
-          Object.keys(changedIds).forEach(function(id) {
-            if (localMap[id]) {
-              mergedMap[id] = localMap[id]; // 変更・追加
-            } else {
-              delete mergedMap[id]; // 削除
-            }
-          });
-
-          var merged = Object.values(mergedMap);
-          db.ref('garage/garage_jobs').set(merged);
-        });
+        db.ref('garage/garage_jobs').set(localJobs);
       }, delay);
     };
     window.fbOff = function(key) {
@@ -6413,7 +6363,6 @@ React.createElement('select', {
         window.fbOn('garage_jobs', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true; setJobs(val);
-            window._fbLastJobs = val; // 楽観的ロック用：最後にFirebaseから受け取ったjobsを記録
             try { localStorage.setItem('garage_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
