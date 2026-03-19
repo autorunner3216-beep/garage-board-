@@ -6323,7 +6323,12 @@ React.createElement('select', {
       const saveTodayLog = v => { setTodayLog(v); window.saveToDb('garage_today_log', v); };
       // 予約ログ専用の独立したFirebaseリスナー
       React.useEffect(function() {
-        if (typeof window.fbOn !== 'function') return;
+        console.log('[debug] useEffect開始, fbOn型:', typeof window.fbOn);
+        console.log('[debug] window.fbOn:', window.fbOn);
+        if (typeof window.fbOn !== 'function') {
+          console.log('[debug] fbOnが関数でないためスキップ');
+          return;
+        }
         console.log('[setup] garage_today_log fbOn 登録');
         window.fbOn('garage_today_log', function(val) {
           console.log('[fbOn] garage_today_log 受信:', val ? val.length + '件' : 'null');
