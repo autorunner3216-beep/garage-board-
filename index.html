@@ -6394,6 +6394,9 @@ React.createElement('select', {
             setTimeout(() => { _fbIncoming.current = false; }, 50);
           }
         });
+        window.fbOn('garage_today_log', function(val) {
+          if (Array.isArray(val)) setTodayLog(val);
+        });
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
@@ -6425,7 +6428,7 @@ React.createElement('select', {
           }
         });
         return () => {
-          ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
+          ['garage_jobs','garage_stalls','garage_today_log','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
            'garage_memo_'+TODAY_STR,'garage_role_cards'].forEach(window.fbOff);
         };
