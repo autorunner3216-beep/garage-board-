@@ -265,17 +265,13 @@
     // 安全なjobs更新: 最新データを取得してからマージ
     // ── 楽観的ロック付き jobs 保存 ──
     // シンプルな jobs 保存（ローカルの状態をそのまま保存）
-    window._fbSaving = false;
+    window._fbLastSentJobs = null; // 最後に自分が送信したjobsのJSON
     window.fbSetJobsSafe = function(localJobs, delay) {
       delay = delay || 400;
       clearTimeout(window._fbJobsTimer);
       window._fbJobsTimer = setTimeout(function() {
-        window._fbSaving = true;
-        db.ref('garage/garage_jobs').set(localJobs).then(function() {
-          setTimeout(function() { window._fbSaving = false; }, 500);
-        }).catch(function() {
-          window._fbSaving = false;
-        });
+        window._fbLastSentJobs = JSON.stringify(localJobs);
+        db.ref('garage/garage_jobs').set(localJobs);
       }, delay);
     };
     window.fbOff = function(key) {
@@ -6360,8 +6356,13 @@ React.createElement('select', {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_jobs', function(val) {
           if (val && Array.isArray(val)) {
-            // 自分が保存中のエコーバックは無視
-            if (window._fbSaving) return;
+            // 自分が送ったデータのエコーバックは無視
+            var incoming = JSON.stringify(val);
+            if (window._fbLastSentJobs && incoming === window._fbLastSentJobs) {
+              window._fbLastSentJobs = null;
+              return;
+            }
+            window._fbLastSentJobs = null;
             _fbIncoming.current = true; setJobs(val);
             try { localStorage.setItem('garage_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setTimeout(() => { _fbIncoming.current = false; }, 50); }
@@ -6669,7 +6670,6 @@ React.createElement('select', {
         setJobs(p => {
           const next = p.filter(j => j.id !== id);
           if (typeof window.fbSetJobsSafe === 'function') {
-            window._fbSaving = true;
             window.fbSetJobsSafe(next, 0);
           }
           return next;
