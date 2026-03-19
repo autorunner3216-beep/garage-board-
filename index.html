@@ -265,11 +265,17 @@
     // 安全なjobs更新: 最新データを取得してからマージ
     // ── 楽観的ロック付き jobs 保存 ──
     // シンプルな jobs 保存（ローカルの状態をそのまま保存）
+    window._fbSaving = false;
     window.fbSetJobsSafe = function(localJobs, delay) {
       delay = delay || 400;
       clearTimeout(window._fbJobsTimer);
       window._fbJobsTimer = setTimeout(function() {
-        db.ref('garage/garage_jobs').set(localJobs);
+        window._fbSaving = true;
+        db.ref('garage/garage_jobs').set(localJobs).then(function() {
+          setTimeout(function() { window._fbSaving = false; }, 500);
+        }).catch(function() {
+          window._fbSaving = false;
+        });
       }, delay);
     };
     window.fbOff = function(key) {
@@ -6273,22 +6279,14 @@ React.createElement('select', {
       const saveTodayLog = v => { setTodayLog(v); window.saveToDb('garage_today_log', v); };
       // 予約ログ専用の独立したFirebaseリスナー
       React.useEffect(function() {
-        console.log('[debug] useEffect開始, fbOn型:', typeof window.fbOn);
-        console.log('[debug] window.fbOn:', window.fbOn);
-        if (typeof window.fbOn !== 'function') {
-          console.log('[debug] fbOnが関数でないためスキップ');
-          return;
-        }
-        console.log('[setup] garage_today_log fbOn 登録');
+        if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_today_log', function(val) {
-          console.log('[fbOn] garage_today_log 受信:', val ? val.length + '件' : 'null');
           if (Array.isArray(val)) {
             setTodayLog(val);
             try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {}
           }
         });
         return function() {
-          console.log('[cleanup] garage_today_log fbOff');
           window.fbOff('garage_today_log');
         };
       }, []);
@@ -6362,9 +6360,11 @@ React.createElement('select', {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_jobs', function(val) {
           if (val && Array.isArray(val)) {
+            // 自分が保存中のエコーバックは無視
+            if (window._fbSaving) return;
             _fbIncoming.current = true; setJobs(val);
             try { localStorage.setItem('garage_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
-            setTimeout(() => { _fbIncoming.current = false; }, 1000); }
+            setTimeout(() => { _fbIncoming.current = false; }, 50); }
         });
         window.fbOn('garage_stalls', function(val) {
           if (val && Array.isArray(val)) {
@@ -8416,7 +8416,7 @@ React.createElement('select', {
           , editJob && (() => {
             const latestJob = jobs.find(j => j.id===editJob.id) || editJob;
             return React.createElement(EditModal, { job: latestJob, onClose: ()=>setEditJob(null), onSave: saveEditJob,
-              onDelete: id => { setJobs(p => p.filter(j => j.id!==id)); setEditJob(null); setHoverJob(null); clearTimeout(hoverTimerRef.current); },
+              onDelete: id => { setJobs(p => p.filter(j => j.id!==id)); setEditJob(null); },
               staffList: staffList, receptList: receptList, mechList: mechList, stalls: stalls });
           })()
 
