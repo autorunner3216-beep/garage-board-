@@ -6668,7 +6668,10 @@ React.createElement('select', {
       const removeJob = useCallback((id) => {
         setJobs(p => {
           const next = p.filter(j => j.id !== id);
-          if (typeof window.fbSet === 'function') window.fbSet('garage_jobs', next, 0);
+          if (typeof window.fbSetJobsSafe === 'function') {
+            window._fbSaving = true;
+            window.fbSetJobsSafe(next, 0);
+          }
           return next;
         });
         setSel(p => _optionalChain([p, 'optionalAccess', _27 => _27.id])===id ? null : p);
