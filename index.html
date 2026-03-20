@@ -6329,17 +6329,25 @@ React.createElement('select', {
         });
         return function() { window.fbOff('garage_role_cards'); };
       }, []);
+      // ROLES札の全データをrefで保持（日付ごとの構造を維持するため）
+      const _allRoleCards = React.useRef({});
+      React.useEffect(function() {
+        if (typeof window.fbOn !== 'function') return;
+        window.fbOn('garage_role_cards', function(val) {
+          if (val && typeof val === 'object') {
+            _allRoleCards.current = val;
+          }
+        });
+      }, []);
       // ROLES札の変更をFirebaseへ書き込む
       const _roleInitialized = React.useRef(false);
       React.useEffect(function() {
         if (!_roleInitialized.current) { _roleInitialized.current = true; return; }
         if (_fbIncomingRole.current || typeof window.fbSet !== 'function') return;
-        // garage_role_cards は日付ごとのオブジェクト構造で保存
-        window.fbOnce('garage_role_cards', function(val) {
-          var current = (val && typeof val === 'object') ? val : {};
-          current[roleCardsDate] = roleCards;
-          window.fbSet('garage_role_cards', current, 0);
-        });
+        var updated = Object.assign({}, _allRoleCards.current);
+        updated[roleCardsDate] = roleCards;
+        _allRoleCards.current = updated;
+        window.fbSet('garage_role_cards', updated, 0);
       }, [roleCards]);
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
