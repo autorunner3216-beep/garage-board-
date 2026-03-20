@@ -1208,12 +1208,7 @@ react-dom/cjs/react-dom-client.production.js:
                 onMouseEnter: e => { e.currentTarget.style.borderColor="#475569"; e.currentTarget.style.color="#94a3b8"; },
                 onMouseLeave: e => { e.currentTarget.style.borderColor="#1e293b"; e.currentTarget.style.color="#475569"; }
               }, "✎")
-              , React.createElement('button', { onClick: () => removeJob(job.id),
-                style: { background:"#0d1625", border:"1px solid #1e293b", borderRadius:8,
-                  color:"#475569", fontSize:10, padding:"6px 10px", cursor:"pointer", transition:"all .15s" },
-                onMouseEnter: e => { e.currentTarget.style.borderColor="#ef4444"; e.currentTarget.style.color="#ef4444"; },
-                onMouseLeave: e => { e.currentTarget.style.borderColor="#1e293b"; e.currentTarget.style.color="#475569"; }
-              }, "✕")
+              /* ×ボタン非表示（当日来店/預かりカードからの誤削除防止） */
             )
 
             /* ステータスピッカー（展開時） */
