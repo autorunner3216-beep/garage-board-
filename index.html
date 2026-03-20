@@ -6329,6 +6329,18 @@ React.createElement('select', {
         });
         return function() { window.fbOff('garage_role_cards'); };
       }, []);
+      // ROLES札の変更をFirebaseへ書き込む
+      const _roleInitialized = React.useRef(false);
+      React.useEffect(function() {
+        if (!_roleInitialized.current) { _roleInitialized.current = true; return; }
+        if (_fbIncomingRole.current || typeof window.fbSet !== 'function') return;
+        // garage_role_cards は日付ごとのオブジェクト構造で保存
+        window.fbOnce('garage_role_cards', function(val) {
+          var current = (val && typeof val === 'object') ? val : {};
+          current[roleCardsDate] = roleCards;
+          window.fbSet('garage_role_cards', current, 0);
+        });
+      }, [roleCards]);
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
@@ -6531,7 +6543,7 @@ React.createElement('select', {
       // その他車検系（上記以外の車検系種目）
       const OTHER_SHAKEN_TYPES = ["車検後日整備","中古新規","中古12検"];
       const ALL_SHAKEN = [...HOLIDAY_TYPES_H, ...HOLIDAY_TYPES_HJ, ...HOLIDAY_TYPES_I];
-      const DONE_STATUSES = ["車検証/来店","車検証/郵送","引き渡し準備/完了"];
+      const DONE_STATUSES = ["車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
       const isNewCust = j => j.isNew === "new" || j.isNew === "newcar";
       const statsCounters = useMemo(() => {
         const now = new Date();
@@ -6587,8 +6599,8 @@ React.createElement('select', {
               }
             }
           }
-          // 月車検予約（完了ステータス除外）
-          if (ALL_SHAKEN.includes(j.type) && !DONE_STATUSES.includes(j.status)) {
+          // 月車検予約（完了ステータス・完了フラグ除外）
+          if (ALL_SHAKEN.includes(j.type) && !DONE_STATUSES.includes(j.status) && !j.completed) {
             if (d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()) monthReserved++;
             const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1);
             if (d.getFullYear()===nextMonth.getFullYear() && d.getMonth()===nextMonth.getMonth()) nextMonthReserved++;
@@ -6624,13 +6636,14 @@ React.createElement('select', {
           for (const j of jobs) {
             const jd = new Date(j.date + "T00:00:00");
             const isDone = DONE_STATUSES.includes(j.status) || j.completed;
+            // ── 実績：入庫日基準（月跨ぎは前月計上のため） ──
             if (jd.getFullYear()===yr && jd.getMonth()===mo) {
               if (HOLIDAY_TYPES_H.includes(j.type) && isDone) holiday++;
               if (HOLIDAY_TYPES_I.includes(j.type) && isDone) ippan++;
             }
-            if (j.deliveryDate) {
-              const dd = new Date(j.deliveryDate + "T00:00:00");
-              if (dd.getFullYear()===yr && dd.getMonth()===mo) reserved++;
+            // ── 予約：入庫予定日基準、未完了のみ ──
+            if (ALL_SHAKEN.includes(j.type) && !isDone && !j.completed) {
+              if (jd.getFullYear()===yr && jd.getMonth()===mo) reserved++;
             }
           }
           result.push({ label, holiday: holiday + (manualLog[label]?.holiday||0), ippan: ippan + (manualLog[label]?.ippan||0), reserved: reserved + (manualLog[label]?.reserved||0), autoHoliday:holiday, autoIppan:ippan, autoReserved:reserved, isCurrent: i===0 });
@@ -6892,6 +6905,7 @@ React.createElement('select', {
         SHELVE_ON_STATUS, FIELD_ERROR_MAP,
         HOLIDAY_TYPES_H, HOLIDAY_TYPES_HJ, HOLIDAY_TYPES_I,
         OTHER_SHAKEN_TYPES, ALL_SHAKEN, DONE_STATUSES, isNewCust,
+        CardView,
       };
     }
 
@@ -6940,6 +6954,7 @@ React.createElement('select', {
         SHELVE_ON_STATUS, FIELD_ERROR_MAP,
         HOLIDAY_TYPES_H, HOLIDAY_TYPES_HJ, HOLIDAY_TYPES_I,
         OTHER_SHAKEN_TYPES, ALL_SHAKEN, DONE_STATUSES, isNewCust,
+        CardView,
       } = state;
 
 
@@ -7190,7 +7205,20 @@ React.createElement('select', {
                 /* ── リセット・設定ボタン ── */
                 , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:5, marginLeft:4 }}
                   , React.createElement('div', { style: { display:"flex", gap:5 }}
-                    , React.createElement('button', { onClick: () => setResetMonthAt(new Date().toISOString()),
+                    , React.createElement('button', { onClick: () => {
+                        if (!window.confirm("月間カウントをリセットします。完了済みの車検ジョブをFirebaseから削除してよいですか？")) return;
+                        const now = new Date().toISOString();
+                        setResetMonthAt(now);
+                        // 完了済み車検ジョブを物理削除してFirebaseのゴミを掃除する
+                        setJobs(prev => {
+                          const cleaned = prev.filter(j => !(
+                            (j.completed || DONE_STATUSES.includes(j.status)) &&
+                            ALL_SHAKEN.includes(j.type)
+                          ));
+                          if (typeof window.fbSet === 'function') window.fbSet('garage_jobs', cleaned, 0);
+                          return cleaned;
+                        });
+                      },
                       style: { background:"#1a0a0a", border:"1px solid #7f1d1d44", borderRadius:6,
                         color:"#f87171", fontSize:10, padding:"5px 10px", cursor:"pointer", fontWeight:700,
                         transition:"all .15s", whiteSpace:"nowrap" },
