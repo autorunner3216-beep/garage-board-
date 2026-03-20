@@ -8853,5 +8853,47 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
   公開URL:  https://autorunner3216-beep.github.io/garage-board-/
   ログインリセット: localStorage.removeItem('garage_auth_date');location.reload();
 ================================================================================
+
+================================================================================
+【次のClaudeへの必須引き継ぎ事項】
+修正作業を始める前に必ずこの全項目を読んで理解すること。
+
+■ 絶対にデータを消してはいけない項目（いかなる修正・整理・リファクタでも）
+  - ストールボード名（stalls）
+  - ストールボード予約・入庫ジョブ（garage_jobs）
+  - ステータスカード関係
+  - 代車車両管理名（loancar_cars）
+  - 代車予約札（loancar_loans）
+  - BPボード札（bp_jobs）
+  - その他予約札・入庫データすべて
+  ※ 現在のコードで「削除する仕様」として書かれているものはそのままでよい。
+  ※ 新規修正の際に上記データを消すコードを書くのは絶対にNG。
+
+■ Firebase関数（fbOnceは存在しない）
+  使えるのは fbSet / fbOn / fbOff の3つのみ。
+  fbOnceは存在しないので絶対に使わないこと。
+
+■ DONE_STATUSESの定義（4つ必須）
+  ["車検証/来店","車検証/郵送","引き渡し準備/完了","完成"]
+  「完成」を抜かすと予約カウントにバグが出る。
+
+■ CardViewの扱い
+  useAppStateのreturnオブジェクトとAppのdestructuringの両方に含めること。
+  含めないとReactエラー#130が発生する。
+
+■ ROLES札のFirebase同期
+  fbOn + _allRoleCards Refの方式で同期すること。
+  fbOnceは使わない。
+
+■ 月リセット
+  リセット時はgarage_reset_month_atをFirebaseとlocalStorageの両方に書き込む。
+  setResetMonthAtだけでは他PCに反映されない。
+
+■ 車検実績カウント（yearlyLog）
+  実績は入庫日（j.date）基準で集計する。
+  completedAt基準に変えてはいけない（月跨ぎは前月計上の業務仕様のため）。
+
+■ 納品前に必ずチェックスクリプトを実行して全項目OKを確認すること。
+================================================================================
 -->
 </body></html>
