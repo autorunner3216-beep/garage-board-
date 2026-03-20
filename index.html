@@ -6265,10 +6265,15 @@ React.createElement('select', {
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
         window.fbOn('garage_current_revenue', function(val) { if (val !== null && val !== undefined) setCurrentRevenue(Number(val)); });
         window.fbOn('garage_memo_' + TODAY_STR, function(val) { if (typeof val === 'string') setMemoText(val); });
+        window.fbOn('garage_reset_month_at', function(val) {
+          var v = (typeof val === 'string' && val) ? val : null;
+          setResetMonthAt(v);
+          try { localStorage.setItem('garage_reset_month_at', JSON.stringify(v)); } catch {}
+        });
         return () => {
           ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
-           'garage_memo_'+TODAY_STR].forEach(window.fbOff);
+           'garage_memo_'+TODAY_STR,'garage_reset_month_at'].forEach(window.fbOff);
         };
       }, []);
 
@@ -6291,7 +6296,7 @@ React.createElement('select', {
       // 週: オフセット方式（現在値を引く）
       // 月: タイムスタンプ方式（リセット以降の完了を集計→月跨ぎで消えない）
       const [resetOffset, setResetOffset] = useState({ weekHoliday:0, weekIppan:0 });
-      const [resetMonthAt, setResetMonthAt] = useState(null); // ISO文字列 or null
+      const [resetMonthAt, setResetMonthAt] = useState(() => window.loadFromDb('garage_reset_month_at', null)); // ISO文字列 or null
       const [endModal, setEndModal] = useState(null);
       const [roleCards, setRoleCards] = useState([]);
       const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
@@ -7217,6 +7222,9 @@ React.createElement('select', {
                         if (!window.confirm("月間カウントをリセットします。完了済みの車検ジョブをFirebaseから削除してよいですか？")) return;
                         const now = new Date().toISOString();
                         setResetMonthAt(now);
+                        // 全PCに月リセット日を同期
+                        if (typeof window.fbSet === 'function') window.fbSet('garage_reset_month_at', now, 0);
+                        try { localStorage.setItem('garage_reset_month_at', JSON.stringify(now)); } catch {}
                         // 完了済み車検ジョブを物理削除してFirebaseのゴミを掃除する
                         setJobs(prev => {
                           const cleaned = prev.filter(j => !(
