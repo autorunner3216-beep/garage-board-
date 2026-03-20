@@ -6315,10 +6315,12 @@ React.createElement('select', {
       }, [boardDate]);
 
       // ROLES札のFirebaseリアルタイム同期
+      const _allRoleCards = React.useRef({});
       React.useEffect(function() {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_role_cards', function(val) {
           if (val && typeof val === 'object') {
+            _allRoleCards.current = val; // 全データをrefに保持
             var targetDate = _boardDateRef.current;
             var cards = val[targetDate];
             _fbIncomingRole.current = true;
@@ -6328,16 +6330,6 @@ React.createElement('select', {
           }
         });
         return function() { window.fbOff('garage_role_cards'); };
-      }, []);
-      // ROLES札の全データをrefで保持（日付ごとの構造を維持するため）
-      const _allRoleCards = React.useRef({});
-      React.useEffect(function() {
-        if (typeof window.fbOn !== 'function') return;
-        window.fbOn('garage_role_cards', function(val) {
-          if (val && typeof val === 'object') {
-            _allRoleCards.current = val;
-          }
-        });
       }, []);
       // ROLES札の変更をFirebaseへ書き込む
       const _roleInitialized = React.useRef(false);
@@ -8852,6 +8844,12 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
 ================================================================================
 【次のClaudeへの必須引き継ぎ事項】
 修正作業を始める前に必ずこの全項目を読んで理解すること。
+
+■ 絶対にやってはいけないこと（過去に実害が発生した事例）
+  - サンプルデータ・デモデータ・テストデータをFirebaseに書き込むことは絶対にNG
+  - 例：田中、木村、山本などの架空の名前・ナンバーのジョブをgarage_jobsに書き込んだ
+  - 本番Firebaseに一度書き込まれると全PCに即反映され、削除作業が必要になる
+  - コードのテストや動作確認のためであっても実データのFirebaseには絶対に書き込まない
 
 ■ 絶対にデータを消してはいけない項目（いかなる修正・整理・リファクタでも）
   - ストールボード名（stalls）
