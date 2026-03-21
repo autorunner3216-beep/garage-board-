@@ -2460,10 +2460,20 @@ react-dom/cjs/react-dom-client.production.js:
         return window.loadFromDb('garage_salesitems', DEFAULT_ITEMS)
       });
       const saveItems = v => { setItems(v); window.saveToDb('garage_salesitems', v); };
+      // Firebaseキーに使えない文字を変換するヘルパー
+      const toFbKey = s => s.replace(/\./g,'_dot_').replace(/#/g,'_hash_').replace(/\$/g,'_dollar_').replace(/\//g,'_slash_').replace(/\[/g,'_lb_').replace(/\]/g,'_rb_');
+      const fromFbKey = s => s.replace(/_dot_/g,'.').replace(/_hash_/g,'#').replace(/_dollar_/g,'$').replace(/_slash_/g,'/').replace(/_lb_/g,'[').replace(/_rb_/g,']');
       const [itemTargets, setItemTargets] = useState(() => {
         return window.loadFromDb('garage_item_targets', {})
       });
-      const saveItemTargets = v => { setItemTargets(v); window.saveToDb('garage_item_targets', v); };
+      const saveItemTargets = v => {
+        // Firebaseに保存する際はキーを変換、stateはそのまま
+        const fbSafe = {};
+        Object.keys(v).forEach(k => { fbSafe[toFbKey(k)] = v[k]; });
+        setItemTargets(v);
+        try { localStorage.setItem('garage_item_targets', JSON.stringify(v)); } catch {}
+        if (typeof window.fbSet === 'function') window.fbSet('garage_item_targets', fbSafe);
+      };
       // ── Sales Firebase リアルタイム同期 ──
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
@@ -2471,11 +2481,16 @@ react-dom/cjs/react-dom-client.production.js:
           if (Array.isArray(val)) setItems(val);
         });
         window.fbOn('garage_item_targets', function(val) {
-          if (val && typeof val === 'object') setItemTargets(val);
+          if (val && typeof val === 'object') {
+            // Firebaseキーを元のアイテム名に戻す
+            const restored = {};
+            Object.keys(val).forEach(k => { restored[fromFbKey(k)] = val[k]; });
+            setItemTargets(restored);
+          }
         });
         return () => { ['garage_salesitems','garage_item_targets'].forEach(window.fbOff); };
       }, []);
-      const [editingTarget, setEditingTargetItem] = useState(null); // index
+      const [editingTarget, setEditingTarget] = useState(null); // index
       const [targetDraftItem, setTargetDraftItem] = useState("");
       const [editingItem, setEditingItem] = useState(null);
       const [itemDraft,   setItemDraft]   = useState("");
@@ -2642,10 +2657,10 @@ react-dom/cjs/react-dom-client.production.js:
                     editingTarget===ci
                       ? React.createElement('input',{autoFocus:true,value:targetDraftItem,
                           onChange:e=>setTargetDraftItem(e.target.value.replace(/[^0-9]/g,"")),
-                          onBlur:()=>{ const v={...itemTargets}; v[it]=parseInt(targetDraftItem)||0; saveItemTargets(v); setEditingTargetItem(null); },
-                          onKeyDown:e=>{ if(e.key==="Enter"){ const v={...itemTargets}; v[it]=parseInt(targetDraftItem)||0; saveItemTargets(v); setEditingTargetItem(null); } if(e.key==="Escape") setEditingTargetItem(null); },
+                          onBlur:()=>{ const v={...itemTargets}; v[it]=parseInt(targetDraftItem)||0; saveItemTargets(v); setEditingTarget(null); },
+                          onKeyDown:e=>{ if(e.key==="Enter"){ const v={...itemTargets}; v[it]=parseInt(targetDraftItem)||0; saveItemTargets(v); setEditingTarget(null); } if(e.key==="Escape") setEditingTarget(null); },
                           style:{width:44,fontSize:9,textAlign:"center",background:"#0a1628",border:"1px solid "+iColor(ci)+"88",borderRadius:4,color:"#e2e8f0",padding:"1px 4px",outline:"none"}})
-                      : React.createElement('span',{onClick:()=>{ setEditingTargetItem(ci); setTargetDraftItem(String(itemTargets[it]||0)); },
+                      : React.createElement('span',{onClick:()=>{ setEditingTarget(ci); setTargetDraftItem(String(itemTargets[it]||0)); },
                           style:{fontSize:9,color:"#64748b",cursor:"pointer"}},
                           "目標: ",React.createElement('span',{style:{color:iColor(ci),fontWeight:700}},itemTargets[it]||0))
                   )
