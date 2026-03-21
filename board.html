@@ -124,6 +124,9 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .prog-track{background:rgba(255,255,255,.07);border-radius:4px;height:5px;overflow:hidden}
 .prog-fill{height:100%;border-radius:4px;transition:width .4s ease}
 .prog-lbl{display:flex;justify-content:space-between;margin-top:3px;font-size:9px;color:var(--dim);font-family:monospace}
+.tgt-perday{display:flex;align-items:center;gap:8px;margin-top:5px}
+.tgt-perday-lbl{font-size:9px;font-family:'Orbitron',monospace;color:var(--muted);letter-spacing:2px}
+.tgt-perday-num{font-family:'Orbitron',monospace;font-size:18px;font-weight:900}
 
 .itable{width:100%;border-collapse:collapse;margin-bottom:20px}
 .itable th{font-family:'Orbitron',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;padding:7px 11px;border-bottom:1px solid var(--dim);text-align:left}
@@ -165,7 +168,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   /* 販売タブ印刷時：車検を隠す */
   body.print-sales  #page-shaken{display:none!important}
   /* 両ページ表示 */
-  #page-shaken,#page-sales{display:block!important}
+  body.print-shaken #page-shaken{display:block!important}
+  body.print-sales #page-sales{display:block!important}
 
   /* ── 共通 ── */
   .sec-hdr{background:#f0f4f8!important;border-color:#ccc!important;border-radius:0!important}
@@ -189,114 +193,72 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   .ccell .cn,.ccell .cn.zero{-webkit-text-fill-color:inherit!important}
   .note{border-color:#ccc!important;color:#555!important}
 
-  /* ── 販売印刷：目標達成状況のみ全画面表示 ── */
+  /* ── 販売印刷：目標達成状況のみ1ページに ── */
   body.print-sales .sec-hdr{display:none!important}
   body.print-sales .cards{display:none!important}
   body.print-sales .stabs{display:none!important}
   body.print-sales #sv-item{display:none!important}
   body.print-sales #sv-staff{display:none!important}
   body.print-sales #sv-detail{display:none!important}
-
-  /* 目標パネルを表示 */
   body.print-sales .tgt-panel{
-    display:block!important;
-    border:none!important;
-    padding:0!important;
-    margin:0!important;
-    background:transparent!important;
+    display:block!important;border:none!important;
+    padding:0!important;margin:0!important;background:transparent!important;
   }
   body.print-sales .tgt-title{
-    font-size:16px!important;
-    color:#1e3a5f!important;
-    letter-spacing:4px!important;
-    margin-bottom:16px!important;
-    padding-bottom:8px!important;
-    border-bottom:3px solid #1e3a5f!important;
+    font-size:14px!important;color:#1e3a5f!important;letter-spacing:4px!important;
+    margin-bottom:10px!important;padding-bottom:6px!important;border-bottom:2px solid #1e3a5f!important;
   }
-  /* 5項目を縦1列で紙いっぱいに */
+  /* 5項目を1ページに収める */
   body.print-sales .tgt-grid{
-    display:grid!important;
-    grid-template-columns:1fr!important;
-    gap:12px!important;
-    height:calc(100vh - 80px)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:8px!important;
+    height:calc(100vh - 60px)!important;
   }
   body.print-sales .tgt-card{
     background:#f8fafc!important;
     border:2px solid #334155!important;
-    border-radius:10px!important;
-    padding:16px 24px!important;
+    border-radius:8px!important;
+    padding:20px 28px!important;
     display:flex!important;
     align-items:center!important;
     gap:24px!important;
+    break-inside:avoid!important;
     page-break-inside:avoid!important;
-  }
-  body.print-sales .tgt-card.done{
-    background:#f0fdf4!important;
-    border-color:#16a34a!important;
-  }
-  body.print-sales .tgt-name{
-    font-size:22px!important;
-    font-weight:900!important;
-    color:#0f172a!important;
-    margin-bottom:0!important;
     flex:1!important;
-    display:flex!important;
-    align-items:center!important;
-    gap:12px!important;
-    white-space:nowrap!important;
   }
-  body.print-sales .badge{
-    font-size:13px!important;
-    padding:4px 14px!important;
-    border-radius:20px!important;
+  body.print-sales .tgt-card.done{background:#f0fdf4!important;border-color:#16a34a!important;}
+  body.print-sales .tgt-name{
+    font-size:26px!important;font-weight:900!important;color:#0f172a!important;
+    margin-bottom:0!important;flex:2!important;display:flex!important;
+    align-items:center!important;gap:12px!important;
   }
+  body.print-sales .badge{font-size:14px!important;padding:5px 16px!important;border-radius:20px!important;}
   body.print-sales .badge.ok{background:#dcfce7!important;color:#166534!important;border-color:#86efac!important}
   body.print-sales .badge.ng{background:#fee2e2!important;color:#dc2626!important;border-color:#fca5a5!important}
-  body.print-sales .badge.nt{background:#f1f5f9!important;color:#64748b!important;border-color:#cbd5e1!important}
+  body.print-sales .badge.nt{background:#f1f5f9!important;color:#94a3b8!important;border-color:#cbd5e1!important}
   body.print-sales .tgt-nums{
-    display:flex!important;
-    align-items:baseline!important;
-    gap:16px!important;
-    margin-bottom:0!important;
-    flex-shrink:0!important;
+    display:flex!important;align-items:baseline!important;
+    gap:12px!important;margin-bottom:0!important;flex-shrink:0!important;flex:3!important;
+    justify-content:flex-end!important;
   }
   body.print-sales .tgt-cur{
-    font-size:64px!important;
-    font-weight:900!important;
-    line-height:1!important;
-    color:#0369a1!important;
-    -webkit-text-fill-color:#0369a1!important;
+    font-size:88px!important;font-weight:900!important;line-height:1!important;
+    color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;
   }
-  body.print-sales .tgt-card.done .tgt-cur{
-    color:#16a34a!important;
-    -webkit-text-fill-color:#16a34a!important;
-  }
-  body.print-sales .tgt-meta{
-    font-size:18px!important;
-    color:#334155!important;
-    white-space:nowrap!important;
-  }
-  body.print-sales .tgt-meta b{
-    font-size:24px!important;
-    color:#b45309!important;
-  }
-  /* プログレスバー */
+  body.print-sales .tgt-card.done .tgt-cur{color:#16a34a!important;-webkit-text-fill-color:#16a34a!important;}
+  body.print-sales .tgt-meta{font-size:18px!important;color:#334155!important;white-space:nowrap!important;}
+  body.print-sales .tgt-meta b{font-size:26px!important;color:#b45309!important;}
   body.print-sales .prog-track{
-    height:14px!important;
-    background:#e2e8f0!important;
-    border-radius:7px!important;
-    flex:1!important;
-    min-width:200px!important;
+    height:12px!important;background:#e2e8f0!important;border-radius:6px!important;
+    flex:2!important;min-width:160px!important;
   }
-  body.print-sales .prog-fill{
-    height:14px!important;
-    border-radius:7px!important;
-  }
-  body.print-sales .prog-lbl{
-    font-size:12px!important;
-    color:#64748b!important;
-    margin-top:4px!important;
-  }
+  body.print-sales .prog-fill{height:12px!important;border-radius:6px!important;}
+  body.print-sales .prog-lbl{font-size:11px!important;color:#64748b!important;margin-top:3px!important;}
+  body.print-sales .tgt-perday{margin-top:6px!important;gap:10px!important;}
+  body.print-sales .tgt-perday-lbl{font-size:11px!important;letter-spacing:2px!important;}
+  body.print-sales .tgt-perday-num{font-size:28px!important;}
+  body.print-sales .tgt-perday-num span{font-size:16px!important;}
 }
 @media(max-width:640px){
   .cards{grid-template-columns:repeat(2,1fr)}
@@ -593,10 +555,34 @@ function renderTargetPanel(){
     var bc=done?'var(--green)':(pct||0)>=70?'var(--gold)':'var(--cyan)';
     var badge=tgt===0?'<span class="badge nt">目標未設定</span>':done?'<span class="badge ok">✓ 達成</span>':'<span class="badge ng">あと <b style="font-size:14px">'+rem+'</b> 個</span>';
     var card=document.createElement('div');card.className='tgt-card'+(done?' done':'');
+    // 日当たり必要数（今月のみ・未達時）
+    var perdayHtml='';
+    var isCurrentMonth=(selMonth===todayMonthLabel());
+    if(tgt>0&&!done&&rem>0&&isCurrentMonth){
+      var now=new Date();
+      var monthEnd=new Date(now.getFullYear(),now.getMonth()+1,0);
+      var remainDays=Math.max(1,Math.round((monthEnd-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000)+1);
+      var perDay=Math.ceil(rem/remainDays);
+      var pdColor=perDay>=3?'var(--red)':perDay>=2?'var(--gold)':'var(--green)';
+      perdayHtml='<div class="tgt-perday"><span class="tgt-perday-lbl">TODAY NEED</span><span class="tgt-perday-num" style="color:'+pdColor+'">'+perDay+'<span style="font-size:12px;margin-left:3px">個/日</span></span></div>';
+    }
     var html='<div class="tgt-name"><span>'+item+'</span>'+badge+'</div>'+
       '<div class="tgt-nums"><span class="tgt-cur" style="color:'+(done?'var(--green)':'var(--cyan)')+'">'+cur+'</span>'+
       '<span class="tgt-meta">'+(tgt>0?'目標 <b style="color:var(--gold)">'+tgt+'</b> 個':'目標未設定')+'</span></div>';
-    if(pct!==null)html+='<div class="prog-track"><div class="prog-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div class="prog-lbl"><span>'+cur+'個</span><span style="color:'+bc+'">'+pct+'%</span><span>'+tgt+'個</span></div>';
+    if(perdayHtml)html+=perdayHtml;
+    // 日当たり計算（今月のみ・残り日数で割る）
+    var isNow = selMonth===todayMonthLabel();
+    var perdayStr = '';
+    if(tgt>0 && !done && isNow){
+      var now2=new Date();
+      var mEnd=new Date(now2.getFullYear(),now2.getMonth()+1,0).getDate();
+      var remDays=Math.max(1, mEnd - now2.getDate() + 1);
+      var need=Math.ceil(Math.max(0,tgt-cur)/remDays);
+      perdayStr='1日'+need+'個ペース必要（残'+remDays+'日）';
+    } else if(done){
+      perdayStr='✓ 達成済み';
+    }
+    if(pct!==null)html+='<div class="prog-track"><div class="prog-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div class="prog-lbl"><span>'+cur+'個 / '+tgt+'個</span><span style="color:'+bc+'">'+pct+'%</span>'+(perdayStr?'<span style="color:#64748b">'+perdayStr+'</span>':'')+'</div>';
     card.innerHTML=html;
     g.appendChild(card);
   });
