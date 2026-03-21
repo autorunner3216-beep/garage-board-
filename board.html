@@ -620,7 +620,8 @@ function switchPage(page) {
   document.getElementById('page-sales').style.display  = page==='sales'  ? '' : 'none';
   document.getElementById('ptab-shaken').className = 'page-tab shaken' + (page==='shaken'?' active':'');
   document.getElementById('ptab-sales').className  = 'page-tab sales'  + (page==='sales' ?' active':'');
-  if(page==='sales') renderSales();
+  if(page==='sales') { renderSales(); }
+  if(page==='shaken') { renderShaken(); }
   updateStatusBar();
 }
 
@@ -1097,6 +1098,9 @@ function showDiag() {
   document.getElementById('date-to').value=t;
   buildTypeChips();
   buildMonthChips();
+  // Firebase受信前に初期描画（空データで）
+  renderShaken();
+  renderSales();
 })();
 </script>
 </body>
