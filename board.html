@@ -620,6 +620,7 @@ function switchPage(page) {
   document.getElementById('page-sales').style.display  = page==='sales'  ? '' : 'none';
   document.getElementById('ptab-shaken').className = 'page-tab shaken' + (page==='shaken'?' active':'');
   document.getElementById('ptab-sales').className  = 'page-tab sales'  + (page==='sales' ?' active':'');
+  if(page==='sales') renderSales();
   updateStatusBar();
 }
 
@@ -838,17 +839,24 @@ function buildMonthChips() {
 }
 
 function renderSales() {
-  const recs=filteredSalesRecs();
-  const totalQty=recs.reduce((a,r)=>a+(r.qty||1),0);
-  numAnim('s-total',totalQty);
-  numAnim('s-items',new Set(recs.map(r=>r.item)).size);
-  numAnim('s-staff',new Set(recs.map(r=>r.staff)).size);
-
-  renderTargetPanel();
-  if(currentSalesTab==='item')   renderSalesItem(recs,totalQty);
-  if(currentSalesTab==='staff')  renderSalesStaff(recs);
-  if(currentSalesTab==='detail') renderSalesDetail(recs);
-  updateStatusBar();
+  try {
+    const recs=filteredSalesRecs();
+    const totalQty=recs.reduce((a,r)=>a+(r.qty||1),0);
+    numAnim('s-total',totalQty);
+    numAnim('s-items',new Set(recs.map(r=>r.item)).size);
+    numAnim('s-staff',new Set(recs.map(r=>r.staff)).size);
+    try { renderTargetPanel(); } catch(e) { console.error('[renderTargetPanel]', e); }
+    try {
+      if(currentSalesTab==='item')   renderSalesItem(recs,totalQty);
+      if(currentSalesTab==='staff')  renderSalesStaff(recs);
+      if(currentSalesTab==='detail') renderSalesDetail(recs);
+    } catch(e) { console.error('[renderSalesTab]', e); }
+    updateStatusBar();
+  } catch(e) {
+    console.error('[renderSales]', e);
+    const p = document.getElementById('page-sales');
+    if(p) p.innerHTML += '<div style="color:#f87171;padding:20px;font-size:12px">エラー: ' + e.message + '</div>';
+  }
 }
 
 
