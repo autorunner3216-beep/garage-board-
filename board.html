@@ -578,16 +578,37 @@ db.ref('garage/garage_jobs').on('value',function(snap){
 });
 db.ref('garage/garage_salesitems').on('value',function(snap){
   var v=snap.val();
-  allItems=Array.isArray(v)?v.filter(Boolean):(v&&typeof v==='object'?Object.values(v).filter(Boolean):[]);
+  if(v){
+    allItems=Array.isArray(v)?v.filter(Boolean):(typeof v==='object'?Object.values(v).filter(Boolean):[]);
+  } else {
+    try{var ls=localStorage.getItem('garage_salesitems');allItems=ls?JSON.parse(ls).filter(Boolean):[];}
+    catch(e){allItems=[];}
+  }
   if(currentPage==='sales')renderSales();
 });
 db.ref('garage/garage_item_targets').on('value',function(snap){
   var v=snap.val();
-  if(v&&typeof v==='object')allItemTargets=v;
+  if(v&&typeof v==='object'){
+    allItemTargets=v;
+  } else {
+    try{var ls=localStorage.getItem('garage_item_targets');if(ls)allItemTargets=JSON.parse(ls);}
+    catch(e){}
+  }
   if(currentPage==='sales')renderSales();
 });
 db.ref('garage/garage_salesrecords').on('value',function(snap){
-  allRecords=toArr(snap.val());
+  var val=snap.val();
+  if(val){
+    // Firebaseにデータあり
+    allRecords=toArr(val);
+  } else {
+    // FirebaseになければlocalStorageから読む（同一ドメインで共有）
+    try{
+      var ls=localStorage.getItem('garage_salesrecords');
+      allRecords=ls?JSON.parse(ls).filter(Boolean):[];
+      console.log('[LS] salesrecords fallback:',allRecords.length,'件');
+    }catch(e){allRecords=[];}
+  }
   console.log('[FB] salesrecords:',allRecords.length,'件');
   if(currentPage==='sales')renderSales();
 });
