@@ -873,17 +873,20 @@ function renderTargetPanel() {
   const monthCounts = {};
   monthRecs.forEach(r => { if(r.item) monthCounts[r.item] = (monthCounts[r.item]||0)+(r.qty||1); });
 
-  // 目標設定がある物品のみ表示（目標0=未設定は除外）
+  // 物品リスト：salesitemsに登録されているもの全部（目標0含む）
   const items = [...new Set([...allItems, ...Object.keys(allItemTargets)].filter(Boolean))]
-    .filter(it => (allItemTargets[it]||0) > 0)
     .sort((a,b) => {
-      const ra = Math.max(0,(allItemTargets[a]||0)-(monthCounts[a]||0));
-      const rb = Math.max(0,(allItemTargets[b]||0)-(monthCounts[b]||0));
+      // 目標あり→先、残り多い順
+      const ta = allItemTargets[a]||0, tb = allItemTargets[b]||0;
+      if (ta===0 && tb>0) return 1;
+      if (tb===0 && ta>0) return -1;
+      const ra = Math.max(0,ta-(monthCounts[a]||0));
+      const rb = Math.max(0,tb-(monthCounts[b]||0));
       return rb - ra;
     });
 
   if (!items.length) {
-    container.innerHTML = '<div style="color:var(--dim);font-size:12px;padding:20px;text-align:center">index.htmlで目標を設定すると表示されます</div>';
+    container.innerHTML = '<div style="color:var(--dim);font-size:12px;padding:20px;text-align:center">index.htmlで物品を登録すると表示されます</div>';
     return;
   }
 
@@ -891,30 +894,32 @@ function renderTargetPanel() {
   items.forEach(item => {
     const target   = allItemTargets[item] || 0;
     const current  = monthCounts[item] || 0;
-    const remain   = Math.max(0, target - current);
-    const achieved = current >= target;
-    const pct      = Math.min(100, Math.round((current / target) * 100));
-    const barColor = achieved ? 'var(--green)' : pct >= 70 ? 'var(--gold)' : 'var(--accent)';
+    const remain   = target > 0 ? Math.max(0, target - current) : null;
+    const achieved = target > 0 && current >= target;
+    const pct      = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : null;
+    const barColor = achieved ? 'var(--green)' : (pct||0) >= 70 ? 'var(--gold)' : 'var(--accent)';
 
     const card = document.createElement('div');
     card.className = 'target-item-card' + (achieved ? ' achieved' : '');
 
-    card.innerHTML = `
-      <div class="ti-name">
-        <span>${item}</span>
-        ${achieved
-          ? '<span class="ti-badge ok">✓ 達成</span>'
-          : '<span class="ti-badge ng">あと <b style="font-size:15px;margin:0 2px">' + remain + '</b> 個</span>'}
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-        <span style="font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:${achieved?'var(--green)':'var(--accent)'}">${current}</span>
-        <span style="font-size:11px;color:var(--muted)">目標 <b style="color:var(--gold);font-family:'Orbitron',monospace">${target}</b> 個</span>
-      </div>
-      <div class="ti-prog-track">
-        <div class="ti-prog-fill" style="width:${pct}%;background:${barColor}"></div>
-      </div>
-      <div class="ti-prog-label"><span>${current}個</span><span style="color:${barColor}">${pct}%</span><span>${target}個</span></div>
-    `;
+    // バッジ
+    let badge = '';
+    if (target === 0)  badge = '<span class="ti-badge nt" style="font-size:9px;padding:2px 7px;background:rgba(51,65,85,0.5);color:var(--dim);border:1px solid var(--dim);border-radius:10px;font-family:monospace">目標未設定</span>';
+    else if (achieved) badge = '<span class="ti-badge ok">✓ 達成</span>';
+    else               badge = '<span class="ti-badge ng">あと <b style="font-size:15px;margin:0 2px">' + remain + '</b> 個</span>';
+
+    const numColor = achieved ? 'var(--green)' : 'var(--accent)';
+    const tgtLabel = target > 0 ? ('目標 <b style="color:var(--gold)">' + target + '</b> 個') : '目標未設定';
+    const progHtml = pct !== null
+      ? '<div class="ti-prog-track"><div class="ti-prog-fill" style="width:'+pct+'%;background:'+barColor+'"></div></div><div class="ti-prog-label"><span>'+current+'個</span><span style="color:'+barColor+'">'+pct+'%</span><span>'+target+'個</span></div>'
+      : '';
+    card.innerHTML =
+      '<div class="ti-name"><span>' + item + '</span>' + badge + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">' +
+        '<span style="font-size:28px;font-weight:900;color:' + numColor + '">' + current + '</span>' +
+        '<span style="font-size:11px;color:var(--muted)">' + tgtLabel + '</span>' +
+      '</div>' +
+      progHtml;
     container.appendChild(card);
   });
 }
@@ -1050,12 +1055,12 @@ db.ref('garage/garage_salesrecords').on('value',snap=>{
   if (!val) {
     allRecords = [];
   } else if (Array.isArray(val)) {
-    // 数値インデックスの配列（Firebaseが配列をオブジェクト変換する場合あり）
-    allRecords = val.filter(r => r && typeof r === 'object' && r.item);
+    allRecords = val.filter(r => r && typeof r === 'object');
   } else if (typeof val === 'object') {
-    // Firebaseがオブジェクト形式で返す場合
-    allRecords = Object.values(val).filter(r => r && typeof r === 'object' && r.item);
+    // FirebaseはJS配列を {0:{...}, 1:{...}} 形式で返すことがある
+    allRecords = Object.values(val).filter(r => r && typeof r === 'object');
   }
+  console.log('[Firebase] salesrecords受信:', allRecords.length, '件', allRecords.slice(0,3));
   renderSales();
 });
 
@@ -1081,27 +1086,4 @@ function showDiag() {
     matched.length ? matched.map(i=>'  ✅ '+i).join('\n') : '  （なし）',
     '',
     '【キー不一致（集計されない物品）】',
-    unmatched.length ? unmatched.map(i=>'  ❌ '+i).join('\n') : '  （なし）',
-    '',
-    '【salesitems リスト】',
-    allItems.length ? allItems.map(i=>'  ・'+i).join('\n') : '  （なし）',
-  ];
-  alert(lines.join('\n'));
-}
-
-// ═══════════════════════════════════════════
-//  初期化
-// ═══════════════════════════════════════════
-(function init(){
-  const t=todayStr();
-  document.getElementById('date-from').value=t;
-  document.getElementById('date-to').value=t;
-  buildTypeChips();
-  buildMonthChips();
-  // Firebase受信前に初期描画（空データで）
-  renderShaken();
-  renderSales();
-})();
-</script>
-</body>
-</html>
+  
