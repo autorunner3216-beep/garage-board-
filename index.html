@@ -3029,7 +3029,7 @@ react-dom/cjs/react-dom-client.production.js:
           /* ── 月内計上 ＋ 完成確定 ── */
           React.createElement('div', { style:{ display:"flex", gap:6, marginBottom:10 }},
             React.createElement('button', {
-              onClick:()=>setDraft(p=>({...p, counted:!p.counted})),
+              onClick:()=>setDraft(p=>({...p, counted:!p.counted, countedMonth: !p.counted ? TODAY_STR.slice(0,7) : null})),
               style:{
                 flex:1, padding:"6px 8px", borderRadius:6, cursor:"pointer",
                 fontWeight:700, fontSize:11,
@@ -4771,7 +4771,7 @@ React.createElement('select', {
 
           /* 月間売上合計 HPゲージ */
           (function(){
-            var total = bpJobs.filter(function(j){ return j.counted && j.inDate && j.inDate.startsWith(viewMonth); })
+            var total = bpJobs.filter(function(j){ return j.counted && j.countedMonth === viewMonth; })
               .reduce(function(s,j){ return s + (Number(j.estimatedAmount)||0); }, 0)
             + bpCompletedLog.filter(function(l){ return l.month === viewMonth; })
               .reduce(function(s,l){ return s + (Number(l.estimatedAmount)||0); }, 0);
