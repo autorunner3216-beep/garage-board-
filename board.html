@@ -159,77 +159,66 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .filter-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
 
 @media print{
+  /* 基本 */
   body{background:#fff!important;color:#000!important}
   body::before{display:none!important}
-  /* 非表示 */
-  .top-bar,.status-bar,.tab-group,.btn-print,.type-filter,.stabs,.tgt-panel,.btn-diag,.mchips{display:none!important}
-  /* 車検タブ印刷時：販売を隠す */
+
+  /* 不要なUI非表示 */
+  .top-bar,.status-bar,.tab-group,.btn-print,.type-filter,.stabs,.btn-diag,.mchips{display:none!important}
+
+  /* 現在ページのみ表示 */
   body.print-shaken #page-sales{display:none!important}
-  /* 販売タブ印刷時：車検を隠す */
   body.print-sales  #page-shaken{display:none!important}
-  /* 両ページ表示 */
   body.print-shaken #page-shaken{display:block!important}
-  body.print-sales #page-sales{display:block!important}
+  body.print-sales  #page-sales{display:block!important}
 
-  /* ── 共通 ── */
-  .sec-hdr{background:#f0f4f8!important;border-color:#ccc!important;border-radius:0!important}
-  .sec-title.cyan{color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;text-shadow:none!important}
-  .sec-title.gold{color:#b45309!important;-webkit-text-fill-color:#b45309!important;text-shadow:none!important}
-  .card{background:#f0f4f8!important;border:1px solid #ccc!important}
-  .cnum,.cnum.zero{-webkit-text-fill-color:inherit!important;text-shadow:none!important}
-  .card.cyan   .cnum{color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;font-size:48px!important}
-  .card.red    .cnum{color:#dc2626!important;-webkit-text-fill-color:#dc2626!important;font-size:48px!important}
-  .card.gold   .cnum{color:#b45309!important;-webkit-text-fill-color:#b45309!important;font-size:48px!important}
-  .card.purple .cnum{color:#7c3aed!important;-webkit-text-fill-color:#7c3aed!important;font-size:48px!important}
-  .card.green  .cnum{color:#166534!important;-webkit-text-fill-color:#166534!important;font-size:48px!important}
-  .cunit{color:#334155!important;font-size:13px!important}
-  .clbl{font-size:11px!important}
+  /* 背景・ボーダーを印刷対応に */
+  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
 
-  /* ── 車検 ── */
-  .trow,.trow-total{background:#fff!important;border-color:#ccc!important;border-radius:0!important}
-  .ccell.ex{background:#e0f2fe!important}.ccell.ex .cl,.ccell.ex .cn{color:#0369a1!important}
-  .ccell.nw{background:#fee2e2!important}.ccell.nw .cl,.ccell.nw .cn{color:#dc2626!important}
-  .ccell.st{background:#fef9c3!important}.ccell.st .cl,.ccell.st .cn{color:#b45309!important}
-  .ccell .cn,.ccell .cn.zero{-webkit-text-fill-color:inherit!important}
-  .note{border-color:#ccc!important;color:#555!important}
+  /* パネル系 */
+  .sec-hdr{background:#1e3a5f!important;border-color:#1e3a5f!important;border-radius:6px!important;}
+  .sec-title.cyan{color:#fff!important;-webkit-text-fill-color:#fff!important;text-shadow:none!important;}
+  .sec-title.gold{color:#fbbf24!important;-webkit-text-fill-color:#fbbf24!important;text-shadow:none!important;}
 
-  /* ── 販売印刷：目標達成状況のみ1ページに ── */
-  body.print-sales .sec-hdr{display:none!important}
-  body.print-sales .cards{display:none!important}
-  body.print-sales .stabs{display:none!important}
-  body.print-sales #sv-item{display:none!important}
-  body.print-sales #sv-staff{display:none!important}
-  body.print-sales #sv-detail{display:none!important}
-  body.print-sales .tgt-panel{display:block!important;border:none!important;padding:0!important;margin:0!important;background:transparent!important;}
-  body.print-sales .tgt-title{font-size:13px!important;color:#1e3a5f!important;letter-spacing:3px!important;margin-bottom:8px!important;padding-bottom:5px!important;border-bottom:2px solid #1e3a5f!important;}
-  /* 5項目を均等に1ページ */
-  body.print-sales .tgt-grid{display:table!important;width:100%!important;border-collapse:separate!important;border-spacing:0 6px!important;}
-  body.print-sales .tgt-card{
-    display:table-row!important;
-    background:#f8fafc!important;
-  }
-  body.print-sales .tgt-card > *{display:table-cell!important;vertical-align:middle!important;padding:14px 16px!important;border-top:2px solid #334155!important;border-bottom:2px solid #334155!important;}
-  body.print-sales .tgt-card > *:first-child{border-left:2px solid #334155!important;border-radius:8px 0 0 8px!important;}
-  body.print-sales .tgt-card > *:last-child{border-right:2px solid #334155!important;border-radius:0 8px 8px 0!important;}
-  body.print-sales .tgt-card.done > *{border-color:#16a34a!important;background:#f0fdf4!important;}
-  body.print-sales .tgt-name{font-size:22px!important;font-weight:900!important;color:#0f172a!important;white-space:nowrap!important;width:35%!important;}
-  body.print-sales .tgt-name span:first-child{display:block!important;margin-bottom:4px!important;}
-  body.print-sales .badge{font-size:12px!important;padding:3px 12px!important;border-radius:20px!important;display:inline-block!important;}
-  body.print-sales .badge.ok{background:#dcfce7!important;color:#166534!important;border:1px solid #86efac!important}
-  body.print-sales .badge.ng{background:#fee2e2!important;color:#dc2626!important;border:1px solid #fca5a5!important}
-  body.print-sales .badge.nt{background:#f1f5f9!important;color:#94a3b8!important;border:1px solid #cbd5e1!important}
-  body.print-sales .tgt-nums{width:30%!important;text-align:right!important;}
-  body.print-sales .tgt-cur{font-size:72px!important;font-weight:900!important;line-height:1!important;display:block!important;color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;}
-  body.print-sales .tgt-card.done .tgt-cur{color:#16a34a!important;-webkit-text-fill-color:#16a34a!important;}
-  body.print-sales .tgt-meta{font-size:15px!important;color:#334155!important;display:block!important;margin-top:4px!important;}
-  body.print-sales .tgt-meta b{font-size:20px!important;color:#b45309!important;}
-  body.print-sales .prog-track{height:10px!important;background:#e2e8f0!important;border-radius:5px!important;width:100%!important;display:block!important;margin-top:4px!important;}
-  body.print-sales .prog-fill{height:10px!important;border-radius:5px!important;display:block!important;}
-  body.print-sales .prog-lbl{font-size:10px!important;color:#94a3b8!important;display:flex!important;justify-content:space-between!important;margin-top:2px!important;}
-  body.print-sales .tgt-perday{margin-top:4px!important;}
-  body.print-sales .tgt-perday-lbl{font-size:9px!important;font-family:monospace!important;color:#64748b!important;letter-spacing:1px!important;display:block!important;}
-  body.print-sales .tgt-perday-num{font-size:22px!important;font-weight:900!important;}
-  body.print-sales .tgt-perday-num span{font-size:13px!important;}
+  /* サマリーカード */
+  .card{background:#f0f4f8!important;border:1px solid #ccc!important;}
+  .cnum,.cnum.zero{text-shadow:none!important;}
+  .card.gold .cnum{color:#b45309!important;-webkit-text-fill-color:#b45309!important;}
+  .card.cyan .cnum{color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;}
+  .card.green .cnum{color:#166534!important;-webkit-text-fill-color:#166534!important;}
+  .card.red .cnum{color:#dc2626!important;-webkit-text-fill-color:#dc2626!important;}
+  .card.purple .cnum{color:#7c3aed!important;-webkit-text-fill-color:#7c3aed!important;}
+  .cunit{color:#334155!important;}
+  .clbl{color:inherit!important;}
+
+  /* 目標パネル */
+  .tgt-panel{background:#fff!important;border:1px solid #ccc!important;}
+  .tgt-title{color:#1e3a5f!important;}
+  .tgt-card{background:#f8fafc!important;border:1px solid #ccc!important;}
+  .tgt-card.done{background:#f0fdf4!important;border-color:#86efac!important;}
+  .tgt-name{color:#000!important;}
+  .tgt-cur{text-shadow:none!important;}
+  .badge.ok{background:#dcfce7!important;color:#166534!important;border-color:#86efac!important;}
+  .badge.ng{background:#fee2e2!important;color:#dc2626!important;border-color:#fca5a5!important;}
+  .badge.nt{background:#f1f5f9!important;color:#64748b!important;border-color:#e2e8f0!important;}
+  .prog-track{background:#e2e8f0!important;}
+  .tgt-perday-lbl{color:#64748b!important;}
+
+  /* 車検グリッド */
+  .trow{background:#fff!important;border:1px solid #ccc!important;}
+  .trow-total{background:#f0f4f8!important;border:2px solid #1e3a5f!important;}
+  .ccell.ex{background:#e0f2fe!important;}.ccell.ex .cl,.ccell.ex .cn{color:#0369a1!important;}
+  .ccell.nw{background:#fee2e2!important;}.ccell.nw .cl,.ccell.nw .cn{color:#dc2626!important;}
+  .ccell.st{background:#fef9c3!important;}.ccell.st .cl,.ccell.st .cn{color:#b45309!important;}
+  .ccell .cn.zero,.ccell .cn{-webkit-text-fill-color:inherit!important;}
+  .note{border-color:#ccc!important;color:#555!important;}
+
+  /* テーブル系 */
+  .itable th{background:#1e3a5f!important;color:#fff!important;}
+  .itable td{border-color:#e2e8f0!important;}
+  .sgrid .scard{background:#f8fafc!important;border:1px solid #ccc!important;}
+  .stotal{color:#b45309!important;-webkit-text-fill-color:#b45309!important;}
+  .dtable th{background:#1e3a5f!important;color:#fff!important;}
 }
 @media(max-width:640px){
   .cards{grid-template-columns:repeat(2,1fr)}
