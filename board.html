@@ -200,65 +200,36 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   body.print-sales #sv-item{display:none!important}
   body.print-sales #sv-staff{display:none!important}
   body.print-sales #sv-detail{display:none!important}
-  body.print-sales .tgt-panel{
-    display:block!important;border:none!important;
-    padding:0!important;margin:0!important;background:transparent!important;
-  }
-  body.print-sales .tgt-title{
-    font-size:14px!important;color:#1e3a5f!important;letter-spacing:4px!important;
-    margin-bottom:10px!important;padding-bottom:6px!important;border-bottom:2px solid #1e3a5f!important;
-  }
-  /* 5項目を1ページに収める */
-  body.print-sales .tgt-grid{
-    display:flex!important;
-    flex-direction:column!important;
-    gap:8px!important;
-    height:calc(100vh - 60px)!important;
-  }
+  body.print-sales .tgt-panel{display:block!important;border:none!important;padding:0!important;margin:0!important;background:transparent!important;}
+  body.print-sales .tgt-title{font-size:13px!important;color:#1e3a5f!important;letter-spacing:3px!important;margin-bottom:8px!important;padding-bottom:5px!important;border-bottom:2px solid #1e3a5f!important;}
+  /* 5項目を均等に1ページ */
+  body.print-sales .tgt-grid{display:table!important;width:100%!important;border-collapse:separate!important;border-spacing:0 6px!important;}
   body.print-sales .tgt-card{
+    display:table-row!important;
     background:#f8fafc!important;
-    border:2px solid #334155!important;
-    border-radius:8px!important;
-    padding:20px 28px!important;
-    display:flex!important;
-    align-items:center!important;
-    gap:24px!important;
-    break-inside:avoid!important;
-    page-break-inside:avoid!important;
-    flex:1!important;
   }
-  body.print-sales .tgt-card.done{background:#f0fdf4!important;border-color:#16a34a!important;}
-  body.print-sales .tgt-name{
-    font-size:26px!important;font-weight:900!important;color:#0f172a!important;
-    margin-bottom:0!important;flex:2!important;display:flex!important;
-    align-items:center!important;gap:12px!important;
-  }
-  body.print-sales .badge{font-size:14px!important;padding:5px 16px!important;border-radius:20px!important;}
-  body.print-sales .badge.ok{background:#dcfce7!important;color:#166534!important;border-color:#86efac!important}
-  body.print-sales .badge.ng{background:#fee2e2!important;color:#dc2626!important;border-color:#fca5a5!important}
-  body.print-sales .badge.nt{background:#f1f5f9!important;color:#94a3b8!important;border-color:#cbd5e1!important}
-  body.print-sales .tgt-nums{
-    display:flex!important;align-items:baseline!important;
-    gap:12px!important;margin-bottom:0!important;flex-shrink:0!important;flex:3!important;
-    justify-content:flex-end!important;
-  }
-  body.print-sales .tgt-cur{
-    font-size:88px!important;font-weight:900!important;line-height:1!important;
-    color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;
-  }
+  body.print-sales .tgt-card > *{display:table-cell!important;vertical-align:middle!important;padding:14px 16px!important;border-top:2px solid #334155!important;border-bottom:2px solid #334155!important;}
+  body.print-sales .tgt-card > *:first-child{border-left:2px solid #334155!important;border-radius:8px 0 0 8px!important;}
+  body.print-sales .tgt-card > *:last-child{border-right:2px solid #334155!important;border-radius:0 8px 8px 0!important;}
+  body.print-sales .tgt-card.done > *{border-color:#16a34a!important;background:#f0fdf4!important;}
+  body.print-sales .tgt-name{font-size:22px!important;font-weight:900!important;color:#0f172a!important;white-space:nowrap!important;width:35%!important;}
+  body.print-sales .tgt-name span:first-child{display:block!important;margin-bottom:4px!important;}
+  body.print-sales .badge{font-size:12px!important;padding:3px 12px!important;border-radius:20px!important;display:inline-block!important;}
+  body.print-sales .badge.ok{background:#dcfce7!important;color:#166534!important;border:1px solid #86efac!important}
+  body.print-sales .badge.ng{background:#fee2e2!important;color:#dc2626!important;border:1px solid #fca5a5!important}
+  body.print-sales .badge.nt{background:#f1f5f9!important;color:#94a3b8!important;border:1px solid #cbd5e1!important}
+  body.print-sales .tgt-nums{width:30%!important;text-align:right!important;}
+  body.print-sales .tgt-cur{font-size:72px!important;font-weight:900!important;line-height:1!important;display:block!important;color:#0369a1!important;-webkit-text-fill-color:#0369a1!important;}
   body.print-sales .tgt-card.done .tgt-cur{color:#16a34a!important;-webkit-text-fill-color:#16a34a!important;}
-  body.print-sales .tgt-meta{font-size:18px!important;color:#334155!important;white-space:nowrap!important;}
-  body.print-sales .tgt-meta b{font-size:26px!important;color:#b45309!important;}
-  body.print-sales .prog-track{
-    height:12px!important;background:#e2e8f0!important;border-radius:6px!important;
-    flex:2!important;min-width:160px!important;
-  }
-  body.print-sales .prog-fill{height:12px!important;border-radius:6px!important;}
-  body.print-sales .prog-lbl{font-size:11px!important;color:#64748b!important;margin-top:3px!important;}
-  body.print-sales .tgt-perday{margin-top:6px!important;gap:10px!important;}
-  body.print-sales .tgt-perday-lbl{font-size:11px!important;letter-spacing:2px!important;}
-  body.print-sales .tgt-perday-num{font-size:28px!important;}
-  body.print-sales .tgt-perday-num span{font-size:16px!important;}
+  body.print-sales .tgt-meta{font-size:15px!important;color:#334155!important;display:block!important;margin-top:4px!important;}
+  body.print-sales .tgt-meta b{font-size:20px!important;color:#b45309!important;}
+  body.print-sales .prog-track{height:10px!important;background:#e2e8f0!important;border-radius:5px!important;width:100%!important;display:block!important;margin-top:4px!important;}
+  body.print-sales .prog-fill{height:10px!important;border-radius:5px!important;display:block!important;}
+  body.print-sales .prog-lbl{font-size:10px!important;color:#94a3b8!important;display:flex!important;justify-content:space-between!important;margin-top:2px!important;}
+  body.print-sales .tgt-perday{margin-top:4px!important;}
+  body.print-sales .tgt-perday-lbl{font-size:9px!important;font-family:monospace!important;color:#64748b!important;letter-spacing:1px!important;display:block!important;}
+  body.print-sales .tgt-perday-num{font-size:22px!important;font-weight:900!important;}
+  body.print-sales .tgt-perday-num span{font-size:13px!important;}
 }
 @media(max-width:640px){
   .cards{grid-template-columns:repeat(2,1fr)}
