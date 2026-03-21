@@ -534,18 +534,24 @@ function renderSales(){
   else renderSalesDetail(recs);
   setText('scount',selMonth+'　合計 '+total+'点');
 }
+function unescapeKey(k){ return k.replace(/_slash_/g,'/'); }
 function renderTargetPanel(){
   var monthRecs=getMonthRecs();
   var mc={};monthRecs.forEach(function(r){if(r.item)mc[r.item]=(mc[r.item]||0)+(r.qty||1);});
+  // item_targetsのキーを _slash_ → / に戻す
+  var fixedTargets={};
+  Object.keys(allItemTargets).forEach(function(k){
+    fixedTargets[unescapeKey(k)]=allItemTargets[k];
+  });
   var iset={};
   allItems.forEach(function(it){iset[it]=1;});
-  Object.keys(allItemTargets).forEach(function(k){iset[k]=1;});
+  Object.keys(fixedTargets).forEach(function(k){iset[k]=1;});
   Object.keys(mc).forEach(function(k){iset[k]=1;});
   var items=Object.keys(iset).filter(Boolean);
   var g=document.getElementById('tgt-grid');g.innerHTML='';
   if(!items.length){g.innerHTML='<div style="color:var(--dim);font-size:12px">物品データがありません</div>';return;}
   items.forEach(function(item){
-    var tgt=allItemTargets[item]||0;
+    var tgt=fixedTargets[item]||0;
     var cur=mc[item]||0;
     var done=tgt>0&&cur>=tgt;
     var rem=tgt>0?Math.max(0,tgt-cur):null;
