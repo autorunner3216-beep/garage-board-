@@ -1358,11 +1358,13 @@ react-dom/cjs/react-dom-client.production.js:
     };
 
     // ── ガントボード ──
-    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob }) {
+    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg }) {
       const boardRef = useRef(null);
       const dragRef  = useRef(null);
       const panRef   = useRef(null); // {startX, scrollLeft}
       const ghostRef = useRef(null);
+      const jobsRef  = useRef(jobs);
+      useEffect(() => { jobsRef.current = jobs; }, [jobs]);
       const [ghost, setGhost] = useState(null);
       const [showWaiting, setShowWaiting] = useState(false);
       const getNowH = () => new Date().getHours() + new Date().getMinutes() / 60;
@@ -1438,8 +1440,20 @@ react-dom/cjs/react-dom-client.production.js:
           if (!dragRef.current) return;
           const g = ghostRef.current;
           if (g) {
-            setJobs(prev => prev.map(j => j.id===g.id ? {...j, stall:g.stall, start:g.start, end:g.end} : j));
-            setSel(prev => _optionalChain([prev, 'optionalAccess', _7 => _7.id])===g.id ? {...prev, stall:g.stall, start:g.start, end:g.end} : prev);
+            const conflict = jobsRef.current.filter(j =>
+              j.id !== g.id &&
+              !j.completed &&
+              (j.displayDate || j.date) === boardDate &&
+              j.stall === g.stall &&
+              j.start < g.end && j.end > g.start
+            );
+            if (conflict.length > 0) {
+              setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
+              setTimeout(() => setDragOverlapMsg(null), 2000);
+            } else {
+              setJobs(prev => prev.map(j => j.id===g.id ? {...j, stall:g.stall, start:g.start, end:g.end} : j));
+              setSel(prev => _optionalChain([prev, 'optionalAccess', _7 => _7.id])===g.id ? {...prev, stall:g.stall, start:g.start, end:g.end} : prev);
+            }
           }
           dragRef.current = null; setGhost(null);
           document.body.classList.remove("gantt-dragging");
@@ -4642,6 +4656,7 @@ React.createElement('select', {
       const [editStall, setEditStall] = useState(null);
       const [showBpStaffModal, setShowBpStaffModal] = useState(false);
       const [newBpWorkerName, setNewBpWorkerName] = useState("");
+      const [bpOverlapMsg, setBpOverlapMsg] = useState(null);
       const [dragState, setDragState] = useState(null);
       const boardRef = useRef(null);
 
@@ -4719,8 +4734,24 @@ React.createElement('select', {
           }));
         };
         const onUp = e => {
-          // 確定保存
+          // 重複チェック
           setBpJobs(prev => {
+            const moved = prev.find(j => j.id === dragState.jobId);
+            if (moved) {
+              const conflict = prev.filter(j =>
+                j.id !== moved.id && j.stall === moved.stall &&
+                j.inDate < moved.outDate && j.outDate > moved.inDate
+              );
+              if (conflict.length > 0) {
+                setBpOverlapMsg("⚠ すでに予定が入っているため移動できません");
+                setTimeout(() => setBpOverlapMsg(null), 2000);
+                // 元の位置に戻す
+                return prev.map(j => j.id === dragState.jobId ? {
+                  ...j, inDate: dragState.origIn, outDate: dragState.origOut,
+                  stall: bpStalls[Math.max(0, Math.min(bpStalls.length-1, dragState.origStallIdx))]?.id || j.stall
+                } : j);
+              }
+            }
             window.saveToDb('bp_jobs', prev);
             return prev;
           });
@@ -5500,6 +5531,14 @@ React.createElement('select', {
                       const dayIdx = Math.floor((e.clientX - rect.left) / BP_DAY_W);
                       const clickDate = days[Math.min(dayIdx, days.length-1)]?.str || today;
                       const outDate = bpAddDays(clickDate, 4);
+                      const conflict = bpJobs.filter(j =>
+                        j.stall === stall.id && j.inDate < outDate && j.outDate > clickDate
+                      );
+                      if (conflict.length > 0) {
+                        setBpOverlapMsg("⚠ すでに予定が入っているため登録できません");
+                        setTimeout(() => setBpOverlapMsg(null), 2000);
+                        return;
+                      }
                       setModalJob({ plate:"", carModel:"", owner:"", type:"板金・塗装", status:"入庫待ち",
                         stall: stall.id, memo:"", inDate: clickDate, outDate: outDate, nyukoType:null, chakko:null, estimatedAmount:null, workerId:null, damage:null, inAmPm:null, inTime:"", daisha:null, hikitori:null, nosha:null, noshaDate:"", noshaAmPm:null, noshaTime:"" });
                     }
@@ -5911,6 +5950,15 @@ React.createElement('select', {
         ), /* メインエリア閉じ */
 
 
+        /* ── BP重複メッセージ ── */
+        bpOverlapMsg && React.createElement('div', { style: {
+          position:"fixed", top:80, left:"50%", transform:"translateX(-50%)",
+          background:"#1a0a0a", border:"1px solid #ef4444", borderRadius:10,
+          padding:"12px 24px", color:"#ef4444", fontSize:13, fontWeight:700,
+          zIndex:9999, boxShadow:"0 4px 24px rgba(239,68,68,.3)", letterSpacing:1,
+          pointerEvents:"none"
+        }}, bpOverlapMsg),
+
         /* ── 車両追加・編集モーダル ── */
         modalJob && React.createElement(BPJobModal, {
           job: modalJob,
@@ -5918,6 +5966,16 @@ React.createElement('select', {
           bpWorkers: bpWorkers,
           saveBpWorkers: saveBpWorkers,
           onSave: draft => {
+            const conflict = bpJobs.filter(j =>
+              j.id !== draft.id &&
+              j.stall === draft.stall &&
+              j.inDate < draft.outDate && j.outDate > draft.inDate
+            );
+            if (conflict.length > 0) {
+              setBpOverlapMsg("⚠ すでに予定が入っているため登録できません");
+              setTimeout(() => setBpOverlapMsg(null), 2000);
+              return;
+            }
             if (draft.id) {
               saveBpJobs(bpJobs.map(j => j.id===draft.id ? draft : j));
             } else {
@@ -6161,6 +6219,7 @@ React.createElement('select', {
       const [calPos,   setCalPos]  = useState({top:0, right:0});
       const [showAdd,  setShowAdd] = useState(false);
       const [addError, setAddError] = useState([]);
+      const [dragOverlapMsg, setDragOverlapMsg] = useState(null);
       const [showTomorrow, setShowTomorrow] = useState(false);
       const [showTodayDelivery, setShowTodayDelivery] = useState(false);
       const [showLoanTomorrow, setShowLoanTomorrow] = useState(false);
@@ -6226,6 +6285,7 @@ React.createElement('select', {
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
       const [stallDraft, setStallDraft] = useState([]);
+      const [selectedStallIdx, setSelectedStallIdx] = useState(null);
       const [showStatsLog, setShowStatsLog] = useState(null); // null | "inspection" | "sales"
       const [manualLog, setManualLog] = useState(() => {
         return window.loadFromDb('garage_manuallog', {})
@@ -6359,7 +6419,7 @@ React.createElement('select', {
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
-      const [nj, setNj] = useState({date:TODAY_STR,stall:"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
+      const [nj, setNj] = useState({date:TODAY_STR,stall:stalls[0]?.id||"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
       var FIELD_ERROR_MAP = { owner:"オーナー名", plate:"ナンバー", model:"車種", date:"入庫日", type:"作業種目", receptionDate:"受付日", receptionist:"受付担当", isNew:"顧客区分" };
       var updateNj = function(updater) {
         setNj(function(prev) {
@@ -6471,6 +6531,19 @@ React.createElement('select', {
           setAddError(missing);
           return;
         }
+        // ── ストール重複チェック ──
+        const newStart = parseFloat(nj.start);
+        const newEnd   = parseFloat(nj.start) + (["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label) ? 1 : 2/3);
+        const conflict = jobs.filter(j =>
+          !j.completed &&
+          (j.displayDate || j.date) === nj.date &&
+          j.stall === nj.stall &&
+          j.start < newEnd && j.end > newStart
+        );
+        if (conflict.length > 0) {
+          setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています`]);
+          return;
+        }
         setAddError([]);
         const newJobId = Date.now();
         setJobs(p => [...p, { id:newJobId, date:nj.date||boardDate, stall:nj.stall,
@@ -6487,7 +6560,7 @@ React.createElement('select', {
           date:nj.date||boardDate, deliveryDate:nj.deliveryDate };
         saveTodayLog([...todayLog, logEntry]);
         setShowAdd(false);
-        setNj({date:TODAY_STR,stall:"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
+        setNj({date:boardDate,stall:stalls[0]?.id||"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
       };
       const saveEditJob = (id, patch) => {
         setJobs(p => p.map(j => {
@@ -6880,7 +6953,7 @@ React.createElement('select', {
         filt, setFilt,
         boardDate, setBoardDate,
         showCal, setShowCal, calPos, setCalPos,
-        showAdd, setShowAdd, addError, setAddError,
+        showAdd, setShowAdd, addError, setAddError, dragOverlapMsg, setDragOverlapMsg,
         showTomorrow, setShowTomorrow,
         showTodayDelivery, setShowTodayDelivery,
         showLoanTomorrow, setShowLoanTomorrow,
@@ -6891,6 +6964,7 @@ React.createElement('select', {
         showBlock, setShowBlock,
         showStallEdit, setShowStallEdit,
         stallDraft, setStallDraft,
+        selectedStallIdx, setSelectedStallIdx,
         showStatsLog, setShowStatsLog,
         showTargetEdit, setShowTargetEdit,
         targetDraft, setTargetDraft,
@@ -6945,12 +7019,13 @@ React.createElement('select', {
         tab, setTab, view, setView,
         sel, setSel, selPos, setSelPos, filt, setFilt,
         boardDate, setBoardDate, showCal, setShowCal, calPos, setCalPos,
-        showAdd, setShowAdd, addError, setAddError,
+        showAdd, setShowAdd, addError, setAddError, dragOverlapMsg, setDragOverlapMsg,
         showTomorrow, setShowTomorrow, showTodayDelivery, setShowTodayDelivery,
         showLoanTomorrow, setShowLoanTomorrow, showDeadline, setShowDeadline,
         showMemo, setShowMemo, showTodayLog, setShowTodayLog,
         showStaff, setShowStaff, showBlock, setShowBlock,
         showStallEdit, setShowStallEdit, stallDraft, setStallDraft,
+        selectedStallIdx, setSelectedStallIdx,
         showStatsLog, setShowStatsLog, showTargetEdit, setShowTargetEdit,
         targetDraft, setTargetDraft, showRevenueInput, setShowRevenueInput,
         revenueDraft, setRevenueDraft,
@@ -7561,7 +7636,7 @@ React.createElement('select', {
                       onMouseLeave: e => { e.currentTarget.style.background="linear-gradient(135deg,#0a1628,#0f2040)"; e.currentTarget.style.boxShadow="0 2px 6px rgba(0,0,0,.4)"; }
                       }, "👥 スタッフ")
                     /* 入庫登録 */
-                    , React.createElement('button', { onClick: () => setShowAdd(true),
+                    , React.createElement('button', { onClick: () => { updateNj(p=>({...p, date:boardDate, receptionDate:TODAY_STR, stall:stalls[0]?.id||"S01"})); setShowAdd(true); },
                       style: { background:"linear-gradient(135deg,#1d4ed8,#2563eb,#3b82f6)",
                         border:"1px solid #60a5fa66", borderRadius:6, color:"#fff", padding:"4px 7px",
                         fontSize:9, fontWeight:800, cursor:"pointer",
@@ -7571,7 +7646,7 @@ React.createElement('select', {
                       onMouseLeave: e => { e.currentTarget.style.boxShadow="0 0 10px rgba(59,130,246,.45), 0 2px 6px rgba(0,0,0,.4)"; e.currentTarget.style.transform="translateY(0)"; }
                       }, "＋ 入庫登録")
                     /* ストール設定 */
-                    , React.createElement('button', { onClick: () => { setStallDraft(stalls.map(s=>({...s}))); setShowStallEdit(true); },
+                    , React.createElement('button', { onClick: () => { setStallDraft(stalls.map(s=>({...s}))); setSelectedStallIdx(null); setShowStallEdit(true); },
                       style: { background:"linear-gradient(135deg,#0a1628,#0f2040)", border:"1px solid #1e3a5f",
                         borderRadius:6, color:"#64748b", padding:"4px 7px", fontSize:9, fontWeight:700,
                         cursor:"pointer", whiteSpace:"nowrap",
@@ -7582,7 +7657,7 @@ React.createElement('select', {
                   )
                 )
                 , view==="gantt"
-                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob})
+                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg})
                   : React.createElement(CardView, { jobs: boardJobs})
             ) /* tab===board外div閉じ */
             ) /* tab===board && 閉じ */
@@ -8437,6 +8512,13 @@ React.createElement('select', {
                 , React.createElement(StaffSection, { title:"メカニック",   color:"#10b981", list:mechList,   onSave:saveMechList })
               )
             )
+          , dragOverlapMsg && React.createElement('div', { style: {
+              position:"fixed", top:80, left:"50%", transform:"translateX(-50%)",
+              background:"#1a0a0a", border:"1px solid #ef4444", borderRadius:10,
+              padding:"12px 24px", color:"#ef4444", fontSize:13, fontWeight:700,
+              zIndex:9999, boxShadow:"0 4px 24px rgba(239,68,68,.3)", letterSpacing:1,
+              pointerEvents:"none"
+            }}, dragOverlapMsg)
           , showAdd && (
             React.createElement('div', { style: { position:"fixed", inset:0, background:"rgba(0,0,0,.75)", display:"flex",
               alignItems:"center", justifyContent:"center", zIndex:200 }}
@@ -8613,14 +8695,41 @@ React.createElement('select', {
                   , React.createElement('div', { style: { fontFamily:"'Orbitron',sans-serif", fontSize:13, color:"#3b82f6", letterSpacing:2 }}, "⚙ ストール設定" )
                   , React.createElement('button', { onClick: () => setShowStallEdit(false), style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:20 }}, "✕")
                 )
-                , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:8, marginBottom:8 }}
+                , React.createElement('div', { style: { display:"grid", gridTemplateColumns:"36px 1fr 1fr auto", gap:8, marginBottom:8 }}
+                  , React.createElement('div', {})
                   , React.createElement('div', { style: { fontSize:10, color:"#475569", letterSpacing:1 }}, "ストール名")
                   , React.createElement('div', { style: { fontSize:10, color:"#475569", letterSpacing:1 }}, "担当メカニック")
-                  , React.createElement('div', {__self: this, __source: {fileName: _jsxFileName, lineNumber: 2085}})
+                  , React.createElement('div', {})
                 )
                 , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}
                   , stallDraft.map((s, i) => (
-                    React.createElement('div', { key: s.id, style: { display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:8, alignItems:"center" }}
+                    React.createElement('div', { key: s.id, style: { display:"grid", gridTemplateColumns:"36px 1fr 1fr auto", gap:8, alignItems:"center" }}
+                      , React.createElement('button', {
+                          onClick: () => {
+                            if (selectedStallIdx === null) {
+                              setSelectedStallIdx(i);
+                            } else if (selectedStallIdx === i) {
+                              setSelectedStallIdx(null);
+                            } else {
+                              setStallDraft(p => {
+                                var a = [...p];
+                                var moved = a.splice(selectedStallIdx, 1)[0];
+                                a.splice(i, 0, moved);
+                                return a;
+                              });
+                              setSelectedStallIdx(null);
+                            }
+                          },
+                          style: {
+                            width:36, height:36, borderRadius:6, border:"none", cursor:"pointer",
+                            fontSize:14, fontWeight:900,
+                            background: selectedStallIdx === i ? "#d97706" : selectedStallIdx !== null ? "#1e3a5f" : "#1e293b",
+                            color: selectedStallIdx === i ? "#fff" : selectedStallIdx !== null ? "#7dd3fc" : "#475569",
+                            boxShadow: selectedStallIdx === i ? "0 0 8px #d9770688" : "none",
+                            transition: "all .15s", flexShrink:0
+                          }},
+                          selectedStallIdx === i ? "★" : selectedStallIdx !== null ? "→" : "☰"
+                        )
                       , React.createElement('input', { value: s.name, onChange: e => setStallDraft(p => p.map((x,j) => j===i?{...x,name:e.target.value}:x)),
                         placeholder: "例: S-01" , style: { background:"#070c14", border:"1px solid #1e293b", borderRadius:8,
                           padding:"8px 12px", color:"#e2e8f0", fontSize:13, outline:"none", width:"100%", boxSizing:"border-box" }})
