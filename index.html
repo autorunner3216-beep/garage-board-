@@ -1365,6 +1365,8 @@ react-dom/cjs/react-dom-client.production.js:
       const ghostRef = useRef(null);
       const jobsRef  = useRef(jobs);
       useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+      const boardDateRef = useRef(boardDate);
+      useEffect(() => { boardDateRef.current = boardDate; }, [boardDate]);
       const [ghost, setGhost] = useState(null);
       const [showWaiting, setShowWaiting] = useState(false);
       const getNowH = () => new Date().getHours() + new Date().getMinutes() / 60;
@@ -1443,9 +1445,11 @@ react-dom/cjs/react-dom-client.production.js:
             const conflict = jobsRef.current.filter(j =>
               j.id !== g.id &&
               !j.completed &&
-              (j.displayDate || j.date) === boardDate &&
+              j.status !== "当日来店/預かり" &&
+              j.workState !== "shelved" &&
+              (j.displayDate || j.date) === boardDateRef.current &&
               j.stall === g.stall &&
-              j.start < g.end && j.end > g.start
+              parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
             );
             if (conflict.length > 0) {
               setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
@@ -6210,6 +6214,8 @@ React.createElement('select', {
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
       const [jobs,     setJobs]    = useState(INIT);
+      const jobsRef = React.useRef(jobs);
+      React.useEffect(() => { jobsRef.current = jobs; }, [jobs]);
       const [stalls,   setStalls]  = useState(() => window.loadFromDb('garage_stalls', INIT_STALLS));
       const [sel,      setSel]     = useState(null);
       const [selPos,   setSelPos]  = useState({x:0,y:0});
@@ -6519,26 +6525,27 @@ React.createElement('select', {
       }, []);
       const addJob = (asWaiting=false) => {
         var missing = [];
-        if (!nj.owner.trim())       missing.push("オーナー名");
-        if (!nj.plate.trim())       missing.push("ナンバー");
-        if (!nj.model.trim())       missing.push("車種");
-        if (!nj.date)               missing.push("入庫日");
-        if (!nj.type)               missing.push("作業種目");
-        if (!nj.receptionDate)      missing.push("受付日");
+        if (!nj.owner.trim())        missing.push("オーナー名");
+        if (!nj.plate.trim())        missing.push("ナンバー");
+        if (!nj.model.trim())        missing.push("車種");
+        if (!nj.date)                missing.push("入庫日");
+        if (!nj.type)                missing.push("作業種目");
+        if (!nj.receptionDate)       missing.push("受付日");
         if (!nj.receptionist.trim()) missing.push("受付担当");
-        if (!nj.isNew)              missing.push("顧客区分");
-        if (missing.length > 0) {
-          setAddError(missing);
-          return;
-        }
-        // ── ストール重複チェック ──
-        const newStart = parseFloat(nj.start);
-        const newEnd   = parseFloat(nj.start) + (["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label) ? 1 : 2/3);
-        const conflict = jobs.filter(j =>
+        if (!nj.isNew)               missing.push("顧客区分");
+        if (missing.length > 0) { setAddError(missing); return; }
+        // ── ストール重複チェック（jobsRefで確実に最新を参照）──
+        const newStart  = parseFloat(nj.start);
+        const isDuration1 = ["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label);
+        const newEnd    = newStart + (isDuration1 ? 1 : 2/3);
+        const checkDate = nj.date || boardDate;
+        const conflict  = jobsRef.current.filter(j =>
           !j.completed &&
-          (j.displayDate || j.date) === nj.date &&
+          j.status !== "当日来店/預かり" &&
+          j.workState !== "shelved" &&
+          (j.displayDate || j.date) === checkDate &&
           j.stall === nj.stall &&
-          j.start < newEnd && j.end > newStart
+          parseFloat(j.start) < newEnd && parseFloat(j.end) > newStart
         );
         if (conflict.length > 0) {
           setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています`]);
@@ -6546,9 +6553,9 @@ React.createElement('select', {
         }
         setAddError([]);
         const newJobId = Date.now();
-        setJobs(p => [...p, { id:newJobId, date:nj.date||boardDate, stall:nj.stall,
+        setJobs(p => [...p, { id:newJobId, date:checkDate, stall:nj.stall,
           owner:nj.owner, plate:nj.plate, model:nj.model, type:nj.type,
-          start:parseFloat(nj.start), end:parseFloat(nj.start)+(["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label) ? 1 : 2/3),
+          start:newStart, end:newEnd,
           status:asWaiting ? "当日来店/預かり" : "作業待ち", memo:nj.memo, priority:nj.priority,
           workState:"idle", startedAt:null, endedAt:null,
           receptionDate:nj.receptionDate, receptionist:nj.receptionist, mechanic:nj.mechanic||"", deliveryDate:nj.deliveryDate,
@@ -6557,7 +6564,7 @@ React.createElement('select', {
           registeredTime:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),
           plate:nj.plate, owner:nj.owner, model:nj.model, type:nj.type,
           mechanic:nj.mechanic||"", receptionist:nj.receptionist,
-          date:nj.date||boardDate, deliveryDate:nj.deliveryDate };
+          date:checkDate, deliveryDate:nj.deliveryDate };
         saveTodayLog([...todayLog, logEntry]);
         setShowAdd(false);
         setNj({date:boardDate,stall:stalls[0]?.id||"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",loanCar:"なし",transport:"なし",isNew:false});
