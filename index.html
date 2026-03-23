@@ -1358,7 +1358,7 @@ react-dom/cjs/react-dom-client.production.js:
     };
 
     // ── ガントボード ──
-    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg }) {
+    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg, reserveCards, setReserveCards, setEditReserveCard }) {
       const boardRef = useRef(null);
       const dragRef  = useRef(null);
       const panRef   = useRef(null); // {startX, scrollLeft}
@@ -1473,9 +1473,33 @@ react-dom/cjs/react-dom-client.production.js:
       const roleGhostRef = useRef(null);
       const [roleGhost, setRoleGhost] = useState(null); // {type, stall, start, end}
       const roleCardDragRef = useRef(null); // {type:"move"|"resizeL"|"resizeR", cardId, startX, origCard, boardLeft}
+      const reserveCardDragRef = useRef(null); // {type:"move"|"resizeL"|"resizeR", cardId, startX, origCard}
       useEffect(() => {
         const onMouseMove = (e) => {
           if (!boardRef.current) return;
+          // ── 仮押さえカード ドラッグ/リサイズ ──
+          if (reserveCardDragRef.current) {
+            const d = reserveCardDragRef.current;
+            const dx = e.clientX - d.startX;
+            const dt = snap(dx / CELL_W);
+            let ns = d.origCard.start, ne = d.origCard.end, nst = d.origCard.stall;
+            if (d.type === "move") {
+              const dur = d.origCard.end - d.origCard.start;
+              const rect = boardRef.current.getBoundingClientRect();
+              const relX = e.clientX - rect.left - LEFT_W + boardRef.current.scrollLeft - (d.grabOffsetX || 0);
+              ns = snap(clamp(relX / CELL_W + 8, 8, 24 - dur));
+              ne = ns + dur;
+              const relY = e.clientY - rect.top - ROW_H + boardRef.current.scrollTop;
+              const ri = clamp(Math.floor(relY / ROW_H), 0, stalls.length - 1);
+              nst = _optionalChain([stalls, 'access', _ => _[ri], 'optionalAccess', _2 => _2.id]) || d.origCard.stall;
+            } else if (d.type === "resizeL") {
+              ns = snap(clamp(d.origCard.start + dt, 8, d.origCard.end - 1/3));
+            } else if (d.type === "resizeR") {
+              ne = snap(clamp(d.origCard.end + dt, d.origCard.start + 1/3, 24));
+            }
+            setReserveCards(p => p.map(c => c.id === d.cardId ? {...c, start:ns, end:ne, stall:nst} : c));
+            return;
+          }
           // ── ROLEカード ドラッグ/リサイズ ──
           if (roleCardDragRef.current) {
             const d = roleCardDragRef.current;
@@ -1499,25 +1523,42 @@ react-dom/cjs/react-dom-client.production.js:
             setRoleCards(p => p.map(c => c.id === d.cardId ? {...c, start:ns, end:ne, stall:nst} : c));
             return;
           }
-          const dragging = window.__roleDrag;
+          const dragging = window.__roleDrag || window.__reserveDrag;
           if (!dragging) return;
           const rect = boardRef.current.getBoundingClientRect();
           const relX = e.clientX - rect.left - LEFT_W + boardRef.current.scrollLeft;
-          const relY = e.clientY - rect.top - ROW_H + boardRef.current.scrollTop; // ヘッダー分オフセット＋スクロール補正
+          const relY = e.clientY - rect.top - ROW_H + boardRef.current.scrollTop;
           const rawStart = relX / CELL_W + 8;
           const start = snap(clamp(rawStart - dragging.dur/2, 8, 24 - dragging.dur));
           const end   = start + dragging.dur;
           const rowIdx = Math.floor(relY / ROW_H);
           const si = clamp(rowIdx, 0, stalls.length - 1);
           const stallId = _optionalChain([stalls, 'access', _10 => _10[si], 'optionalAccess', _11 => _11.id]);
-          const newGhost = { type:dragging.type, stall:stallId, start, end };
+          const newGhost = { type: window.__reserveDrag ? '__reserve__' : dragging.type, stall:stallId, start, end };
           roleGhostRef.current = newGhost;
           setRoleGhost(newGhost);
         };
         const onMouseUp = (e) => {
+          if (reserveCardDragRef.current) {
+            reserveCardDragRef.current = null;
+            document.body.classList.remove("gantt-dragging");
+            return;
+          }
           if (roleCardDragRef.current) {
             roleCardDragRef.current = null;
             document.body.classList.remove("gantt-dragging");
+            return;
+          }
+          // 仮押さえドラッグ
+          if (window.__reserveDrag) {
+            window.__reserveDrag = null;
+            document.body.classList.remove("gantt-dragging");
+            const g = roleGhostRef.current;
+            if (g && g.stall) {
+              setReserveCards(p => [...p, { id:Date.now()+Math.random(), stall:g.stall, start:g.start, end:g.end, text:"" }]);
+            }
+            roleGhostRef.current = null;
+            setRoleGhost(null);
             return;
           }
           const wasRoleDrag = !!window.__roleDrag;
@@ -1533,7 +1574,7 @@ react-dom/cjs/react-dom-client.production.js:
         window.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
         return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
-      }, [stalls, setRoleCards]);
+      }, [stalls, setRoleCards, setReserveCards]);
       useEffect(() => { roleGhostRef.current = roleGhost; }, [roleGhost]);
 
       // マウント時に現在時刻を中央にスクロール
@@ -1697,12 +1738,12 @@ react-dom/cjs/react-dom-client.production.js:
                     , roleGhost && roleGhost.stall===stall.id && (
                       React.createElement('div', { className: "ghost-bar", style: { position:"absolute", top:2, height:ROW_H-4,
                         left:(roleGhost.start-8)*CELL_W+2, width:(roleGhost.end-roleGhost.start)*CELL_W-4,
-                        border:`2px dashed ${(ROLE_TYPES.find(r=>r.type===roleGhost.type)||ROLE_TYPES.find(r=>r.key===roleGhost.type)||{color:"#3b82f6"}).color}`,
-                        background:(ROLE_TYPES.find(r=>r.key===roleGhost.type)||{bg:"#1e293b"}).bg+"aa",
+                        border:`2px dashed ${roleGhost.type==='__reserve__' ? '#a855f7' : (ROLE_TYPES.find(r=>r.type===roleGhost.type)||ROLE_TYPES.find(r=>r.key===roleGhost.type)||{color:"#3b82f6"}).color}`,
+                        background: roleGhost.type==='__reserve__' ? '#2e1065aa' : (ROLE_TYPES.find(r=>r.key===roleGhost.type)||{bg:"#1e293b"}).bg+"aa",
                         borderRadius:6, zIndex:3, display:"flex", alignItems:"center", justifyContent:"center",
                         pointerEvents:"none" }}
-                        , React.createElement('span', { style: { fontSize:10, fontWeight:700, color:(ROLE_TYPES.find(r=>r.key===roleGhost.type)||{color:"#fff"}).color }}
-                          , (ROLE_TYPES.find(r=>r.key===roleGhost.type)||{label:""}).label, " " , fmtH(roleGhost.start), "〜", fmtH(roleGhost.end)
+                        , React.createElement('span', { style: { fontSize:10, fontWeight:700, color: roleGhost.type==='__reserve__' ? '#c084fc' : (ROLE_TYPES.find(r=>r.key===roleGhost.type)||{color:"#fff"}).color }}
+                          , roleGhost.type==='__reserve__' ? "📋 フリー札" : ((ROLE_TYPES.find(r=>r.key===roleGhost.type)||{label:""}).label + " " + fmtH(roleGhost.start) + "〜" + fmtH(roleGhost.end))
                         )
                       )
                     )
@@ -1755,6 +1796,56 @@ react-dom/cjs/react-dom-client.production.js:
                             document.body.classList.add("gantt-dragging"); },
                             style: { width:8, flexShrink:0, cursor:"ew-resize", display:"flex", alignItems:"center", justifyContent:"center" }}
                             , React.createElement('div', { style: { width:2, height:14, borderRadius:1, background:rt.color+"88" }})
+                          )
+                        )
+                      );
+                    })
+                    /* フリー札 */
+                    , (reserveCards||[]).filter(c=>c.stall===stall.id).map(card => {
+                      const w = (card.end - card.start) * CELL_W;
+                      return (
+                        React.createElement('div', { key: card.id,
+                          style: { position:"absolute", top:2, height:ROW_H-4,
+                            left:(card.start-8)*CELL_W+2, width:w-4,
+                            background:"#2e1065cc", border:"2px dashed #a855f7",
+                            borderRadius:6, zIndex:4, overflow:"hidden",
+                            boxShadow:"0 0 8px #a855f744", display:"flex", alignItems:"stretch" }}
+                          /* 左リサイズハンドル */
+                          , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
+                            reserveCardDragRef.current={type:"resizeL",cardId:card.id,startX:e.clientX,origCard:{...card}};
+                            document.body.classList.add("gantt-dragging"); },
+                            style: { width:8, flexShrink:0, cursor:"ew-resize", display:"flex", alignItems:"center", justifyContent:"center" }}
+                            , React.createElement('div', { style: { width:2, height:14, borderRadius:1, background:"#a855f788" }})
+                          )
+                          /* 中央（移動＋テキスト） */
+                          , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
+                            const rect = boardRef.current.getBoundingClientRect();
+                            const cardLeft = LEFT_W + (card.start - 8) * CELL_W - boardRef.current.scrollLeft;
+                            const grabOffsetX = e.clientX - (rect.left + cardLeft);
+                            reserveCardDragRef.current={type:"move",cardId:card.id,startX:e.clientX,origCard:{...card},grabOffsetX};
+                            document.body.classList.add("gantt-dragging"); },
+                            onClick: e => { e.stopPropagation(); setEditReserveCard({...card}); },
+                            style: { flex:1, display:"flex", alignItems:"center", justifyContent:"space-between",
+                              padding:"0 3px", cursor:"grab", overflow:"hidden", minWidth:0 }}
+                            , React.createElement('span', { style: { fontSize:10, fontWeight:700, color:"#c084fc",
+                              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", flex:1 }}
+                              , "📋 ", card.text || "フリー札"
+                            )
+                            , React.createElement('span', {
+                              onMouseDown: e => e.stopPropagation(),
+                              onClick: e=>{ e.stopPropagation(); setReserveCards(p=>p.filter(c2=>c2.id!==card.id)); },
+                              style: { fontSize:13, fontWeight:900, color:"#c084fc", cursor:"pointer",
+                                flexShrink:0, paddingLeft:4, opacity:0.8 },
+                              onMouseEnter: e=>{ e.currentTarget.style.opacity="1"; e.currentTarget.style.color="#fca5a5"; },
+                              onMouseLeave: e=>{ e.currentTarget.style.opacity="0.8"; e.currentTarget.style.color="#c084fc"; }
+                            }, "✕")
+                          )
+                          /* 右リサイズハンドル */
+                          , React.createElement('div', { onMouseDown: e=>{ e.stopPropagation(); e.preventDefault();
+                            reserveCardDragRef.current={type:"resizeR",cardId:card.id,startX:e.clientX,origCard:{...card}};
+                            document.body.classList.add("gantt-dragging"); },
+                            style: { width:8, flexShrink:0, cursor:"ew-resize", display:"flex", alignItems:"center", justifyContent:"center" }}
+                            , React.createElement('div', { style: { width:2, height:14, borderRadius:1, background:"#a855f788" }})
                           )
                         )
                       );
@@ -6430,6 +6521,46 @@ React.createElement('select', {
         _allRoleCards.current = updated;
         window.fbSet('garage_role_cards', updated, 0);
       }, [roleCards]);
+
+      // ── フリー札 state & Firebase同期 ──
+      const [reserveCards, setReserveCards] = useState([]);
+      const _allReserveCards = React.useRef({});
+      const _reserveCleanupWriting = React.useRef(false);
+      const _fbIncomingReserve = React.useRef(false);
+      React.useEffect(function() {
+        if (typeof window.fbOn !== 'function') return;
+        window.fbOn('garage_reserve_cards', function(val) {
+          if (_reserveCleanupWriting.current) return;
+          if (val && typeof val === 'object') {
+            var cleaned = {};
+            Object.keys(val).forEach(function(date) {
+              if (date >= TODAY_STR) cleaned[date] = val[date];
+            });
+            if (Object.keys(cleaned).length !== Object.keys(val).length) {
+              _reserveCleanupWriting.current = true;
+              if (typeof window.fbSet === 'function') window.fbSet('garage_reserve_cards', cleaned, 0);
+              setTimeout(function(){ _reserveCleanupWriting.current = false; }, 500);
+            }
+            _allReserveCards.current = cleaned;
+            var cards = cleaned[TODAY_STR];
+            _fbIncomingReserve.current = true;
+            setReserveCards(Array.isArray(cards) ? cards : []);
+            setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
+          }
+        });
+        return function() { window.fbOff('garage_reserve_cards'); };
+      }, []);
+      const _reserveInitialized = React.useRef(false);
+      React.useEffect(function() {
+        if (!_reserveInitialized.current) { _reserveInitialized.current = true; return; }
+        if (_fbIncomingReserve.current || typeof window.fbSet !== 'function') return;
+        var updated = Object.assign({}, _allReserveCards.current);
+        updated[TODAY_STR] = reserveCards;
+        _allReserveCards.current = updated;
+        window.fbSet('garage_reserve_cards', updated, 0);
+      }, [reserveCards]);
+      // フリー札の編集モーダル
+      const [editReserveCard, setEditReserveCard] = useState(null); // {id, text}
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
@@ -6990,6 +7121,7 @@ React.createElement('select', {
         endModal, setEndModal,
         roleCards, setRoleCards,
         roleCardsDate, setRoleCardsDate,
+        reserveCards, setReserveCards, editReserveCard, setEditReserveCard,
         reAssign, setReAssign,
         editJob, setEditJob,
         ra, setRa,
@@ -7046,6 +7178,7 @@ React.createElement('select', {
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset, resetMonthAt, setResetMonthAt,
         endModal, setEndModal, roleCards, setRoleCards, roleCardsDate, setRoleCardsDate,
+        reserveCards, setReserveCards, editReserveCard, setEditReserveCard,
         reAssign, setReAssign, editJob, setEditJob, ra, setRa,
         nj, setNj, updateNj,
         searchQuery, setSearchQuery, searchResults, setSearchResults,
@@ -7444,6 +7577,24 @@ React.createElement('select', {
                   )
                   /* 区切り */
                   , React.createElement('div', { style: { width:1, height:20, background:"#1e293b", flexShrink:0, margin:"0 2px" }})
+                  /* フリー札ボタン */
+                  , React.createElement('button', {
+                      onMouseDown: e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.__reserveDrag = { dur:1 };
+                        document.body.classList.add("gantt-dragging");
+                      },
+                      style: { background:"#2e1065", border:"1px solid #a855f788",
+                        borderRadius:5, padding:"3px 8px", cursor:"grab",
+                        fontSize:9, fontWeight:700, color:"#c084fc",
+                        transition:"all .15s", userSelect:"none", whiteSpace:"nowrap", flexShrink:0 },
+                      onMouseEnter: e => { e.currentTarget.style.background="#a855f7"; e.currentTarget.style.color="#fff"; e.currentTarget.style.boxShadow="0 0 8px #a855f788"; },
+                      onMouseLeave: e => { e.currentTarget.style.background="#2e1065"; e.currentTarget.style.color="#c084fc"; e.currentTarget.style.boxShadow="none"; }
+                    }, "📋 フリー札"
+                  )
+                  /* 区切り */
+                  , React.createElement('div', { style: { width:1, height:20, background:"#1e293b", flexShrink:0, margin:"0 2px" }})
                   /* 翌日来店ボタン */
                   , (()=>{
                     const tmr = shiftDate(TODAY_STR, 1);
@@ -7672,7 +7823,7 @@ React.createElement('select', {
                   )
                 )
                 , view==="gantt"
-                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg})
+                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg, reserveCards: reserveCards, setReserveCards: setReserveCards, setEditReserveCard: setEditReserveCard})
                   : React.createElement(CardView, { jobs: boardJobs})
             ) /* tab===board外div閉じ */
             ) /* tab===board && 閉じ */
@@ -8701,6 +8852,45 @@ React.createElement('select', {
           )
 
           /* ストール設定モーダル */
+          /* フリー札 編集モーダル */
+          , editReserveCard && (
+            React.createElement('div', { onClick: () => setEditReserveCard(null),
+              style: { position:"fixed", inset:0, background:"rgba(0,0,0,.75)",
+                display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
+              , React.createElement('div', { onClick: e => e.stopPropagation(),
+                style: { background:"#0d1625", border:"1px solid #a855f7", borderRadius:16,
+                  padding:28, width:400, boxShadow:"0 24px 64px rgba(168,85,247,.3)" }}
+                , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}
+                  , React.createElement('div', { style: { fontFamily:"'Orbitron',sans-serif", fontSize:13, color:"#a855f7", letterSpacing:2 }}, "📋 フリー札")
+                  , React.createElement('button', { onClick: () => setEditReserveCard(null),
+                    style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18 }}, "✕")
+                )
+                , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:8, letterSpacing:1, fontWeight:600 }}, "メモ（任意）")
+                , React.createElement('input', { value: editReserveCard.text || "",
+                  onChange: e => setEditReserveCard(p => ({...p, text: e.target.value})),
+                  placeholder: "例：山田さん来週また来る",
+                  autoFocus: true,
+                  style: { width:"100%", background:"#0d1625", border:"1px solid #a855f7",
+                    borderRadius:8, padding:"10px 12px", color:"#f1f5f9", fontSize:13,
+                    outline:"none", boxSizing:"border-box", marginBottom:20 }})
+                , React.createElement('div', { style: { display:"flex", gap:10 }}
+                  , React.createElement('button', { onClick: () => {
+                      setReserveCards(p => p.map(c => c.id === editReserveCard.id ? {...c, text: editReserveCard.text} : c));
+                      setEditReserveCard(null);
+                    },
+                    style: { flex:1, background:"linear-gradient(135deg,#7c3aed,#6d28d9)", border:"none",
+                      borderRadius:10, color:"#fff", padding:12, fontSize:13, fontWeight:700,
+                      cursor:"pointer", boxShadow:"0 0 16px rgba(168,85,247,.4)" }}, "保存")
+                  , React.createElement('button', { onClick: () => {
+                      setReserveCards(p => p.filter(c => c.id !== editReserveCard.id));
+                      setEditReserveCard(null);
+                    },
+                    style: { background:"#2a0a0a", border:"1px solid #ef444466", borderRadius:10,
+                      color:"#ef4444", padding:12, fontSize:13, fontWeight:700, cursor:"pointer" }}, "削除")
+                )
+              )
+            )
+          )
           , showStallEdit && (
             React.createElement('div', { style: { position:"fixed", inset:0, background:"rgba(0,0,0,.82)",
               display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
