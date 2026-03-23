@@ -6378,32 +6378,40 @@ React.createElement('select', {
       const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
       const _fbIncomingRole = React.useRef(false);
       const _boardDateRef = React.useRef(TODAY_STR);
+      const _allRoleCards = React.useRef({});
+      const _roleCleanupWriting = React.useRef(false);
       useEffect(() => {
         _boardDateRef.current = boardDate;
         if (boardDate !== roleCardsDate) {
           setRoleCardsDate(boardDate);
-          if (typeof window.fbOnce === 'function') {
-            window.fbOnce('garage_role_cards', function(val) {
-              if (val && typeof val === 'object') {
-                var cards = val[boardDate];
-                _fbIncomingRole.current = true;
-                setRoleCards(Array.isArray(cards) ? cards : []);
-                setTimeout(function(){ _fbIncomingRole.current = false; }, 50);
-              }
-            });
-          }
+          _fbIncomingRole.current = true;
+          var cards = _allRoleCards.current[boardDate];
+          setRoleCards(Array.isArray(cards) ? cards : []);
+          setTimeout(function(){ _fbIncomingRole.current = false; }, 50);
         }
       }, [boardDate]);
 
       // ROLES札のFirebaseリアルタイム同期
-      const _allRoleCards = React.useRef({});
       React.useEffect(function() {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_role_cards', function(val) {
           if (val && typeof val === 'object') {
-            _allRoleCards.current = val; // 全データをrefに保持
+            // クリーンアップ書き戻し中のコールバックは無視
+            if (_roleCleanupWriting.current) return;
+            // 今日より古い日付のROLES札を自動削除
+            var cleaned = {};
+            Object.keys(val).forEach(function(date) {
+              if (date >= TODAY_STR) cleaned[date] = val[date];
+            });
+            // 古いデータが存在した場合はFirebaseにも書き戻す
+            if (Object.keys(cleaned).length !== Object.keys(val).length) {
+              _roleCleanupWriting.current = true;
+              if (typeof window.fbSet === 'function') window.fbSet('garage_role_cards', cleaned, 0);
+              setTimeout(function(){ _roleCleanupWriting.current = false; }, 500);
+            }
+            _allRoleCards.current = cleaned;
             var targetDate = _boardDateRef.current;
-            var cards = val[targetDate];
+            var cards = cleaned[targetDate];
             _fbIncomingRole.current = true;
             setRoleCardsDate(targetDate);
             setRoleCards(Array.isArray(cards) ? cards : []);
