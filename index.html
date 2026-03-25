@@ -1723,8 +1723,14 @@ react-dom/cjs/react-dom-client.production.js:
         boardRef.current.scrollLeft = nowX - containerW / 2;
       }, []);
 
-      useEffect(() => { setTimeout(scrollToNow, 50); }, [boardDate]);
-      useEffect(() => { const id = setInterval(scrollToNow, 60000); return () => clearInterval(id); }, []);
+      // 日付が切り替わったときのみスクロール（当日のみ）
+      useEffect(() => { if (boardDate === TODAY_STR) { setTimeout(scrollToNow, 50); } }, [boardDate]);
+      // 当日表示中は1時間ごとに中央スクロール（毎分スクロールを廃止）
+      useEffect(() => {
+        function maybeScroll() { if (boardDateRef.current === TODAY_STR) scrollToNow(); }
+        const id = setInterval(maybeScroll, 3600000);
+        return () => clearInterval(id);
+      }, []);
 
       const WC = SC["当日来店/預かり"];
 
