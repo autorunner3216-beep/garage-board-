@@ -6793,10 +6793,14 @@ React.createElement('select', {
         setNj(function(prev) {
           var next = typeof updater === "function" ? updater(prev) : Object.assign({}, prev, updater);
           // 「仮置き場」ストール選択時は開始時刻を13に自動セット
-          if (next.stall !== prev.stall) {
-            var selectedStall = stalls.find(function(s){ return s.id === next.stall; });
-            if (selectedStall && selectedStall.name === "仮置き場") {
-              next = Object.assign({}, next, { start: "13" });
+          var selectedStall = stalls.find(function(s){ return s.id === next.stall; });
+          if (selectedStall && selectedStall.name && selectedStall.name.includes("仮置き場")) {
+            next = Object.assign({}, next, { start: "13" });
+          } else if (next.stall !== prev.stall) {
+            // 仮置き場以外に切り替えたとき、startが13のままなら9に戻す
+            var prevStall = stalls.find(function(s){ return s.id === prev.stall; });
+            if (prevStall && prevStall.name && prevStall.name.includes("仮置き場") && next.start === "13") {
+              next = Object.assign({}, next, { start: "9" });
             }
           }
           setAddError(function(errs) {
