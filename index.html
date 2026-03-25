@@ -1723,14 +1723,8 @@ react-dom/cjs/react-dom-client.production.js:
         boardRef.current.scrollLeft = nowX - containerW / 2;
       }, []);
 
-      // 日付が切り替わったときのみスクロール（当日のみ）
-      useEffect(() => { if (boardDate === TODAY_STR) { setTimeout(scrollToNow, 50); } }, [boardDate]);
-      // 当日表示中は1時間ごとに中央スクロール（毎分スクロールを廃止）
-      useEffect(() => {
-        function maybeScroll() { if (boardDateRef.current === TODAY_STR) scrollToNow(); }
-        const id = setInterval(maybeScroll, 3600000);
-        return () => clearInterval(id);
-      }, []);
+      useEffect(() => { setTimeout(scrollToNow, 50); }, [boardDate]);
+      useEffect(() => { const id = setInterval(scrollToNow, 60000); return () => clearInterval(id); }, []);
 
       const WC = SC["当日来店/預かり"];
 
@@ -6548,26 +6542,6 @@ React.createElement('select', {
         return function(){ clearTimeout(tid); };
       }, []);
 
-      // Firebase から代車ローンデータを受信したら出庫パネルを即時更新
-      useEffect(() => {
-        if (typeof window.fbOn !== 'function') return;
-        window.fbOn('loancar_loans', function(val) {
-          if (Array.isArray(val)) {
-            try { localStorage.setItem('loancar_loans', JSON.stringify(val)); } catch(e) {}
-            setLoanTomorrowTick(function(t){ return t + 1; });
-          }
-        });
-        window.fbOn('loancar_cars', function(val) {
-          if (Array.isArray(val)) {
-            try { localStorage.setItem('loancar_cars', JSON.stringify(val)); } catch(e) {}
-            setLoanTomorrowTick(function(t){ return t + 1; });
-          }
-        });
-        return function() {
-          // クリーンアップ: LoanCarBoard 側もリスナーを持つため fbOff は呼ばない
-        };
-      }, []);
-
       // ── 18時未対応アラート自動ポップアップ ──
       useEffect(() => {
         function checkUnhandled() {
@@ -6648,8 +6622,8 @@ React.createElement('select', {
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
-        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) { setReceptList(val); try { localStorage.setItem('garage_recept', JSON.stringify(val)); } catch(e){} } });
-        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) { setMechList(val);   try { localStorage.setItem('garage_mech',   JSON.stringify(val)); } catch(e){} } });
+        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) setReceptList(val); });
+        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) setMechList(val); });
         window.fbOn('garage_manuallog', function(val) { if (val && typeof val === 'object') setManualLog(val); });
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
@@ -6793,14 +6767,10 @@ React.createElement('select', {
         setNj(function(prev) {
           var next = typeof updater === "function" ? updater(prev) : Object.assign({}, prev, updater);
           // 「仮置き場」ストール選択時は開始時刻を13に自動セット
-          var selectedStall = stalls.find(function(s){ return s.id === next.stall; });
-          if (selectedStall && selectedStall.name && selectedStall.name.includes("仮置き場")) {
-            next = Object.assign({}, next, { start: "13" });
-          } else if (next.stall !== prev.stall) {
-            // 仮置き場以外に切り替えたとき、startが13のままなら9に戻す
-            var prevStall = stalls.find(function(s){ return s.id === prev.stall; });
-            if (prevStall && prevStall.name && prevStall.name.includes("仮置き場") && next.start === "13") {
-              next = Object.assign({}, next, { start: "9" });
+          if (next.stall !== prev.stall) {
+            var selectedStall = stalls.find(function(s){ return s.id === next.stall; });
+            if (selectedStall && selectedStall.name === "仮置き場") {
+              next = Object.assign({}, next, { start: "13" });
             }
           }
           setAddError(function(errs) {
@@ -9788,10 +9758,10 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     letter-spacing: 1px;
     padding: 5px 10px;
     border-radius: 4px;
-    white-space: nowrap;
+    white-space: normal;
     display: none;
-    max-width: 260px;
-    line-height: 1.5;
+    max-width: 160px;
+    line-height: 1.8;
     animation: msgNotifyPulse 2.5s ease-in-out infinite;
   }
   @keyframes msgNotifyPulse {
@@ -10136,7 +10106,7 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
       badge.style.display = 'flex';
       badge.textContent = unreadNames.length;
       notify.style.display = 'block';
-      notify.innerHTML = '📬 ' + unreadNames.map(function(n){ return n + 'さん宛'; }).join('・') + ' に新着あり';
+      notify.innerHTML = unreadNames.map(function(n){ return n + 'さん宛'; }).join('<br>') + '<br>に新着あり';
     }
   }
 
