@@ -6596,6 +6596,7 @@ React.createElement('select', {
       const [rvMonth, setRvMonth] = useState(TODAY_STR.slice(0,7));
       const [rvGroup, setRvGroup] = useState("type");
       const [rvDay, setRvDay] = useState("");
+      const [rvSort, setRvSort] = useState("group"); // "group"=グループ表示 / "new"=新着順
       const [targetDraft, setTargetDraft] = useState({ total: 70, revenue: 0 });
       const [currentRevenue, setCurrentRevenue] = useState(() => { return parseInt(window.loadFromDb('garage_current_revenue', '0')) || 0 });
       const saveCurrentRevenue = v => { setCurrentRevenue(v); window.saveToDb('garage_current_revenue', v); };
@@ -7349,8 +7350,7 @@ React.createElement('select', {
         stallDraft, setStallDraft,
         selectedStallIdx, setSelectedStallIdx,
         showStatsLog, setShowStatsLog,
-        showTargetEdit, setShowTargetEdit, rvMonth, setRvMonth, rvGroup, setRvGroup, rvDay, setRvDay,
-        targetDraft, setTargetDraft,
+        showTargetEdit, setShowTargetEdit, rvMonth, setRvMonth, rvGroup, setRvGroup, rvDay, setRvDay, rvSort, setRvSort,
         showRevenueInput, setShowRevenueInput,
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset,
@@ -7411,7 +7411,7 @@ React.createElement('select', {
         showStaff, setShowStaff, showBlock, setShowBlock,
         showStallEdit, setShowStallEdit, stallDraft, setStallDraft,
         selectedStallIdx, setSelectedStallIdx,
-        showStatsLog, setShowStatsLog, showTargetEdit, setShowTargetEdit, rvMonth, setRvMonth, rvGroup, setRvGroup, rvDay, setRvDay,
+        showStatsLog, setShowStatsLog, showTargetEdit, setShowTargetEdit, rvMonth, setRvMonth, rvGroup, setRvGroup, rvDay, setRvDay, rvSort, setRvSort,
         targetDraft, setTargetDraft, showRevenueInput, setShowRevenueInput,
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset, resetMonthAt, setResetMonthAt,
@@ -8082,12 +8082,19 @@ React.createElement('select', {
             /* 予約一覧 */
             , tab==="reservation" && (() => {
 
-              // 日指定があれば日単位、なければ月単位で絞り込む
+              // 日指定があれば日単位、なければ月単位で絞り込む（新着順は全件）
               const rvJobs = jobs.filter(j => {
                 const d = j.displayDate || j.date;
                 if (!d || j.completed) return false;
+                if (rvSort === "new") return true;
                 if (rvDay) return d === rvDay;
                 return d.slice(0,7) === rvMonth;
+              });
+
+              // 新着順（登録ID降順）
+              const rvJobsNew = rvJobs.slice().sort((a,b) => {
+                const ai = String(a.id||""), bi = String(b.id||"");
+                return bi.localeCompare(ai);
               });
 
               // グループ化
@@ -8110,6 +8117,34 @@ React.createElement('select', {
 
               const thStyle = { padding:"8px 12px", fontSize:10, color:"#475569", fontWeight:700, letterSpacing:1, textAlign:"left", borderBottom:"1px solid #1e293b", whiteSpace:"nowrap" };
               const tdStyle = { padding:"8px 12px", fontSize:12, color:"#e2e8f0", borderBottom:"1px solid #0f1e35", whiteSpace:"nowrap" };
+
+              // 行クリック共通処理
+              const onRowClick = (j) => {
+                const d = j.displayDate || j.date;
+                const SHELVE_SET = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+                const isShelved = SHELVE_SET.has(j.status) || j.workState === "shelved";
+                setFlashJobId(j.id);
+                if (isShelved) {
+                  setTab("shelved");
+                  setTimeout(() => {
+                    const el = document.getElementById("status-card-"+j.id);
+                    if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                  }, 300);
+                } else {
+                  setBoardDate(d);
+                  setTab("board");
+                  setSel(j);
+                  setTimeout(() => {
+                    const el = document.getElementById("job-bar-"+j.id);
+                    if (el) el.scrollIntoView({ behavior:"smooth", block:"center", inline:"center" });
+                    else {
+                      const s = document.getElementById("stall-"+j.stall);
+                      if (s) s.scrollIntoView({ behavior:"smooth", block:"center" });
+                    }
+                  }, 300);
+                }
+                setTimeout(() => setFlashJobId(null), 4700);
+              };
 
               return React.createElement('div', { style:{ padding:"20px 24px", maxHeight:"calc(100vh - 160px)", overflowY:"auto" }}
                 /* ヘッダー */
@@ -8145,9 +8180,22 @@ React.createElement('select', {
                       color:"#c084fc", padding:"5px 10px", cursor:"pointer", fontSize:11, fontWeight:700 }}, "✕ 日指定解除")
                   /* 区切り */
                   , React.createElement('div', { style:{ width:1, height:20, background:"#1e293b" }})
-                  /* グループ切り替え */
-                  , React.createElement('span', { style:{ fontSize:11, color:"#475569", letterSpacing:1 }}, "グループ：")
-                  , [["type","作業種別"],["mechanic","担当メカ"],["receptionist","受付スタッフ"],["date","日付"]].map(([k,l]) =>
+                  /* 表示モード切替：新着順 / グループ */
+                  , React.createElement('span', { style:{ fontSize:11, color:"#475569", letterSpacing:1 }}, "表示：")
+                  , React.createElement('button', { onClick:()=>setRvSort("group"),
+                    style:{ background: rvSort==="group" ? "#1e3a5f" : "#0f1e35",
+                      border:"1px solid " + (rvSort==="group" ? "#3b82f6" : "#1e293b"),
+                      borderRadius:6, color: rvSort==="group" ? "#60a5fa" : "#475569",
+                      padding:"6px 12px", cursor:"pointer", fontSize:12, fontWeight: rvSort==="group" ? 700 : 400 }}, "グループ")
+                  , React.createElement('button', { onClick:()=>setRvSort("new"),
+                    style:{ background: rvSort==="new" ? "#1e3a2f" : "#0f1e35",
+                      border:"1px solid " + (rvSort==="new" ? "#10b981" : "#1e293b"),
+                      borderRadius:6, color: rvSort==="new" ? "#34d399" : "#475569",
+                      padding:"6px 12px", cursor:"pointer", fontSize:12, fontWeight: rvSort==="new" ? 700 : 400 }}, "🆕 新着順")
+                  /* グループ切り替え（グループモード時のみ） */
+                  , rvSort==="group" && React.createElement('div', { style:{ width:1, height:20, background:"#1e293b" }})
+                  , rvSort==="group" && React.createElement('span', { style:{ fontSize:11, color:"#475569", letterSpacing:1 }}, "グループ：")
+                  , rvSort==="group" && [["type","作業種別"],["mechanic","担当メカ"],["receptionist","受付スタッフ"],["date","日付"]].map(([k,l]) =>
                     React.createElement('button', { key:k, onClick:()=>setRvGroup(k),
                       style:{ background: rvGroup===k ? "#1e3a5f" : "#0f1e35",
                         border:"1px solid " + (rvGroup===k ? "#3b82f6" : "#1e293b"),
@@ -8156,15 +8204,65 @@ React.createElement('select', {
                   )
                   /* 件数 */
                   , React.createElement('div', { style:{ marginLeft:"auto", fontSize:13, color:"#475569" }}
-                    , React.createElement('span', { style:{ color: rvDay?"#c084fc":"#60a5fa", fontWeight:700, fontSize:16 }}, rvJobs.length)
+                    , React.createElement('span', { style:{ color: rvSort==="new" ? "#34d399" : rvDay?"#c084fc":"#60a5fa", fontWeight:700, fontSize:16 }}, rvJobs.length)
                     , " 件"
-                    , rvDay && React.createElement('span', { style:{ fontSize:11, color:"#c084fc", marginLeft:6 }}, rvDay.slice(5).replace("-","/") + " のみ表示中")
+                    , rvSort==="new" && React.createElement('span', { style:{ fontSize:11, color:"#34d399", marginLeft:6 }}, "全件・新しい順")
+                    , rvSort==="group" && rvDay && React.createElement('span', { style:{ fontSize:11, color:"#c084fc", marginLeft:6 }}, rvDay.slice(5).replace("-","/") + " のみ表示中")
                   )
                 )
-                /* グループ一覧 */
-                , sortedKeys.length === 0
-                  ? React.createElement('div', { style:{ textAlign:"center", color:"#334155", padding:"60px 0", fontSize:14 }}, "この月の予約はありません")
-                  : sortedKeys.map(key => {
+
+                /* ── 新着順フラット表示 ── */
+                , rvSort==="new" && (
+                  rvJobsNew.length === 0
+                    ? React.createElement('div', { style:{ textAlign:"center", color:"#334155", padding:"60px 0", fontSize:14 }}, "この月の予約はありません")
+                    : React.createElement('table', { style:{ width:"100%", borderCollapse:"collapse", background:"#0d1625", borderRadius:10, overflow:"hidden" }}
+                        , React.createElement('thead', null
+                          , React.createElement('tr', null
+                            , React.createElement('th', { style:{...thStyle, color:"#34d399"} }, "# 受付順")
+                            , React.createElement('th', { style:thStyle }, "受付日")
+                            , React.createElement('th', { style:thStyle }, "入庫日")
+                            , React.createElement('th', { style:thStyle }, "オーナー")
+                            , React.createElement('th', { style:thStyle }, "ナンバー")
+                            , React.createElement('th', { style:thStyle }, "車種")
+                            , React.createElement('th', { style:thStyle }, "作業種別")
+                            , React.createElement('th', { style:thStyle }, "担当メカ")
+                            , React.createElement('th', { style:thStyle }, "納車予定")
+                            , React.createElement('th', { style:thStyle }, "ストール")
+                          )
+                        )
+                        , React.createElement('tbody', null
+                          , rvJobsNew.map((j, idx) => {
+                            const d = j.displayDate || j.date;
+                            const stall = stalls.find(s=>s.id===j.stall);
+                            const jt2 = JT[j.type] || null;
+                            return React.createElement('tr', { key:j.id,
+                              onClick: () => onRowClick(j),
+                              style:{ cursor:"pointer", transition:"background .1s" },
+                              onMouseEnter: e=>{ e.currentTarget.style.background="#1e293b"; },
+                              onMouseLeave: e=>{ e.currentTarget.style.background=""; }}
+                              , React.createElement('td', { style:{...tdStyle, color:"#34d399", fontWeight:700, fontSize:11} }, "#" + (rvJobsNew.length - idx))
+                              , React.createElement('td', { style:{...tdStyle, color:"#94a3b8", fontSize:11} }, j.receptionDate ? j.receptionDate.slice(5).replace("-","/") : "-")
+                              , React.createElement('td', { style:{...tdStyle, color:"#60a5fa", fontWeight:700} }
+                                , d ? d.slice(5).replace("-","/")+( j.checkinTime?" "+j.checkinTime:"") : "-"
+                              )
+                              , React.createElement('td', { style:tdStyle }, j.owner || "-")
+                              , React.createElement('td', { style:{...tdStyle, color:"#94a3b8"} }, j.plate || "-")
+                              , React.createElement('td', { style:tdStyle }, j.model || "-")
+                              , React.createElement('td', { style:{...tdStyle, color: jt2 ? jt2.badge : "#e2e8f0", fontWeight:600} }, j.type || "-")
+                              , React.createElement('td', { style:{...tdStyle, color:"#10b981"} }, j.mechanic || "-")
+                              , React.createElement('td', { style:{...tdStyle, color:"#f59e0b"} }, j.deliveryDate ? j.deliveryDate.slice(5).replace("-","/")+(j.deliveryTime?" "+j.deliveryTime:"") : "-")
+                              , React.createElement('td', { style:{...tdStyle, color:"#94a3b8"} }, stall ? stall.name : "-")
+                            );
+                          })
+                        )
+                      )
+                )
+
+                /* ── グループ表示 ── */
+                , rvSort==="group" && (
+                  sortedKeys.length === 0
+                    ? React.createElement('div', { style:{ textAlign:"center", color:"#334155", padding:"60px 0", fontSize:14 }}, "この月の予約はありません")
+                    : sortedKeys.map(key => {
                     const groupJobs = grouped[key].sort((a,b) => (a.displayDate||a.date).localeCompare(b.displayDate||b.date));
                     const jt = JT[key] || null;
                     const groupColor = jt ? jt.badge : "#e2e8f0";
@@ -8196,32 +8294,7 @@ React.createElement('select', {
                             const stall = stalls.find(s=>s.id===j.stall);
                             const jt2 = JT[j.type] || null;
                             return React.createElement('tr', { key:j.id,
-                              onClick: () => {
-                                const d = j.displayDate || j.date;
-                                const SHELVE_SET = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
-                                const isShelved = SHELVE_SET.has(j.status) || j.workState === "shelved";
-                                setFlashJobId(j.id);
-                                if (isShelved) {
-                                  setTab("shelved");
-                                  setTimeout(() => {
-                                    const el = document.getElementById("status-card-"+j.id);
-                                    if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
-                                  }, 300);
-                                } else {
-                                  setBoardDate(d);
-                                  setTab("board");
-                                  setSel(j);
-                                  setTimeout(() => {
-                                    const el = document.getElementById("job-bar-"+j.id);
-                                    if (el) el.scrollIntoView({ behavior:"smooth", block:"center", inline:"center" });
-                                    else {
-                                      const s = document.getElementById("stall-"+j.stall);
-                                      if (s) s.scrollIntoView({ behavior:"smooth", block:"center" });
-                                    }
-                                  }, 300);
-                                }
-                                setTimeout(() => setFlashJobId(null), 4700);
-                              },
+                              onClick: () => onRowClick(j),
                               style:{ cursor:"pointer", transition:"background .1s" },
                               onMouseEnter: e=>{ e.currentTarget.style.background="#1e293b"; },
                               onMouseLeave: e=>{ e.currentTarget.style.background=""; }}
@@ -8241,6 +8314,7 @@ React.createElement('select', {
                       )
                     );
                   })
+                )
               );
             })()
 
@@ -9758,10 +9832,10 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     letter-spacing: 1px;
     padding: 5px 10px;
     border-radius: 4px;
-    white-space: normal;
+    white-space: nowrap;
     display: none;
-    max-width: 160px;
-    line-height: 1.8;
+    max-width: 260px;
+    line-height: 1.5;
     animation: msgNotifyPulse 2.5s ease-in-out infinite;
   }
   @keyframes msgNotifyPulse {
@@ -10106,7 +10180,7 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
       badge.style.display = 'flex';
       badge.textContent = unreadNames.length;
       notify.style.display = 'block';
-      notify.innerHTML = unreadNames.map(function(n){ return n + 'さん宛'; }).join('<br>') + '<br>に新着あり';
+      notify.innerHTML = '📬 ' + unreadNames.map(function(n){ return n + 'さん宛'; }).join('・') + ' に新着あり';
     }
   }
 
