@@ -6648,8 +6648,8 @@ React.createElement('select', {
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
-        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) setReceptList(val); });
-        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) setMechList(val); });
+        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) { setReceptList(val); try { localStorage.setItem('garage_recept', JSON.stringify(val)); } catch(e){} } });
+        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) { setMechList(val);   try { localStorage.setItem('garage_mech',   JSON.stringify(val)); } catch(e){} } });
         window.fbOn('garage_manuallog', function(val) { if (val && typeof val === 'object') setManualLog(val); });
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
