@@ -58,6 +58,12 @@
         古い日付で書き込まれてしまうことがあった
   修正: 保存useEffectに100msのdebounceを追加し両方確定してから保存
 
+[BUG-10] 休業ブロック中のストールにROLES札・フリー札が貼れてしまう
+  状態: 未修正（一時ロールバック）
+  原因: boardDate切り替え時にroleCardsDateとroleCardsが別タイミングで更新され、
+        古い日付で書き込まれてしまうことがあった
+  修正: 保存useEffectに100msのdebounceを追加し両方確定してから保存
+
 ==============================================================
 -->
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -1997,7 +2003,7 @@ react-dom/cjs/react-dom-client.production.js:
                       );
                     })
                     /* フリー札（当日のみ表示） */
-                    , boardDate===TODAY_STR && (reserveCards||[]).filter(c=>c.stall===stall.id).map(card => {
+                    , (reserveCards||[]).filter(c=>c.stall===stall.id).map(card => {
                       const w = (card.end - card.start) * CELL_W;
                       return (
                         React.createElement('div', { key: card.id,
@@ -6808,47 +6814,67 @@ React.createElement('select', {
         }, 100);
       }, [roleCards, roleCardsDate]);
 
-      // ── フリー札 state & Firebase同期 ──
+      // ── フリー札 state & Firebase同期（roleCardsと同じ仕組みでboardDate管理）──
       const [reserveCards, setReserveCards] = useState([]);
+      const [reserveCardsDate, setReserveCardsDate] = useState(TODAY_STR);
       const _allReserveCards = React.useRef({});
-      const _reserveCleanupWriting = React.useRef(false);
       const _fbIncomingReserve = React.useRef(false);
+      const _reserveBoardDateRef = React.useRef(TODAY_STR);
+      const _reserveCleanupWriting = React.useRef(false);
+      // boardDate切り替え時にその日のフリー札を表示
+      useEffect(function() {
+        _reserveBoardDateRef.current = boardDate;
+        if (boardDate !== reserveCardsDate) {
+          setReserveCardsDate(boardDate);
+          _fbIncomingReserve.current = true;
+          var cards = _allReserveCards.current[boardDate];
+          setReserveCards(Array.isArray(cards) ? cards : []);
+          setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
+        }
+      }, [boardDate]);
+      // Firebase同期
       React.useEffect(function() {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_reserve_cards', function(val) {
           if (_reserveCleanupWriting.current) return;
-          var todayCards = [];
           if (val && typeof val === 'object') {
-            todayCards = Array.isArray(val[TODAY_STR]) ? val[TODAY_STR] : [];
-            // 当日以外の日付キーが存在する場合は即時クリーンアップ
-            var hasOtherDates = Object.keys(val).some(function(d){ return d !== TODAY_STR; });
-            if (hasOtherDates) {
+            // 過去日付のフリー札を自動削除
+            var cleaned = {};
+            Object.keys(val).forEach(function(date) {
+              if (date >= TODAY_STR) cleaned[date] = val[date];
+            });
+            if (Object.keys(cleaned).length !== Object.keys(val).length) {
               _reserveCleanupWriting.current = true;
-              var cleaned = {};
-              if (todayCards.length > 0) cleaned[TODAY_STR] = todayCards;
-              // fbSetのdebounceを使わず直接書き込む
-              db.ref('garage/garage_reserve_cards').set(cleaned).then(function(){
-                _reserveCleanupWriting.current = false;
-              });
+              if (typeof window.fbSet === 'function') window.fbSet('garage_reserve_cards', cleaned, 0);
+              setTimeout(function(){ _reserveCleanupWriting.current = false; }, 500);
             }
+            _allReserveCards.current = cleaned;
+            var targetDate = _reserveBoardDateRef.current;
+            var cards = cleaned[targetDate];
+            _fbIncomingReserve.current = true;
+            setReserveCardsDate(targetDate);
+            setReserveCards(Array.isArray(cards) ? cards : []);
+            setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
           }
-          _allReserveCards.current = todayCards.length > 0 ? { [TODAY_STR]: todayCards } : {};
-          _fbIncomingReserve.current = true;
-          setReserveCards(todayCards);
-          setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
         });
         return function() { window.fbOff('garage_reserve_cards'); };
       }, []);
+      // 変更をFirebaseへ保存（boardDate単位）
       const _reserveInitialized = React.useRef(false);
+      const _pendingReserveSave = React.useRef(null);
       React.useEffect(function() {
         if (!_reserveInitialized.current) { _reserveInitialized.current = true; return; }
         if (_fbIncomingReserve.current || typeof window.fbSet !== 'function') return;
-        // フリー札は当日分のみ保存（他の日付は含めない）
-        var updated = {};
-        if (reserveCards.length > 0) updated[TODAY_STR] = reserveCards;
-        _allReserveCards.current = updated;
-        window.fbSet('garage_reserve_cards', updated, 0);
-      }, [reserveCards]);
+        if (_pendingReserveSave.current) clearTimeout(_pendingReserveSave.current);
+        _pendingReserveSave.current = setTimeout(function() {
+          if (_fbIncomingReserve.current) return;
+          var updated = Object.assign({}, _allReserveCards.current);
+          updated[reserveCardsDate] = reserveCards.length > 0 ? reserveCards : null;
+          if (!reserveCards.length) delete updated[reserveCardsDate];
+          _allReserveCards.current = updated;
+          window.fbSet('garage_reserve_cards', Object.keys(updated).length > 0 ? updated : null, 0);
+        }, 100);
+      }, [reserveCards, reserveCardsDate]);
       // フリー札の編集モーダル
       const [editReserveCard, setEditReserveCard] = useState(null); // {id, text}
       const [reAssign, setReAssign] = useState(null);
@@ -7451,7 +7477,7 @@ React.createElement('select', {
         endModal, setEndModal,
         roleCards, setRoleCards,
         roleCardsDate, setRoleCardsDate,
-        reserveCards, setReserveCards, editReserveCard, setEditReserveCard,
+        reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard,
         reAssign, setReAssign,
         editJob, setEditJob,
         ra, setRa,
@@ -7509,7 +7535,7 @@ React.createElement('select', {
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset, resetMonthAt, setResetMonthAt,
         endModal, setEndModal, roleCards, setRoleCards, roleCardsDate, setRoleCardsDate,
-        reserveCards, setReserveCards, editReserveCard, setEditReserveCard,
+        reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard,
         reAssign, setReAssign, editJob, setEditJob, ra, setRa,
         nj, setNj, updateNj,
         searchQuery, setSearchQuery, searchResults, setSearchResults,
