@@ -6571,8 +6571,18 @@ React.createElement('select', {
       const [mechList, setMechList] = useState(() => {
         return window.loadFromDb('garage_mech', [])
       });
-      const saveReceptList = list => { setReceptList(list); window.saveToDb('garage_recept', list); };
-      const saveMechList   = list => { setMechList(list);   window.saveToDb('garage_mech', list); };
+      const saveReceptList = list => {
+        setReceptList(list);
+        window.saveToDb('garage_recept', list);
+        try { localStorage.setItem('garage_recept', JSON.stringify(list)); } catch(e){}
+        if (typeof window._msgRenderAll === 'function') window._msgRenderAll();
+      };
+      const saveMechList = list => {
+        setMechList(list);
+        window.saveToDb('garage_mech', list);
+        try { localStorage.setItem('garage_mech', JSON.stringify(list)); } catch(e){}
+        if (typeof window._msgRenderAll === 'function') window._msgRenderAll();
+      };
       const staffList = [...new Set([...receptList, ...mechList])];
       const [showStallEdit, setShowStallEdit] = useState(false);
       const [stallDraft, setStallDraft] = useState([]);
@@ -6623,8 +6633,20 @@ React.createElement('select', {
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
         });
-        window.fbOn('garage_recept', function(val) { if (Array.isArray(val)) setReceptList(val); });
-        window.fbOn('garage_mech',   function(val) { if (Array.isArray(val)) setMechList(val); });
+        window.fbOn('garage_recept', function(val) {
+          if (Array.isArray(val)) {
+            setReceptList(val);
+            try { localStorage.setItem('garage_recept', JSON.stringify(val)); } catch(e){}
+            if (typeof window._msgRenderAll === 'function') window._msgRenderAll();
+          }
+        });
+        window.fbOn('garage_mech', function(val) {
+          if (Array.isArray(val)) {
+            setMechList(val);
+            try { localStorage.setItem('garage_mech', JSON.stringify(val)); } catch(e){}
+            if (typeof window._msgRenderAll === 'function') window._msgRenderAll();
+          }
+        });
         window.fbOn('garage_manuallog', function(val) { if (val && typeof val === 'object') setManualLog(val); });
         window.fbOn('garage_salesrecords', function(val) { if (Array.isArray(val)) setSalesRecords(val); });
         window.fbOn('garage_targets', function(val) { if (val && typeof val === 'object') setTargets(val); });
@@ -8082,11 +8104,10 @@ React.createElement('select', {
             /* 予約一覧 */
             , tab==="reservation" && (() => {
 
-              // 日指定があれば日単位、なければ月単位で絞り込む（新着順は全件）
+              // 日指定があれば日単位、なければ月単位で絞り込む
               const rvJobs = jobs.filter(j => {
                 const d = j.displayDate || j.date;
                 if (!d || j.completed) return false;
-                if (rvSort === "new") return true;
                 if (rvDay) return d === rvDay;
                 return d.slice(0,7) === rvMonth;
               });
@@ -10247,6 +10268,8 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     msgUpdateNotify();
     msgUpdateSenderSel();
   }
+  // グローバルに公開（Firebase受信時に呼び出せるようにする）
+  window._msgRenderAll = msgRenderAll;
 
   // ── 送信者プルダウン更新 ──
   function msgUpdateSenderSel() {
