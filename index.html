@@ -1936,8 +1936,8 @@ react-dom/cjs/react-dom-client.production.js:
                         )
                       );
                     })
-                    /* フリー札 */
-                    , (reserveCards||[]).filter(c=>c.stall===stall.id).map(card => {
+                    /* フリー札（当日のみ表示） */
+                    , boardDate===TODAY_STR && (reserveCards||[]).filter(c=>c.stall===stall.id).map(card => {
                       const w = (card.end - card.start) * CELL_W;
                       return (
                         React.createElement('div', { key: card.id,
@@ -6731,16 +6731,22 @@ React.createElement('select', {
         });
         return function() { window.fbOff('garage_role_cards'); };
       }, []);
-      // ROLES札の変更をFirebaseへ書き込む
+      // ROLES札の変更をFirebaseへ書き込む（roleCardsDateとroleCards両方が確定してから保存）
       const _roleInitialized = React.useRef(false);
+      const _pendingRoleSave = React.useRef(null);
       React.useEffect(function() {
         if (!_roleInitialized.current) { _roleInitialized.current = true; return; }
         if (_fbIncomingRole.current || typeof window.fbSet !== 'function') return;
-        var updated = Object.assign({}, _allRoleCards.current);
-        updated[roleCardsDate] = roleCards;
-        _allRoleCards.current = updated;
-        window.fbSet('garage_role_cards', updated, 0);
-      }, [roleCards]);
+        // 日付切り替え直後の誤書き込みを防ぐため、次のTickで実行
+        if (_pendingRoleSave.current) clearTimeout(_pendingRoleSave.current);
+        _pendingRoleSave.current = setTimeout(function() {
+          if (_fbIncomingRole.current) return;
+          var updated = Object.assign({}, _allRoleCards.current);
+          updated[roleCardsDate] = roleCards;
+          _allRoleCards.current = updated;
+          window.fbSet('garage_role_cards', updated, 0);
+        }, 100);
+      }, [roleCards, roleCardsDate]);
 
       // ── フリー札 state & Firebase同期 ──
       const [reserveCards, setReserveCards] = useState([]);
@@ -6751,22 +6757,25 @@ React.createElement('select', {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_reserve_cards', function(val) {
           if (_reserveCleanupWriting.current) return;
+          var todayCards = [];
           if (val && typeof val === 'object') {
-            var cleaned = {};
-            Object.keys(val).forEach(function(date) {
-              if (date >= TODAY_STR) cleaned[date] = val[date];
-            });
-            if (Object.keys(cleaned).length !== Object.keys(val).length) {
+            todayCards = Array.isArray(val[TODAY_STR]) ? val[TODAY_STR] : [];
+            // 当日以外の日付キーが存在する場合は即時クリーンアップ
+            var hasOtherDates = Object.keys(val).some(function(d){ return d !== TODAY_STR; });
+            if (hasOtherDates) {
               _reserveCleanupWriting.current = true;
-              if (typeof window.fbSet === 'function') window.fbSet('garage_reserve_cards', cleaned, 0);
-              setTimeout(function(){ _reserveCleanupWriting.current = false; }, 500);
+              var cleaned = {};
+              if (todayCards.length > 0) cleaned[TODAY_STR] = todayCards;
+              // fbSetのdebounceを使わず直接書き込む
+              db.ref('garage/garage_reserve_cards').set(cleaned).then(function(){
+                _reserveCleanupWriting.current = false;
+              });
             }
-            _allReserveCards.current = cleaned;
-            var cards = cleaned[TODAY_STR];
-            _fbIncomingReserve.current = true;
-            setReserveCards(Array.isArray(cards) ? cards : []);
-            setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
           }
+          _allReserveCards.current = todayCards.length > 0 ? { [TODAY_STR]: todayCards } : {};
+          _fbIncomingReserve.current = true;
+          setReserveCards(todayCards);
+          setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
         });
         return function() { window.fbOff('garage_reserve_cards'); };
       }, []);
@@ -6774,8 +6783,9 @@ React.createElement('select', {
       React.useEffect(function() {
         if (!_reserveInitialized.current) { _reserveInitialized.current = true; return; }
         if (_fbIncomingReserve.current || typeof window.fbSet !== 'function') return;
-        var updated = Object.assign({}, _allReserveCards.current);
-        updated[TODAY_STR] = reserveCards;
+        // フリー札は当日分のみ保存（他の日付は含めない）
+        var updated = {};
+        if (reserveCards.length > 0) updated[TODAY_STR] = reserveCards;
         _allReserveCards.current = updated;
         window.fbSet('garage_reserve_cards', updated, 0);
       }, [reserveCards]);
