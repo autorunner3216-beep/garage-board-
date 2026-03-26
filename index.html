@@ -1789,8 +1789,8 @@ react-dom/cjs/react-dom-client.production.js:
         boardRef.current.scrollLeft = nowX - containerW / 2;
       }, []);
 
-      useEffect(() => { setTimeout(scrollToNow, 50); }, [boardDate]);
-      useEffect(() => { const id = setInterval(scrollToNow, 60000); return () => clearInterval(id); }, []);
+      useEffect(() => { if (boardDate === TODAY_STR) setTimeout(scrollToNow, 50); }, [boardDate]);
+      useEffect(() => { const id = setInterval(() => { if (boardDateRef.current === TODAY_STR) scrollToNow(); }, 3600000); return () => clearInterval(id); }, []);
 
       const WC = SC["当日来店/預かり"];
 
