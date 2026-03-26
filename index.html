@@ -2206,10 +2206,10 @@ react-dom/cjs/react-dom-client.production.js:
             const jt2 = JT[job.type]||JT["一般整備"];
             const working2 = job.workState==="working";
             const done2 = job.workState==="shelved";
-            const popW = 260;
+            const popW = 300;
             const vw = window.innerWidth; const vh = window.innerHeight;
             const left = Math.max(8, Math.min(pos.x - popW/2, vw - popW - 8));
-            const estH = 230;
+            const estH = 260;
             const top = pos.y + estH > vh - 8 ? pos.y - estH - 14 : pos.y;
             return (
               React.createElement('div', { style: { position:"fixed", top, left, width:popW, zIndex:480,
@@ -2243,7 +2243,7 @@ react-dom/cjs/react-dom-client.production.js:
                   , job.deliveryDate && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#06b6d4", background:"#06b6d418", border:"1px solid #06b6d444", borderRadius:3, padding:"1px 5px" }}, "納車 " , job.deliveryDate, job.deliveryTime?" "+job.deliveryTime:"")
                   , job.loanCar && job.loanCar!=="なし" && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#a855f7", background:"#a855f718", border:"1px solid #a855f744", borderRadius:3, padding:"1px 5px" }}, "代車あり")
                   , job.transport && job.transport!=="なし" && React.createElement('span', { style: { fontSize:8, fontWeight:700, color:"#f59e0b", background:"#f59e0b18", border:"1px solid #f59e0b44", borderRadius:3, padding:"1px 5px" }}, job.transport)
-                  , job.memo && React.createElement('span', { style: { fontSize:8, color:"#fcd34d", background:"#1a120033", border:"1px solid #fcd34d33", borderRadius:3, padding:"1px 5px" }}, "📝 " , job.memo)
+                  , job.memo && React.createElement('span', { style: { fontSize:11, color:"#fcd34d", background:"#1a1200aa", border:"1px solid #fcd34d66", borderRadius:4, padding:"3px 8px", display:"block", marginTop:4, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}, "📝 " , job.memo)
                 )
                 , (job.mechanic||job.receptionist) && React.createElement('div', { style: { display:"flex", gap:8, marginBottom:4 }}
                   , job.mechanic    && React.createElement('span', { style: { fontSize:9, color:"#10b981" }}, "🔧 ", job.mechanic)
