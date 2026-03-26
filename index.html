@@ -1,6 +1,66 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<head>
+<!--
+==============================================================
+  BUGFIX LOG - Garage SMB Board
+==============================================================
+
+[BUG-01] 出庫ボタンにカードが表示されない
+  原因: App側にloancar_loansのFirebaseリスナーがなく、
+        localStorageが更新されず出庫パネルが空になっていた
+  修正: App useEffectでfbOn('loancar_loans')とfbOn('loancar_cars')を追加し、
+        受信時にlocalStorageを更新してloanTomorrowTickをインクリメント
+
+[BUG-02] 別日付表示中も現在時刻へ自動スクロールされる
+  原因: scrollToNowのsetIntervalが日付を問わず毎分実行されていた
+  修正: boardDate === TODAY_STR のときのみスクロール
+        インターバルを毎分→1時間ごとに変更
+
+[BUG-03] 仮置き場ストール選択時の開始時刻デフォルト
+  修正: updateNj内でストール変更時にstall.name.includes('仮置き場')なら
+        start:'13'をセット、仮置き場から他に切り替えたらstart:'9'に戻す
+
+[BUG-04] メッセージ機能でスタッフ名が表示されない
+  原因: Firebase受信時にlocalStorageが更新されず、
+        msgLoadStaffs()がlocalStorageから読むため空になっていた
+  修正: fbOn('garage_recept')とfbOn('garage_mech')受信時に
+        localStorage.setItemを追加
+        saveReceptList/saveMechListでもlocalStorage更新+_msgRenderAll呼び出し
+        msgRenderAll()をwindow._msgRenderAllとして公開
+
+[BUG-05] メッセージ新着通知が3人以上で横にはみ出る
+  修正: join('・')→join('<br>')で縦並びに変更
+        CSS: white-space:nowrap→normal, max-width:260px→160px, line-height:1.8
+        📬絵文字を削除、'に新着あり'を最後の1行にまとめる
+
+[BUG-06] 目標ボタンが反応しない (繰り返し発生)
+  原因1: rvSort,setRvSortをuseAppState returnに追加したが
+          App destructuringへの追加が漏れ、二重宣言エラーが発生
+  原因2: targetDraft,setTargetDraftがuseAppState returnに含まれていなかった
+  修正: useAppState returnにtargetDraft,setTargetDraftを追加
+        App destructuringのrvSort重複を削除
+
+[BUG-07] 予約一覧に新着順表示を追加
+  追加: rvSortステート('group'|'new')を追加
+        新着順モード時はreceptionDate/id降順でフラット表示
+        グループボタンは通常モード時のみ表示
+
+[BUG-08] フリー札が複数日にわたって表示される
+  原因: 表示フィルターに日付チェックがなく、boardDateが何日でも表示されていた
+        Firebase cleanup条件がdate>=TODAY_STRで翌日以降も残り続けていた
+  修正: 表示時にboardDate===TODAY_STRの条件を追加
+        Firebase受信時は当日分のみ保持し他の日付は即時削除
+        保存時も当日分のみ書き込む
+
+[BUG-09] ROLES札(roleCards)が複数日に書き込まれる
+  原因: boardDate切り替え時にroleCardsDateとroleCardsが別タイミングで更新され、
+        古い日付で書き込まれてしまうことがあった
+  修正: 保存useEffectに100msのdebounceを追加し両方確定してから保存
+
+==============================================================
+-->
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Garage SMB Board v6</title><style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     /* ══ MATRIX LOGIN ══ */
@@ -7383,6 +7443,7 @@ React.createElement('select', {
         selectedStallIdx, setSelectedStallIdx,
         showStatsLog, setShowStatsLog,
         showTargetEdit, setShowTargetEdit, rvMonth, setRvMonth, rvGroup, setRvGroup, rvDay, setRvDay, rvSort, setRvSort,
+        targetDraft, setTargetDraft,
         showRevenueInput, setShowRevenueInput,
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset,
@@ -9863,10 +9924,10 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     letter-spacing: 1px;
     padding: 5px 10px;
     border-radius: 4px;
-    white-space: nowrap;
+    white-space: normal;
     display: none;
-    max-width: 260px;
-    line-height: 1.5;
+    max-width: 160px;
+    line-height: 1.8;
     animation: msgNotifyPulse 2.5s ease-in-out infinite;
   }
   @keyframes msgNotifyPulse {
@@ -10211,7 +10272,7 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
       badge.style.display = 'flex';
       badge.textContent = unreadNames.length;
       notify.style.display = 'block';
-      notify.innerHTML = '📬 ' + unreadNames.map(function(n){ return n + 'さん宛'; }).join('・') + ' に新着あり';
+      notify.innerHTML = unreadNames.map(function(n){ return n + 'さん宛'; }).join('<br>') + '<br>に新着あり';
     }
   }
 
