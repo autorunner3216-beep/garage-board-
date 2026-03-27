@@ -6576,9 +6576,10 @@ React.createElement('select', {
       React.useEffect(function() {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_today_log', function(val) {
-          if (Array.isArray(val)) {
-            setTodayLog(val);
-            try { localStorage.setItem('garage_today_log', JSON.stringify(val)); } catch {}
+          var arr = Array.isArray(val) ? val : (val && typeof val === 'object') ? Object.values(val) : null;
+          if (arr) {
+            setTodayLog(arr);
+            try { localStorage.setItem('garage_today_log', JSON.stringify(arr)); } catch {}
           }
         });
         return function() { window.fbOff('garage_today_log'); };
@@ -6590,6 +6591,22 @@ React.createElement('select', {
         setMemoText(text);
         window.saveToDb('garage_memo_'+TODAY_STR, text);
       };
+      // ── 日付変わり自動リロード（TODAY_STRの陳腐化防止）──
+      useEffect(() => {
+        function scheduleMidnightReload() {
+          var now = new Date();
+          var next = new Date(now);
+          next.setHours(0, 0, 10, 0); // 深夜0時00分10秒
+          if (next <= now) next.setDate(next.getDate() + 1);
+          var ms = next - now;
+          return setTimeout(function() {
+            window.location.reload();
+          }, ms);
+        }
+        var tid = scheduleMidnightReload();
+        return function(){ clearTimeout(tid); };
+      }, []);
+
       const [loanTomorrowTick, setLoanTomorrowTick] = useState(0); // 更新トリガー
       useEffect(() => {
         // 16:30自動更新タイマー
@@ -6631,6 +6648,8 @@ React.createElement('select', {
           return list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b);
       });
       const saveBlockDays = list => { setBlockDays(list); window.saveToDb('garage_blockdays', list); };
+      const blockDaysRef = React.useRef(blockDays);
+      React.useEffect(() => { blockDaysRef.current = blockDays; }, [blockDays]);
       const [receptList, setReceptList] = useState(() => {
         return window.loadFromDb('garage_recept', [])
       });
@@ -6811,7 +6830,7 @@ React.createElement('select', {
           updated[roleCardsDate] = roleCards;
           _allRoleCards.current = updated;
           window.fbSet('garage_role_cards', updated, 0);
-        }, 100);
+        }, 200);
       }, [roleCards, roleCardsDate]);
 
       // ── フリー札 state & Firebase同期（roleCardsと同じ仕組みでboardDate管理）──
@@ -6829,7 +6848,7 @@ React.createElement('select', {
           _fbIncomingReserve.current = true;
           var cards = _allReserveCards.current[boardDate];
           setReserveCards(Array.isArray(cards) ? cards : []);
-          setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
+          setTimeout(function(){ _fbIncomingReserve.current = false; }, 200);
         }
       }, [boardDate]);
       // Firebase同期
@@ -6854,7 +6873,7 @@ React.createElement('select', {
             _fbIncomingReserve.current = true;
             setReserveCardsDate(targetDate);
             setReserveCards(Array.isArray(cards) ? cards : []);
-            setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
+            setTimeout(function(){ _fbIncomingReserve.current = false; }, 200);
           }
         });
         return function() { window.fbOff('garage_reserve_cards'); };
@@ -6873,7 +6892,7 @@ React.createElement('select', {
           if (!reserveCards.length) delete updated[reserveCardsDate];
           _allReserveCards.current = updated;
           window.fbSet('garage_reserve_cards', Object.keys(updated).length > 0 ? updated : null, 0);
-        }, 100);
+        }, 200);
       }, [reserveCards, reserveCardsDate]);
       // フリー札の編集モーダル
       const [editReserveCard, setEditReserveCard] = useState(null); // {id, text}
@@ -7043,6 +7062,18 @@ React.createElement('select', {
         );
         if (conflict.length > 0) {
           setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています`]);
+          return;
+        }
+        // ── 休業ブロックチェック ──
+        const isBlockedForAdd = blockDaysRef.current.some(b => {
+          if (b.date !== checkDate || b.stallId !== nj.stall) return false;
+          if (b.period === 'all') return true;
+          if (b.period === 'am' && newStart < 13) return true;
+          if (b.period === 'pm' && newEnd > 13) return true;
+          return false;
+        });
+        if (isBlockedForAdd) {
+          setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定日に休業ブロックが設定されています`]);
           return;
         }
         setAddError([]);
@@ -7801,21 +7832,11 @@ React.createElement('select', {
                 , React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:5, marginLeft:4 }}
                   , React.createElement('div', { style: { display:"flex", gap:5 }}
                     , React.createElement('button', { onClick: () => {
-                        if (!window.confirm("月間カウントをリセットします。完了済みの車検ジョブをFirebaseから削除してよいですか？")) return;
+                        if (!window.confirm("月間カウントをリセットします。\nカウンターのみリセットされます。予約・作業データは一切削除されません。\n\n実行しますか？")) return;
                         const now = new Date().toISOString();
                         setResetMonthAt(now);
-                        // 全PCに月リセット日を同期
                         if (typeof window.fbSet === 'function') window.fbSet('garage_reset_month_at', now, 0);
                         try { localStorage.setItem('garage_reset_month_at', JSON.stringify(now)); } catch {}
-                        // 完了済み車検ジョブを物理削除してFirebaseのゴミを掃除する
-                        setJobs(prev => {
-                          const cleaned = prev.filter(j => !(
-                            (j.completed || DONE_STATUSES.includes(j.status)) &&
-                            ALL_SHAKEN.includes(j.type)
-                          ));
-                          if (typeof window.fbSet === 'function') window.fbSet('garage_jobs', cleaned, 0);
-                          return cleaned;
-                        });
                       },
                       style: { background:"#1a0a0a", border:"1px solid #7f1d1d44", borderRadius:6,
                         color:"#f87171", fontSize:10, padding:"5px 10px", cursor:"pointer", fontWeight:700,
