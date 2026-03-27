@@ -1843,15 +1843,23 @@ react-dom/cjs/react-dom-client.production.js:
             /* ヘッダー行（常時表示） */
             , React.createElement('div', {
               onClick: () => setShowWaiting(p => !p),
-              style: { display:"flex", alignItems:"center", gap:8, padding:"8px 14px", cursor:"pointer", userSelect:"none" }}
-              , React.createElement('span', { style: { fontSize:11, color: showWaiting ? WC.accent : "#475569", transition:"color .2s", lineHeight:1 }}, showWaiting ? "▾" : "▸")
-              , React.createElement('div', { style: { width:3, height:14, borderRadius:2, background:WC.accent, flexShrink:0 }})
-              , React.createElement('span', { style: { fontSize:10, fontWeight:700, color:WC.accent, letterSpacing:2 }}, "当日来店 / 預かり")
-              , React.createElement('span', { style: { fontSize:10, background:WC.accent+"22", color:WC.accent,
-                border:`1px solid ${WC.accent}44`, borderRadius:10, padding:"1px 8px", fontWeight:700 }},
-                waitingJobs.length + "件")
-              , React.createElement('span', { style: { fontSize:9, color:"#334155", marginLeft:2 }},
-                showWaiting ? "— クリックで閉じる" : "— クリックで展開")
+              style: { display:"flex", alignItems:"center", gap:10, padding:"10px 16px", cursor:"pointer", userSelect:"none",
+                background: "linear-gradient(90deg,#000802,#001a05,#000802)",
+                borderBottom: showWaiting ? "1px solid #00ff4133" : "none",
+                boxShadow: "0 0 12px #00ff4115",
+                transition:"all .2s" }}
+              , React.createElement('span', { style: { fontSize:14, color:"#00ff41", lineHeight:1, fontWeight:900, fontFamily:"'Courier New',monospace" }}, showWaiting ? "▾" : "▸")
+              , React.createElement('div', { style: { width:5, height:18, borderRadius:3, background:"#00ff41", flexShrink:0, boxShadow:"0 0 8px #00ff4199" }})
+              , React.createElement('span', { style: { fontSize:13, fontWeight:900, color:"#00ff41", letterSpacing:3, fontFamily:"'Courier New',monospace" }}, "当日来店 / 預かり")
+              , React.createElement('span', { style: {
+                  fontSize:16, fontWeight:900, color:"#000802",
+                  background:"#00ff41",
+                  borderRadius:8, padding:"2px 12px",
+                  minWidth:40, textAlign:"center",
+                  letterSpacing:1, boxShadow:"0 0 10px #00ff4166" }},
+                waitingJobs.length)
+              , React.createElement('span', { style: { fontSize:12, fontWeight:700, color:"#00ff41aa", marginLeft:4, fontFamily:"'Courier New',monospace" }},
+                showWaiting ? "件　▲ クリックで閉じる" : "件　▼ クリックで展開")
             )
             /* カード一覧（展開時のみ） */
             , showWaiting && React.createElement('div', {
