@@ -2117,9 +2117,8 @@ react-dom/cjs/react-dom-client.production.js:
                             style: { position:"absolute", left:15, right:8, top:0, bottom:0,
                               display:"flex", flexDirection:"column", justifyContent:"space-around",
                               padding:"2px 3px", overflow:"hidden" }}
-                            /* 行1: 名前 + 代車/引取納車バッジ + dot/✓ + ▶/■ */
-                            /* 行1: 作業種別 + 状態dot + ▶/■ボタン */
-                            , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:2, minWidth:0, height:"50%" }}
+                            /* 行1: 作業種別 + バッジ群（▶/■は絶対配置で右上固定） */
+                            , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:2, minWidth:0, height:"50%", paddingRight:22 }}
                                , React.createElement('span', { style: { fontSize:9, fontWeight:700, flexShrink:0,
                                    color:done?"#334155":jt.badge, whiteSpace:"nowrap",
                                    overflow:"hidden", textOverflow:"ellipsis", maxWidth:"60%" }}, jt.short)
@@ -2132,30 +2131,32 @@ react-dom/cjs/react-dom-client.production.js:
                                   fontSize:6, fontWeight:700, flexShrink:0, color:"#f59e0b",
                                   background:"#f59e0b18", border:"1px solid #f59e0b44",
                                   borderRadius:3, padding:"0 2px", lineHeight:"11px" }}, job.transport==="引取+納車"?"引納":job.transport)
-                              , React.createElement('div', { style: { marginLeft:"auto", flexShrink:0 }}
-                                , working && React.createElement('span', { className: "dot-blink", style: { width:5, height:5, borderRadius:"50%", background:"#10b981", display:"inline-block", marginRight:2 }})
-                                , done && React.createElement('span', { style: { fontSize:7, color:"#334155" }}, "✓")
-                                , !done && (
-                                  React.createElement('div', { onMouseDown: e=>e.stopPropagation(), onClick: e=>e.stopPropagation(), style: { display:"inline-flex" }}
-                                    , !working
-                                      ? React.createElement('button', { onClick: () => {
-                                          const t = nowStr();
-                                          const now = new Date();
-                                          const nowH = now.getHours() + now.getMinutes()/60;
-                                          const dur = job.end - job.start;
-                                          const newStart = clamp(nowH, 8, 24 - dur);
-                                          const newEnd = newStart + dur;
-                                          setJobs(p => p.map(j => j.id===job.id ? {...j, workState:"working", startedAt:t, start:newStart, end:newEnd} : j));
-                                          setSel(p => _optionalChain([p, 'optionalAccess', _19 => _19.id])===job.id ? {...p, workState:"working", startedAt:t, start:newStart, end:newEnd} : p);
-                                        }, style: { background:"#10b981", border:"none", borderRadius:3, color:"#fff",
-                                          fontSize:7, fontWeight:700, padding:"1px 4px", cursor:"pointer", lineHeight:"12px" }}, "▶")
-                                      : React.createElement('button', { onClick: () => onEndWork(job.id), style: {
-                                          background:"#1e293b", border:"1px solid #475569", borderRadius:3, color:"#94a3b8",
-                                          fontSize:7, fontWeight:700, padding:"1px 4px", cursor:"pointer", lineHeight:"12px" }}, "■")
-                                  )
-                                )
-                              )
+                              , working && React.createElement('span', { className: "dot-blink", style: { width:5, height:5, borderRadius:"50%", background:"#10b981", display:"inline-block", marginLeft:2, flexShrink:0 }})
                             )
+                            /* ▶/■ボタン: 右上に絶対配置（バッジに押し出されない） */
+                            , !done && React.createElement('div', {
+                                onMouseDown: e=>e.stopPropagation(),
+                                onClick: e=>e.stopPropagation(),
+                                style: { position:"absolute", top:3, right:10, zIndex:15 }}
+                                , !working
+                                  ? React.createElement('button', { onClick: () => {
+                                      const t = nowStr();
+                                      const now = new Date();
+                                      const nowH = now.getHours() + now.getMinutes()/60;
+                                      const dur = job.end - job.start;
+                                      const newStart = clamp(nowH, 8, 24 - dur);
+                                      const newEnd = newStart + dur;
+                                      setJobs(p => p.map(j => j.id===job.id ? {...j, workState:"working", startedAt:t, start:newStart, end:newEnd} : j));
+                                      setSel(p => _optionalChain([p, 'optionalAccess', _19 => _19.id])===job.id ? {...p, workState:"working", startedAt:t, start:newStart, end:newEnd} : p);
+                                    }, style: { background:"#10b981", border:"none", borderRadius:3, color:"#fff",
+                                      fontSize:7, fontWeight:700, padding:"1px 4px", cursor:"pointer", lineHeight:"12px" }}, "▶")
+                                  : React.createElement('button', { onClick: () => onEndWork(job.id), style: {
+                                      background:"#1e293b", border:"1px solid #475569", borderRadius:3, color:"#94a3b8",
+                                      fontSize:7, fontWeight:700, padding:"1px 4px", cursor:"pointer", lineHeight:"12px" }}, "■")
+                              )
+                            , done && React.createElement('div', { style: { position:"absolute", top:3, right:10, zIndex:15 }}
+                                , React.createElement('span', { style: { fontSize:7, color:"#334155" }}, "✓")
+                              )
                             /* 行2: オーナー名 + ナンバー4桁 + 車種 + 納車日 */
                             , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:3, minWidth:0, height:"50%" }}
                               , React.createElement('span', { style: { fontSize:9, fontWeight:700, flexShrink:1, minWidth:"1.8em",
@@ -6891,7 +6892,7 @@ React.createElement('select', {
           updated[reserveCardsDate] = reserveCards.length > 0 ? reserveCards : null;
           if (!reserveCards.length) delete updated[reserveCardsDate];
           _allReserveCards.current = updated;
-          window.fbSet('garage_reserve_cards', Object.keys(updated).length > 0 ? updated : null, 0);
+          if (Object.keys(updated).length > 0) window.fbSet('garage_reserve_cards', updated, 0);
         }, 200);
       }, [reserveCards, reserveCardsDate]);
       // フリー札の編集モーダル
@@ -7050,7 +7051,7 @@ React.createElement('select', {
         // ── ストール重複チェック（jobsRefで確実に最新を参照）──
         const newStart  = parseFloat(nj.start);
         const isDuration1 = ["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label);
-        const newEnd    = newStart + (isDuration1 ? 1 : 2/3);
+        const newEnd    = nj.end && parseFloat(nj.end) > newStart ? parseFloat(nj.end) : newStart + (isDuration1 ? 1 : 2/3);
         const checkDate = nj.date || boardDate;
         const conflict  = jobsRef.current.filter(j =>
           !j.completed &&
