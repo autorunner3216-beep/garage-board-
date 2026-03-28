@@ -108,6 +108,7 @@
   修正: ドラッグ移動・クリック新規登録・モーダル保存の3箇所に !j.confirmed を追加
 
 [FIX-07] BPモーダルのストール選択に空き状況を表示（2026-03-28）
+// [ADD-01] BPボード俯瞰ビュー（🔭）追加：前月〜翌々月の3ヶ月ミニガント、案件1件＝1行（2026-03-28）
   内容: 入庫日・完成予定日が両方入力済みの場合、空き✅/埋まり❌でグレーアウト＆選択不可
         日付変更時に選択中ストールが埋まっていたら自動クリア
         「未割り当て」→「ストール選択」に変更
@@ -5564,6 +5565,20 @@ React.createElement('select', {
             })(),
 
             React.createElement('button', {
+              onClick:()=>setBpView(bpView==='overview' ? 'gantt' : 'overview'),
+              style:{ position:'relative',
+                background: bpView==='overview'
+                  ? 'linear-gradient(135deg,#0e4a3a,#0d9488,#2dd4bf)'
+                  : 'linear-gradient(135deg,#042f2e,#0f3d39)',
+                border:'1px solid #2dd4bf88', borderRadius:6, color:'#fff',
+                fontSize:11, padding:'4px 12px', cursor:'pointer',
+                fontWeight:800, whiteSpace:'nowrap',
+                boxShadow: bpView==='overview' ? '0 0 14px #0d948888' : 'none',
+                textShadow:'0 1px 2px #00000066' }},
+              '🔭 俯瞰'
+            ),
+
+            React.createElement('button', {
               onClick:()=>setShowCompletedLog(v=>!v),
               style:{ position:"relative",
                 background: showCompletedLog ? "linear-gradient(135deg,#1e3a5f,#3b82f6)" : "linear-gradient(135deg,#0f1e35,#1e3a5f)",
@@ -5976,6 +5991,190 @@ React.createElement('select', {
                 pointerEvents:"none", zIndex:3 }})
           )
         ),
+
+
+
+          /* ── 俯瞰ビュー（ミニガント・期間切替対応） ── */
+          bpView==='overview' && (function(){
+            if (window.__ovMonths === undefined) window.__ovMonths = 3;
+            var ovMonths = window.__ovMonths;
+            var setOvMonths = function(n){ window.__ovMonths = n; setBpView('gantt'); setTimeout(function(){ setBpView('overview'); }, 0); };
+
+            var ovJobs = bpJobs.filter(function(j){ return !j.confirmed && j.inDate && j.outDate; });
+            ovJobs = ovJobs.slice().sort(function(a,b){ return a.inDate < b.inDate ? -1 : a.inDate > b.inDate ? 1 : 0; });
+
+            /* 期間計算 */
+            var ovStart = (function(){
+              var d = new Date(today+'T00:00:00'); d.setDate(1);
+              if (ovMonths === 3) d.setMonth(d.getMonth()-1);
+              return bpDateStr(d);
+            })();
+            var ovEnd = (function(){
+              var d = new Date(today+'T00:00:00'); d.setDate(1); d.setMonth(d.getMonth()+ovMonths); d.setDate(0);
+              return bpDateStr(d);
+            })();
+            var totalDays = bpDayDiff(ovStart, ovEnd) + 1;
+            var OV_LEFT_W = 130;
+            var todayInRange = today >= ovStart && today <= ovEnd;
+            var todayOffset  = todayInRange ? bpDayDiff(ovStart, today) : -1;
+
+            /* 月ラベル配列 */
+            var months = [];
+            var cur = ovStart.slice(0,7); var endM = ovEnd.slice(0,7);
+            while (cur <= endM) {
+              var ym = cur.split('-').map(Number); var yy=ym[0], mm=ym[1];
+              var dim = bpDaysInMonth(yy,mm);
+              var mS = cur+'-01'; var mE = cur+'-'+String(dim).padStart(2,'0');
+              var cS = mS<ovStart?ovStart:mS; var cE = mE>ovEnd?ovEnd:mE;
+              months.push({ label:yy+'年'+mm+'月', spanDays:bpDayDiff(cS,cE)+1, isCurrent:cur===today.slice(0,7) });
+              mm++; if(mm>12){mm=1;yy++;} cur=String(yy)+'-'+String(mm).padStart(2,'0');
+            }
+
+            /* 今日縦線（共通） */
+            var todayLine = todayOffset >= 0 ? React.createElement('div', { style:{
+              position:'absolute', left:(todayOffset/totalDays*100)+'%',
+              top:0, bottom:0, width:2, background:'rgba(59,130,246,.55)',
+              pointerEvents:'none', zIndex:3 }}) : null;
+
+            /* ── 行高さ自動計算（1ヶ月のみ） ── */
+            /* ヘッダー類の固定高さ: ヘッダー36 + 月ラベル22 + 日付行32 = 90 */
+            /* BPボード外枠のオフセット（タブ+コントロールバー）= 約108px */
+            var FIXED_H = ovMonths===1 ? 236 : 190;
+            var availH  = (window.innerHeight || 900) - FIXED_H;
+            var jobCount = ovJobs.length || 1;
+            var ROW_H_RAW = Math.floor(availH / jobCount);
+            var ROW_H  = ovMonths===1 ? Math.min(48, Math.max(28, ROW_H_RAW)) : 22;
+            var BAR_H  = Math.max(12, ROW_H - 14);
+            /* フォントサイズ: 行高さに連動 */
+            var FS_MAIN = ovMonths===1 ? Math.min(11, Math.max(9,  Math.floor(ROW_H*0.22))) : 9;
+            var FS_SUB  = ovMonths===1 ? Math.min(10, Math.max(8,  Math.floor(ROW_H*0.18))) : 8;
+
+            return React.createElement('div', {
+              style:{ flex:1, minHeight:0, display:'flex', flexDirection:'column', background:'#040b14', overflow:'hidden' }},
+
+              /* ── ヘッダー ── */
+              React.createElement('div', { style:{ flexShrink:0, padding:'6px 12px', borderBottom:'1px solid #1e3a5f',
+                display:'flex', alignItems:'center', gap:8 }},
+                React.createElement('span', { style:{ fontSize:12, fontWeight:800, color:'#2dd4bf', whiteSpace:'nowrap' }}, '🔭 BP俯瞰'),
+                React.createElement('div', { style:{ display:'flex', gap:4 }},
+                  [1,2,3].map(function(n){
+                    var active = ovMonths===n;
+                    return React.createElement('button', { key:n, onClick:function(){ setOvMonths(n); },
+                      style:{ padding:'2px 10px', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:700,
+                        background:active?'#0d9488':'#06101a', border:'1px solid '+(active?'#2dd4bf':'#1e3a5f'),
+                        color:active?'#fff':'#475569' }}, n+'ヶ月');
+                  })
+                ),
+                React.createElement('span', { style:{ fontSize:11, color:'#475569', whiteSpace:'nowrap' }},
+                  ovStart.slice(0,7).replace('-','年')+'月'+(ovMonths>1?' 〜 '+ovEnd.slice(0,7).replace('-','年')+'月':'')),
+                ovMonths===1 && React.createElement('span', { style:{ fontSize:10, color:'#334155', whiteSpace:'nowrap' }},
+                  '（行'+ROW_H+'px / '+ovJobs.length+'件）'),
+                React.createElement('span', { style:{ fontSize:11, color:'#334155', marginLeft:'auto', whiteSpace:'nowrap' }}, ovJobs.length+'件'),
+                React.createElement('button', { onClick:function(){ setBpView('gantt'); },
+                  style:{ background:'none', border:'1px solid #1e3a5f', borderRadius:5, color:'#475569',
+                    fontSize:14, fontWeight:700, cursor:'pointer', padding:'0 7px', lineHeight:'20px', marginLeft:4 }}, '✕')
+              ),
+
+              /* ── 月ラベル行 ── */
+              React.createElement('div', { style:{ flexShrink:0, display:'flex', borderBottom:'1px solid #1e3a5f', background:'#06101a', position:'relative' }},
+                React.createElement('div', { style:{ width:OV_LEFT_W, minWidth:OV_LEFT_W, flexShrink:0, borderRight:'1px solid #1e3a5f', padding:'3px 0' }}),
+                React.createElement('div', { style:{ flex:1, display:'flex', position:'relative' }},
+                  todayLine,
+                  months.map(function(mo,i){
+                    return React.createElement('div', { key:i,
+                      style:{ flex:mo.spanDays, minWidth:0, borderRight:'1px solid #1e3a5f',
+                        padding:'3px 4px', background:mo.isCurrent?'#0a1e35':'transparent', overflow:'hidden' }},
+                      React.createElement('span', { style:{ fontSize:10, fontWeight:700,
+                        color:mo.isCurrent?'#60a5fa':'#475569', whiteSpace:'nowrap' }}, mo.label));
+                  })
+                )
+              ),
+
+              /* ── 1ヶ月時のみ：日付ラベル行（全日＋曜日） ── */
+              ovMonths === 1 && React.createElement('div', { style:{ flexShrink:0, display:'flex',
+                borderBottom:'2px solid #1e3a5f', background:'#06101a', position:'relative' }},
+                React.createElement('div', { style:{ width:OV_LEFT_W, minWidth:OV_LEFT_W, flexShrink:0,
+                  borderRight:'1px solid #1e3a5f' }}),
+                React.createElement('div', { style:{ flex:1, display:'flex', position:'relative' }},
+                  todayLine,
+                  (function(){
+                    var cells = [];
+                    for (var di=0; di<totalDays; di++){
+                      var dStr = bpAddDays(ovStart, di);
+                      var dn   = Number(dStr.slice(8,10));
+                      var dow  = ['日','月','火','水','木','金','土'][new Date(dStr+'T00:00:00').getDay()];
+                      var isT  = dStr===today;
+                      var isSun = dow==='日'; var isSat = dow==='土';
+                      cells.push(React.createElement('div', { key:di,
+                        style:{ flex:1, minWidth:0, textAlign:'center',
+                          borderRight:'1px solid #0d1e30', padding:'2px 0',
+                          background: isT?'#1e3a5f':(isSun||isSat)?'#0a1020':'transparent' }},
+                        React.createElement('div', { style:{ fontSize:10, fontWeight:isT?800:500, lineHeight:1.2,
+                          color: isT?'#60a5fa':isSun?'#f87171':isSat?'#38bdf8':'#64748b' }}, dn),
+                        React.createElement('div', { style:{ fontSize:8, lineHeight:1,
+                          color: isT?'#3b82f6':isSun?'#f87171':isSat?'#38bdf8':'#334155' }}, dow)
+                      ));
+                    }
+                    return cells;
+                  })()
+                )
+              ),
+
+              /* ── 案件行 ── */
+              React.createElement('div', { style:{ flex:1, overflowY:'hidden', overflowX:'hidden' }},
+                ovJobs.length === 0
+                  ? React.createElement('div', { style:{ padding:20, color:'#334155', fontSize:13 }}, '表示できる案件がありません')
+                  : ovJobs.map(function(job){
+                      var sc = BP_STATUS_COLOR[job.status] || BP_STATUS_COLOR['入庫待ち'];
+                      var preClamp  = job.inDate  < ovStart ? ovStart : job.inDate;
+                      var postClamp = job.outDate > ovEnd   ? ovEnd   : job.outDate;
+                      var preDays  = bpDayDiff(ovStart, preClamp);  if(preDays<0)  preDays=0;
+                      var barDays  = bpDayDiff(preClamp, postClamp)+1;
+                      var postDays = totalDays - preDays - barDays; if(postDays<0) postDays=0;
+
+                      return React.createElement('div', { key:job.id,
+                        style:{ display:'flex', height:ROW_H, alignItems:'center', borderBottom:'1px solid #0a1020', flexShrink:0 }},
+
+                        /* 左ラベル */
+                        React.createElement('div', { onClick:function(){ setModalJob(Object.assign({},job)); },
+                          style:{ width:OV_LEFT_W, minWidth:OV_LEFT_W, flexShrink:0, padding:'0 7px', cursor:'pointer',
+                            display:'flex', flexDirection:'column', justifyContent:'center',
+                            borderRight:'1px solid #1e3a5f', overflow:'hidden', height:'100%' }},
+                          React.createElement('div', { style:{ fontSize:FS_MAIN, fontWeight:700, color:sc.accent,
+                            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.2 }}, job.owner||'（未入力）'),
+                          React.createElement('div', { style:{ fontSize:FS_SUB, color:'#64748b',
+                            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.2 }}, job.carModel||''),
+                          ROW_H >= 40 && job.noshaDate && React.createElement('div', { style:{ fontSize:FS_SUB-1, color:'#334155',
+                            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.2 }},
+                            '納車 '+job.noshaDate.slice(5))
+                        ),
+
+                        /* バーエリア */
+                        React.createElement('div', { style:{ flex:1, minWidth:0, height:'100%', position:'relative',
+                          display:'flex', alignItems:'center' }},
+                          todayLine,
+                          React.createElement('div', { style:{ flex:preDays, minWidth:0 }}),
+                          React.createElement('div', { onClick:function(){ setModalJob(Object.assign({},job)); },
+                            title:(job.plate||'')+(job.carModel?' '+job.carModel:'')+'　'+job.inDate+'〜'+job.outDate,
+                            style:{ flex:barDays, minWidth:barDays>0?2:0,
+                              height:BAR_H, borderRadius:4, cursor:'pointer',
+                              background:sc.bar, border:'1px solid '+sc.accent+'99',
+                              display:'flex', flexDirection:'column', justifyContent:'center',
+                              overflow:'hidden', paddingLeft:5, position:'relative', zIndex:1 }},
+                            React.createElement('div', { style:{ fontSize:FS_MAIN, fontWeight:700,
+                              color:sc.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }},
+                              job.plate||''),
+                            BAR_H >= 28 && React.createElement('div', { style:{ fontSize:FS_SUB,
+                              color:sc.text, opacity:0.8, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }},
+                              job.carModel||'')
+                          ),
+                          React.createElement('div', { style:{ flex:postDays, minWidth:0 }})
+                        )
+                      );
+                    })
+              )
+            );
+          })(),
 
           /* ── サイドパネル（当日来店） ── */
           bpView==="today" && React.createElement('div', {
