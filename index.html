@@ -3322,13 +3322,14 @@ react-dom/cjs/react-dom-client.production.js:
       { color:"#a78bfa", bg:"#220a5e", label:"薄藍" },
     ];
 
-    const BP_STATUS_LIST = ["入庫待ち","作業中","部品待ち","修理完成/洗車待機","納車準備/完了"];
+    const BP_STATUS_LIST = ["入庫待ち","作業中","部品待ち","修理完成/洗車待機","納車準備/完了","納車済み・計上待ち"];
     const BP_STATUS_COLOR = {
       "入庫待ち":         { accent:"#e2e8f0", bar:"#334155", text:"#ffffff" },
       "作業中":           { accent:"#22c55e", bar:"#15532e", text:"#86efac" },
       "部品待ち":         { accent:"#ef4444", bar:"#7f1d1d", text:"#fca5a5" },
       "修理完成/洗車待機":{ accent:"#2563eb", bar:"#1e3a8a", text:"#93c5fd" },
       "納車準備/完了":    { accent:"#eab308", bar:"#3d2e00", text:"#fde047" },
+      "納車済み・計上待ち": { accent:"#94a3b8", bar:"#1e293b", text:"#cbd5e1" },
     };
     const BP_TYPE_LIST = ["部分塗装","バンパー修理","板金・塗装","フレーム修正","磨き・コーティング","デントリペア","ガラス交換","その他"];
     const INIT_BP_STALLS = [
@@ -3610,7 +3611,7 @@ react-dom/cjs/react-dom-client.production.js:
           React.createElement('div', { style:{ marginBottom:12 }},
             React.createElement('label', { style:lblStyle }, "📍 ストール（行）"),
             React.createElement('select', { value:draft.stall||"", onChange:e=>setDraft(p=>({...p,stall:e.target.value})), style:inputStyle },
-              React.createElement('option',{value:""},"未割り当て"),
+              React.createElement('option',{value:""},"ストール選択"),
               bpStalls.map(s=>React.createElement('option',{key:s.id,value:s.id},s.name+" "+(s.worker?"("+s.worker+")":"")))
             )
           ),
