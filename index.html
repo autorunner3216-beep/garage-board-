@@ -108,7 +108,14 @@
   修正: ドラッグ移動・クリック新規登録・モーダル保存の3箇所に !j.confirmed を追加
 
 [FIX-07] BPモーダルのストール選択に空き状況を表示（2026-03-28）
-// [ADD-01] BPボード俯瞰ビュー（🔭）追加：前月〜翌々月の3ヶ月ミニガント、案件1件＝1行（2026-03-28）
+// [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
+//          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
+//          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
+//          ・1ヶ月時：全日付＋曜日ヘッダー、2・3ヶ月時：週区切り線（1/8/15/22日）
+//          ・バー内：ナンバー／保険・現金／ダメージ／月内／代車／担当者バッジ
+//          ・左ラベル：オーナー名＋車種、✕ボタンで閉じる
+// [ADD-02] BPボードコントロールバーに入庫受入可能日（1W・2W+）カード追加（2026-03-28）
+//          カレンダーUIで日付選択、Firebase同期、大型カードデザイン（水色/オレンジ）
   内容: 入庫日・完成予定日が両方入力済みの場合、空き✅/埋まり❌でグレーアウト＆選択不可
         日付変更時に選択中ストールが埋まっていたら自動クリア
         「未割り当て」→「ストール選択」に変更
@@ -5027,6 +5034,8 @@ React.createElement('select', {
       const [bpSalesTarget, setBpSalesTarget] = useState(function(){
         return Number(window.loadFromDb('bp_sales_target', 3000000)) || 3000000;
       });
+      const [bpAccept1w, setBpAccept1w] = useState(function(){ return window.loadFromDb('bp_accept_1w', ''); });
+      const [bpAccept2w, setBpAccept2w] = useState(function(){ return window.loadFromDb('bp_accept_2w', ''); });
       const [modalJob, setModalJob] = useState(null);  // null | {} (new) | {id,...} (edit)
       const [bpFlashJobId, setBpFlashJobId] = useState(null);
       window.__openBpJob = function(job){ setModalJob({...job}); };
@@ -5083,7 +5092,9 @@ React.createElement('select', {
         window.fbOn('bp_dayoff',  function(val) { if (Array.isArray(val)) setBpDayoff(val); });
         window.fbOn('bp_sales_target', function(val) { if (val !== null && !isNaN(Number(val))) setBpSalesTarget(Number(val)); });
         window.fbOn && window.fbOn('bp_completed_log', function(val) { if (Array.isArray(val)) { setBpCompletedLog(val); try { localStorage.setItem('bp_completed_log', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */ } });
-        return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target','bp_completed_log'].forEach(window.fbOff); };
+        window.fbOn && window.fbOn('bp_accept_1w', function(val) { if (typeof val === 'string') setBpAccept1w(val); });
+        window.fbOn && window.fbOn('bp_accept_2w', function(val) { if (typeof val === 'string') setBpAccept2w(val); });
+        return () => { ['bp_jobs','bp_stalls','bp_workers','bp_dayoff','bp_sales_target','bp_completed_log','bp_accept_1w','bp_accept_2w'].forEach(window.fbOff); };
       }, []);
 
       // 月の日数・開始日
@@ -5381,6 +5392,79 @@ React.createElement('select', {
               )
             );
           })(),
+          /* ── 入庫受入可能日 ── */
+          (function(){
+            var saveAccept = function(key, val) {
+              try { window.saveToDb(key, val); } catch(e){}
+              if (window.fbSet) window.fbSet(key, val);
+            };
+            var fmtDisp = function(v) {
+              if (!v) return '未設定';
+              var parts = v.split('-');
+              if (parts.length < 3) return v;
+              return parts[1]+'/'+parts[2];
+            };
+            var makeDateCard = function(opts) {
+              /* opts: { key, state, setter, label, color, glow, bg, inputId } */
+              return React.createElement('div', { style:{
+                display:'flex', flexDirection:'column', gap:3,
+                background: opts.bg,
+                border:'1px solid '+opts.color+'55',
+                borderRadius:10, padding:'7px 14px',
+                boxShadow:'0 0 14px '+opts.glow+', inset 0 1px 0 rgba(255,255,255,.04)',
+                minWidth:120, position:'relative' }},
+
+                /* ラベル */
+                React.createElement('div', { style:{ fontSize:9, fontWeight:800, color:opts.color,
+                  letterSpacing:'0.1em', textTransform:'uppercase', whiteSpace:'nowrap' }},
+                  opts.label),
+
+                /* 日付表示 + カレンダーアイコン */
+                React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:6,
+                  cursor:'pointer', position:'relative' },
+                  onClick: function(){ document.getElementById(opts.inputId).showPicker(); }},
+                  React.createElement('span', { style:{
+                    fontSize:22, fontWeight:900, lineHeight:1,
+                    fontFamily:"'Orbitron',monospace", letterSpacing:'0.04em',
+                    color: opts.state ? '#e2e8f0' : '#334155',
+                    textShadow: opts.state ? '0 0 12px '+opts.glow : 'none',
+                    transition:'all .3s' }},
+                    fmtDisp(opts.state)),
+                  React.createElement('span', { style:{ fontSize:16, opacity:0.5, marginLeft:'auto' }}, '📅')
+                ),
+
+                /* 隠しinput[type=date] */
+                React.createElement('input', {
+                  id: opts.inputId,
+                  type: 'date',
+                  value: opts.state || '',
+                  onChange: function(e){
+                    var v = e.target.value;
+                    opts.setter(v);
+                    saveAccept(opts.key, v);
+                  },
+                  style:{ position:'absolute', opacity:0, pointerEvents:'none',
+                    width:1, height:1, top:0, left:0 }
+                })
+              );
+            };
+
+            return React.createElement('div', { style:{ display:'flex', gap:8, alignItems:'stretch' }},
+              makeDateCard({
+                key:'bp_accept_1w', state:bpAccept1w, setter:setBpAccept1w,
+                label:'⚡ 1W　受入可能日',
+                color:'#38bdf8', glow:'#38bdf833', bg:'linear-gradient(135deg,#04161f,#061e2e)',
+                inputId:'bp-accept-1w-input'
+              }),
+              makeDateCard({
+                key:'bp_accept_2w', state:bpAccept2w, setter:setBpAccept2w,
+                label:'🔧 2W+　受入可能日',
+                color:'#f97316', glow:'#f9731633', bg:'linear-gradient(135deg,#1a0c04,#1e1206)',
+                inputId:'bp-accept-2w-input'
+              })
+            );
+          })(),
+
           /* 月ナビ */
           React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:10 }},
             React.createElement('button', { onClick:()=>shiftMonth(-1),
@@ -5638,7 +5722,7 @@ React.createElement('select', {
 
         /* ── ガントエリア（スクロール） ── */
         React.createElement('div', { ref: boardRef,
-          style:{ flex:1, minHeight:0, overflowX:"auto", overflowY:"auto", position:"relative" }},
+          style:{ flex:1, minHeight:0, overflowX:"auto", overflowY:"auto", position:"relative", display: bpView==='overview' ? 'none' : 'block' }},
 
           React.createElement('div', { style:{ width: totalW, minWidth: totalW, position:"relative" }},
 
@@ -6003,15 +6087,17 @@ React.createElement('select', {
             var ovJobs = bpJobs.filter(function(j){ return !j.confirmed && j.inDate && j.outDate; });
             ovJobs = ovJobs.slice().sort(function(a,b){ return a.inDate < b.inDate ? -1 : a.inDate > b.inDate ? 1 : 0; });
 
-            /* 期間計算 */
-            var ovStart = (function(){
-              var d = new Date(today+'T00:00:00'); d.setDate(1);
-              if (ovMonths === 3) d.setMonth(d.getMonth()-1);
-              return bpDateStr(d);
-            })();
+            /* 期間計算: 今日〜Nヶ月後の同日 */
+            var ovStart = today;
             var ovEnd = (function(){
-              var d = new Date(today+'T00:00:00'); d.setDate(1); d.setMonth(d.getMonth()+ovMonths); d.setDate(0);
-              return bpDateStr(d);
+              var d = new Date(today+'T00:00:00');
+              var targetMonth = d.getMonth() + ovMonths;
+              var targetYear  = d.getFullYear() + Math.floor(targetMonth / 12);
+              targetMonth = targetMonth % 12;
+              /* 月末補正: 例 1/31→2/28 */
+              var lastDay = bpDaysInMonth(targetYear, targetMonth+1);
+              var targetDay = Math.min(d.getDate(), lastDay);
+              return String(targetYear)+'-'+String(targetMonth+1).padStart(2,'0')+'-'+String(targetDay).padStart(2,'0');
             })();
             var totalDays = bpDayDiff(ovStart, ovEnd) + 1;
             var OV_LEFT_W = 130;
@@ -6090,6 +6176,46 @@ React.createElement('select', {
                 )
               ),
 
+              /* ── 2・3ヶ月時：週区切り行（1・8・15・22日） ── */
+              ovMonths >= 2 && React.createElement('div', { style:{ flexShrink:0, display:'flex',
+                borderBottom:'2px solid #1e3a5f', background:'#06101a', position:'relative' }},
+                React.createElement('div', { style:{ width:OV_LEFT_W, minWidth:OV_LEFT_W, flexShrink:0,
+                  borderRight:'1px solid #1e3a5f' }}),
+                React.createElement('div', { style:{ flex:1, display:'flex', position:'relative', height:22 }},
+                  todayLine,
+                  (function(){
+                    var markers = [];
+                    for (var di=0; di<totalDays; di++){
+                      var dStr = bpAddDays(ovStart, di);
+                      var dn   = Number(dStr.slice(8,10));
+                      var isT  = dStr===today;
+                      var isWeek = (dn===1||dn===8||dn===15||dn===22);
+                      if (!isWeek && !isT) continue;
+                      var leftPct = (di/totalDays*100)+'%';
+                      var mo = dStr.slice(5,7);
+                      markers.push(React.createElement('div', { key:di, style:{
+                        position:'absolute', left:leftPct, top:0, bottom:0,
+                        display:'flex', flexDirection:'column', alignItems:'flex-start',
+                        pointerEvents:'none' }},
+                        /* 縦線 */
+                        React.createElement('div', { style:{
+                          position:'absolute', left:0, top:0, bottom:0, width: isT?2:1,
+                          background: isT?'rgba(59,130,246,.7)': dn===1?'rgba(148,163,184,.35)':'rgba(148,163,184,.18)',
+                          zIndex:3 }}),
+                        /* ラベル */
+                        React.createElement('span', { style:{
+                          position:'relative', zIndex:4,
+                          fontSize:9, fontWeight: isT||dn===1 ? 700 : 400,
+                          color: isT?'#60a5fa': dn===1?'#94a3b8':'#475569',
+                          paddingLeft:2, lineHeight:'22px', whiteSpace:'nowrap' }},
+                          dn===1 ? mo+'/'+dn : dn)
+                      ));
+                    }
+                    return markers;
+                  })()
+                )
+              ),
+
               /* ── 1ヶ月時のみ：日付ラベル行（全日＋曜日） ── */
               ovMonths === 1 && React.createElement('div', { style:{ flexShrink:0, display:'flex',
                 borderBottom:'2px solid #1e3a5f', background:'#06101a', position:'relative' }},
@@ -6153,6 +6279,22 @@ React.createElement('select', {
                         React.createElement('div', { style:{ flex:1, minWidth:0, height:'100%', position:'relative',
                           display:'flex', alignItems:'center' }},
                           todayLine,
+                          /* 2・3ヶ月時：週区切り縦線をバーエリアにオーバーレイ */
+                          ovMonths >= 2 && (function(){
+                            var lines = [];
+                            for (var di=0; di<totalDays; di++){
+                              var dStr2 = bpAddDays(ovStart, di);
+                              var dn2   = Number(dStr2.slice(8,10));
+                              var isT2  = dStr2===today;
+                              if (!isT2 && dn2!==1 && dn2!==8 && dn2!==15 && dn2!==22) continue;
+                              lines.push(React.createElement('div', { key:di, style:{
+                                position:'absolute', left:(di/totalDays*100)+'%',
+                                top:0, bottom:0, width: isT2?2:1,
+                                background: isT2?'rgba(59,130,246,.5)': dn2===1?'rgba(148,163,184,.25)':'rgba(148,163,184,.12)',
+                                pointerEvents:'none', zIndex:2 }}));
+                            }
+                            return lines;
+                          })(),
                           React.createElement('div', { style:{ flex:preDays, minWidth:0 }}),
                           React.createElement('div', { onClick:function(){ setModalJob(Object.assign({},job)); },
                             title:(job.plate||'')+(job.carModel?' '+job.carModel:'')+'　'+job.inDate+'〜'+job.outDate,
@@ -6161,9 +6303,33 @@ React.createElement('select', {
                               background:sc.bar, border:'1px solid '+sc.accent+'99',
                               display:'flex', flexDirection:'column', justifyContent:'center',
                               overflow:'hidden', paddingLeft:5, position:'relative', zIndex:1 }},
+                            /* 1行目: ナンバー ＋ 保険/現金 ＋ ダメージ ＋ 月内 ＋ 代車 ＋ 担当者 */
                             React.createElement('div', { style:{ fontSize:FS_MAIN, fontWeight:700,
-                              color:sc.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }},
-                              job.plate||''),
+                              color:sc.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3,
+                              display:'flex', gap:3, alignItems:'center' }},
+                              React.createElement('span', {}, job.plate||''),
+                              job.nyukoType && React.createElement('span', { style:{ fontSize:FS_SUB-1, fontWeight:700,
+                                color: job.nyukoType==='保険' ? '#38bdf8' : '#4ade80',
+                                background: job.nyukoType==='保険' ? '#0c2a3a' : '#062a14',
+                                borderRadius:3, padding:'0 3px' }}, job.nyukoType),
+                              job.damage && React.createElement('span', { style:{ fontSize:FS_SUB-1, fontWeight:700,
+                                color: job.damage==='大ダメ' ? '#f87171' : job.damage==='中ダメ' ? '#fb923c' : '#fbbf24',
+                                background: job.damage==='大ダメ' ? '#2a0a0a' : job.damage==='中ダメ' ? '#2a1006' : '#1a1400',
+                                borderRadius:3, padding:'0 3px' }}, job.damage),
+                              job.counted && React.createElement('span', { style:{ fontSize:FS_SUB-1, fontWeight:700,
+                                color:'#fde047', background:'#3d2e00', borderRadius:3, padding:'0 3px' }}, '月内'),
+                              job.daisha==='あり' && React.createElement('span', { style:{ fontSize:FS_SUB-1, fontWeight:700,
+                                color:'#4ade80', background:'#062a14', borderRadius:3, padding:'0 3px' }}, '代車'),
+                              (function(){
+                                if (!job.workerId) return null;
+                                var w = bpWorkers.find(function(x){ return x.id===job.workerId; });
+                                if (!w) return null;
+                                var wc = BP_WORKER_COLORS[w.colorIdx % BP_WORKER_COLORS.length];
+                                return React.createElement('span', { style:{ fontSize:FS_SUB-1, fontWeight:700,
+                                  color:wc.color, background:wc.bg, borderRadius:3, padding:'0 3px' }}, w.name);
+                              })()
+                            ),
+                            /* 2行目: 車種（BAR_Hに余裕があるとき） */
                             BAR_H >= 28 && React.createElement('div', { style:{ fontSize:FS_SUB,
                               color:sc.text, opacity:0.8, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }},
                               job.carModel||'')
