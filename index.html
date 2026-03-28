@@ -5036,6 +5036,9 @@ React.createElement('select', {
       });
       const [bpAccept1w, setBpAccept1w] = useState(function(){ return window.loadFromDb('bp_accept_1w', ''); });
       const [bpAccept2w, setBpAccept2w] = useState(function(){ return window.loadFromDb('bp_accept_2w', ''); });
+      const [listSortKey,  setListSortKey]  = useState('outDate');
+      const [listViewType, setListViewType] = useState('table');
+      const [ovMonths,     setOvMonths]     = useState(3);
       const [modalJob, setModalJob] = useState(null);  // null | {} (new) | {id,...} (edit)
       const [bpFlashJobId, setBpFlashJobId] = useState(null);
       window.__openBpJob = function(job){ setModalJob({...job}); };
@@ -5663,6 +5666,20 @@ React.createElement('select', {
             ),
 
             React.createElement('button', {
+              onClick:()=>setBpView(bpView==='list' ? 'gantt' : 'list'),
+              style:{ position:'relative',
+                background: bpView==='list'
+                  ? 'linear-gradient(135deg,#1e3a5f,#6366f1,#818cf8)'
+                  : 'linear-gradient(135deg,#0f1020,#1e2040)',
+                border:'1px solid #6366f188', borderRadius:6, color:'#fff',
+                fontSize:11, padding:'4px 12px', cursor:'pointer',
+                fontWeight:800, whiteSpace:'nowrap',
+                boxShadow: bpView==='list' ? '0 0 14px #6366f188' : 'none',
+                textShadow:'0 1px 2px #00000066' }},
+              '📋 一覧'
+            ),
+
+            React.createElement('button', {
               onClick:()=>setShowCompletedLog(v=>!v),
               style:{ position:"relative",
                 background: showCompletedLog ? "linear-gradient(135deg,#1e3a5f,#3b82f6)" : "linear-gradient(135deg,#0f1e35,#1e3a5f)",
@@ -6078,11 +6095,209 @@ React.createElement('select', {
 
 
 
+          /* ── 一覧ビュー（ソート・カード/テーブル切替） ── */
+          bpView==='list' && (function(){
+            /* ソート・表示形式は表示のみ、Firebase保存なし */
+            var sortKey  = listSortKey;
+            var viewType = listViewType;
+            var setSortKey  = function(k){ setListSortKey(k); };
+            var setViewType = function(v){ setListViewType(v); };
+
+            /* ステータス優先順 */
+            var STATUS_ORDER = ['作業中','部品待ち','修理完成/洗車待機','納車準備/完了','納車済み・計上待ち','入庫待ち'];
+            /* ダメージ優先順 */
+            var DAMAGE_ORDER = {'大ダメ':0,'中ダメ':1,'小ダメ':2};
+
+            /* ソート */
+            var listJobs = bpJobs.filter(function(j){ return !j.confirmed && j.inDate && j.outDate; });
+            listJobs = listJobs.slice().sort(function(a,b){
+              if (sortKey==='outDate') {
+                return (a.outDate||'9999') < (b.outDate||'9999') ? -1 : 1;
+              } else if (sortKey==='inDate') {
+                return (a.inDate||'9999') < (b.inDate||'9999') ? -1 : 1;
+              } else if (sortKey==='damage') {
+                var da = DAMAGE_ORDER[a.damage] !== undefined ? DAMAGE_ORDER[a.damage] : 9;
+                var db = DAMAGE_ORDER[b.damage] !== undefined ? DAMAGE_ORDER[b.damage] : 9;
+                return da - db;
+              } else if (sortKey==='stay') {
+                var sa = a.inDate ? bpDayDiff(a.inDate, today) : -1;
+                var sb = b.inDate ? bpDayDiff(b.inDate, today) : -1;
+                return sb - sa;
+              } else if (sortKey==='status') {
+                var ia = STATUS_ORDER.indexOf(a.status||'入庫待ち');
+                var ib = STATUS_ORDER.indexOf(b.status||'入庫待ち');
+                return (ia<0?99:ia) - (ib<0?99:ib);
+              }
+              return 0;
+            });
+
+            var SORT_BTNS = [
+              { key:'outDate', label:'📅 納期' },
+              { key:'inDate',  label:'🚪 入庫' },
+              { key:'damage',  label:'💥 ダメ' },
+              { key:'stay',    label:'⏳ 滞在' },
+              { key:'status',  label:'🔄 状態' },
+            ];
+
+            return React.createElement('div', {
+              style:{ flex:1, minHeight:0, display:'flex', flexDirection:'column', background:'#040b14', overflow:'hidden' }},
+
+              /* ── ヘッダー ── */
+              React.createElement('div', { style:{ flexShrink:0, padding:'6px 12px', borderBottom:'1px solid #1e3a5f',
+                display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }},
+                React.createElement('span', { style:{ fontSize:12, fontWeight:800, color:'#818cf8', whiteSpace:'nowrap' }}, '📋 BP一覧'),
+
+                /* ソートキー */
+                React.createElement('div', { style:{ display:'flex', gap:4 }},
+                  SORT_BTNS.map(function(b){
+                    var active = sortKey===b.key;
+                    return React.createElement('button', { key:b.key,
+                      onClick:function(){ setSortKey(b.key); },
+                      style:{ padding:'2px 9px', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:700,
+                        background: active ? '#4f46e5' : '#0d1020',
+                        border:'1px solid '+(active ? '#818cf8' : '#1e3a5f'),
+                        color: active ? '#fff' : '#475569' }}, b.label);
+                  })
+                ),
+
+                /* カード/テーブル切替 */
+                React.createElement('div', { style:{ display:'flex', gap:4, marginLeft:'auto' }},
+                  React.createElement('button', { onClick:function(){ setViewType('table'); },
+                    style:{ padding:'2px 9px', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:700,
+                      background: viewType==='table' ? '#1e3a5f' : '#0d1020',
+                      border:'1px solid '+(viewType==='table' ? '#60a5fa' : '#1e3a5f'),
+                      color: viewType==='table' ? '#60a5fa' : '#475569' }}, '📊 テーブル'),
+                  React.createElement('button', { onClick:function(){ setViewType('card'); },
+                    style:{ padding:'2px 9px', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:700,
+                      background: viewType==='card' ? '#1e3a5f' : '#0d1020',
+                      border:'1px solid '+(viewType==='card' ? '#60a5fa' : '#1e3a5f'),
+                      color: viewType==='card' ? '#60a5fa' : '#475569' }}, '🃏 カード')
+                ),
+                React.createElement('span', { style:{ fontSize:11, color:'#334155', whiteSpace:'nowrap' }}, listJobs.length+'件'),
+                React.createElement('button', { onClick:function(){ setBpView('gantt'); },
+                  style:{ background:'none', border:'1px solid #1e3a5f', borderRadius:5, color:'#475569',
+                    fontSize:14, fontWeight:700, cursor:'pointer', padding:'0 7px', lineHeight:'20px' }}, '✕')
+              ),
+
+              /* ── カード型 ── */
+              viewType==='card' && React.createElement('div', { style:{ flex:1, overflowY:'auto', padding:'12px',
+                display:'flex', flexWrap:'wrap', gap:10, alignContent:'flex-start' }},
+                listJobs.length===0
+                  ? React.createElement('div', { style:{ color:'#334155', fontSize:13, padding:20 }}, '表示できる案件がありません')
+                  : listJobs.map(function(job){
+                      var sc = BP_STATUS_COLOR[job.status] || BP_STATUS_COLOR['入庫待ち'];
+                      var stall = bpStalls.find(function(s){ return s.id===job.stall; });
+                      var worker = job.workerId ? bpWorkers.find(function(w){ return w.id===job.workerId; }) : null;
+                      var wc = worker ? BP_WORKER_COLORS[worker.colorIdx % BP_WORKER_COLORS.length] : null;
+                      var stayDays = job.inDate ? bpDayDiff(job.inDate, today) : 0;
+                      return React.createElement('div', { key:job.id,
+                        onClick:function(){ setModalJob(Object.assign({},job)); },
+                        style:{ width:200, background:'#06101a', border:'1px solid '+sc.accent+'44',
+                          borderLeft:'3px solid '+sc.accent, borderRadius:8, padding:'10px 12px',
+                          cursor:'pointer', flexShrink:0,
+                          boxShadow:'0 2px 8px rgba(0,0,0,.4)' }},
+                        /* ステータス */
+                        React.createElement('div', { style:{ fontSize:9, fontWeight:800, color:sc.accent,
+                          letterSpacing:'0.08em', marginBottom:4 }}, job.status||'入庫待ち'),
+                        /* ナンバー */
+                        React.createElement('div', { style:{ fontSize:14, fontWeight:900, color:'#e2e8f0',
+                          marginBottom:2 }}, job.plate||'（未入力）'),
+                        /* 車種・オーナー */
+                        React.createElement('div', { style:{ fontSize:11, color:'#64748b', marginBottom:6 }},
+                          (job.carModel||'')+(job.owner?' / '+job.owner:'')),
+                        /* 日付バー */
+                        React.createElement('div', { style:{ display:'flex', gap:6, fontSize:10, marginBottom:6 }},
+                          React.createElement('span', { style:{ color:'#475569' }}, '入'),
+                          React.createElement('span', { style:{ color:'#94a3b8' }}, job.inDate?job.inDate.slice(5):'--'),
+                          React.createElement('span', { style:{ color:'#475569' }}, '→'),
+                          React.createElement('span', { style:{ color: job.outDate<=today?'#f87171':'#94a3b8' }},
+                            job.outDate?job.outDate.slice(5):'--'),
+                          stayDays>0 && React.createElement('span', { style:{ color:'#475569', marginLeft:'auto' }}, stayDays+'日目')
+                        ),
+                        /* バッジ行 */
+                        React.createElement('div', { style:{ display:'flex', flexWrap:'wrap', gap:3 }},
+                          stall && React.createElement('span', { style:{ fontSize:9, fontWeight:700,
+                            color:'#3b82f6', background:'#0f1e35', borderRadius:3, padding:'1px 5px' }}, stall.name),
+                          job.nyukoType && React.createElement('span', { style:{ fontSize:9, fontWeight:700,
+                            color: job.nyukoType==='保険'?'#38bdf8':'#4ade80',
+                            background: job.nyukoType==='保険'?'#0c2a3a':'#062a14',
+                            borderRadius:3, padding:'1px 5px' }}, job.nyukoType),
+                          job.damage && React.createElement('span', { style:{ fontSize:9, fontWeight:700,
+                            color: job.damage==='大ダメ'?'#f87171':job.damage==='中ダメ'?'#fb923c':'#fbbf24',
+                            background: job.damage==='大ダメ'?'#2a0a0a':job.damage==='中ダメ'?'#2a1006':'#1a1400',
+                            borderRadius:3, padding:'1px 5px' }}, job.damage),
+                          job.daisha==='あり' && React.createElement('span', { style:{ fontSize:9, fontWeight:700,
+                            color:'#4ade80', background:'#062a14', borderRadius:3, padding:'1px 5px' }}, '代車'),
+                          wc && React.createElement('span', { style:{ fontSize:9, fontWeight:700,
+                            color:wc.color, background:wc.bg, borderRadius:3, padding:'1px 5px' }}, worker.name)
+                        )
+                      );
+                    })
+              ),
+
+              /* ── テーブル型 ── */
+              viewType==='table' && React.createElement('div', { style:{ flex:1, overflowY:'auto', overflowX:'auto' }},
+                React.createElement('table', { style:{ width:'100%', borderCollapse:'collapse', fontSize:11 }},
+                  React.createElement('thead', {},
+                    React.createElement('tr', { style:{ background:'#06101a', position:'sticky', top:0, zIndex:2 }},
+                      ['#','ステータス','ナンバー','車種','オーナー','ストール','入庫日','完成予定','滞在','ダメージ','入庫区分','代車','担当者'].map(function(h){
+                        return React.createElement('th', { key:h, style:{ padding:'6px 8px', textAlign:'left',
+                          borderBottom:'1px solid #1e3a5f', color:'#475569', fontWeight:700,
+                          fontSize:10, whiteSpace:'nowrap' }}, h);
+                      })
+                    )
+                  ),
+                  React.createElement('tbody', {},
+                    listJobs.length===0
+                      ? React.createElement('tr', {},
+                          React.createElement('td', { colSpan:13, style:{ padding:20, color:'#334155', textAlign:'center' }}, '表示できる案件がありません'))
+                      : listJobs.map(function(job, idx){
+                          var sc = BP_STATUS_COLOR[job.status] || BP_STATUS_COLOR['入庫待ち'];
+                          var stall = bpStalls.find(function(s){ return s.id===job.stall; });
+                          var worker = job.workerId ? bpWorkers.find(function(w){ return w.id===job.workerId; }) : null;
+                          var wc = worker ? BP_WORKER_COLORS[worker.colorIdx % BP_WORKER_COLORS.length] : null;
+                          var stayDays = job.inDate ? bpDayDiff(job.inDate, today) : 0;
+                          var isOverdue = job.outDate && job.outDate < today;
+                          return React.createElement('tr', { key:job.id,
+                            onClick:function(){ setModalJob(Object.assign({},job)); },
+                            style:{ borderBottom:'1px solid #0a1020', cursor:'pointer',
+                              background: idx%2===0 ? '#040b14' : '#06101a' }},
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#334155', width:28 }}, idx+1),
+                            React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap' }},
+                              React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:sc.accent,
+                                background:sc.bar, borderRadius:3, padding:'1px 6px' }}, job.status||'入庫待ち')),
+                            React.createElement('td', { style:{ padding:'5px 8px', fontWeight:700, color:'#e2e8f0', whiteSpace:'nowrap' }}, job.plate||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}, job.carModel||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}, job.owner||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#3b82f6', whiteSpace:'nowrap' }}, stall?stall.name:''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#64748b', whiteSpace:'nowrap' }}, job.inDate?job.inDate.slice(5):''),
+                            React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap',
+                              color: isOverdue?'#f87171':'#94a3b8', fontWeight: isOverdue?800:400 }},
+                              job.outDate?job.outDate.slice(5):''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color: stayDays>14?'#f87171':stayDays>7?'#fb923c':'#64748b',
+                              fontWeight: stayDays>7?700:400, whiteSpace:'nowrap' }}, stayDays>0?stayDays+'日':''),
+                            React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap',
+                              color: job.damage==='大ダメ'?'#f87171':job.damage==='中ダメ'?'#fb923c':job.damage==='小ダメ'?'#fbbf24':'#334155',
+                              fontWeight: job.damage?700:400 }}, job.damage||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap',
+                              color: job.nyukoType==='保険'?'#38bdf8':job.nyukoType==='現金'?'#4ade80':'#334155' }}, job.nyukoType||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color: job.daisha==='あり'?'#4ade80':'#334155' }},
+                              job.daisha==='あり'?'✅':''),
+                            React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap',
+                              color: wc?wc.color:'#334155' }}, worker?worker.name:'')
+                          );
+                        })
+                  )
+                )
+              )
+            );
+          })(),
+
+
+
+
           /* ── 俯瞰ビュー（ミニガント・期間切替対応） ── */
           bpView==='overview' && (function(){
-            if (window.__ovMonths === undefined) window.__ovMonths = 3;
-            var ovMonths = window.__ovMonths;
-            var setOvMonths = function(n){ window.__ovMonths = n; setBpView('gantt'); setTimeout(function(){ setBpView('overview'); }, 0); };
 
             var ovJobs = bpJobs.filter(function(j){ return !j.confirmed && j.inDate && j.outDate; });
             ovJobs = ovJobs.slice().sort(function(a,b){ return a.inDate < b.inDate ? -1 : a.inDate > b.inDate ? 1 : 0; });
