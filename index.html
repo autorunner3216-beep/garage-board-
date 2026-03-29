@@ -108,6 +108,16 @@
   修正: ドラッグ移動・クリック新規登録・モーダル保存の3箇所に !j.confirmed を追加
 
 [FIX-07] BPモーダルのストール選択に空き状況を表示（2026-03-28）
+
+[BUG-13] BPボード車両登録で完了日＝入庫日の場合にストール重複を許可してしまう（2026-03-29）
+  原因: 空き判定の条件が j.outDate > draft.inDate（厳密な大なり）のため、
+        既存ジョブの完了日と新規ジョブの入庫日が同日の場合に重複なしと誤判定
+  影響箇所: ①ストール選択肢✅/❌表示
+            ②入庫日変更時のストール自動クリア
+            ③納車日変更時のストール自動クリア
+            ④保存時のconflictチェック
+  修正: 全4箇所の j.outDate > draft.inDate を j.outDate >= draft.inDate に変更
+        （同日＝重複とみなして必ずブロック）
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -3632,7 +3642,7 @@ react-dom/cjs/react-dom-client.production.js:
               React.createElement('option',{value:""},"ストール選択"),
               bpStalls.map(s=>{
                 var isBusy = draft.inDate && draft.outDate
-                  ? bpJobs.some(j=>j.id!==draft.id&&j.stall===s.id&&!j.confirmed&&j.inDate<draft.outDate&&j.outDate>draft.inDate)
+                  ? bpJobs.some(j=>j.id!==draft.id&&j.stall===s.id&&!j.confirmed&&j.inDate<draft.outDate&&j.outDate>=draft.inDate)
                   : false;
                 return React.createElement('option',{key:s.id,value:s.id,disabled:isBusy,style:{color:isBusy?"#4b5563":"inherit"}},
                   (isBusy?"❌ ":"✅ ")+s.name+" "+(s.worker?"("+s.worker+")":""));
@@ -3725,7 +3735,7 @@ react-dom/cjs/react-dom-client.production.js:
             React.createElement('label', { style:lblStyle }, "📅 入庫日（開始）", React.createElement('span', { style:{ color:"#ef4444", marginLeft:3, fontWeight:700, fontSize:11 }}, "*")),
             /* 日付 */
             React.createElement('input', { type:"date", value:draft.inDate||"",
-                onChange:e=>{ var newIn=e.target.value; setDraft(p=>{ var out=p.outDate; var stall=p.stall; if(newIn&&out&&stall){ var busy=bpJobs.some(j=>j.id!==p.id&&j.stall===stall&&!j.confirmed&&j.inDate<out&&j.outDate>newIn); if(busy) stall=""; } return {...p,inDate:newIn,stall}; }); },
+                onChange:e=>{ var newIn=e.target.value; setDraft(p=>{ var out=p.outDate; var stall=p.stall; if(newIn&&out&&stall){ var busy=bpJobs.some(j=>j.id!==p.id&&j.stall===stall&&!j.confirmed&&j.inDate<out&&j.outDate>=newIn); if(busy) stall=""; } return {...p,inDate:newIn,stall}; }); },
                 style:dateInputStyle }),
             /* AM/PM トグル + 時刻入力 */
             React.createElement('div', { style:{ display:"flex", gap:6, alignItems:"center", marginTop:6 }},
@@ -3780,7 +3790,7 @@ React.createElement('select', {
           React.createElement('div', { style:{ marginBottom:12 }},
             React.createElement('label', { style:lblStyle }, "🏁 完成予定日（終了）", React.createElement('span', { style:{ color:"#ef4444", marginLeft:3, fontWeight:700, fontSize:11 }}, "*")),
             React.createElement('input', { type:"date", value:draft.outDate||"",
-                onChange:e=>{ var newOut=e.target.value; setDraft(p=>{ var inD=p.inDate; var stall=p.stall; if(inD&&newOut&&stall){ var busy=bpJobs.some(j=>j.id!==p.id&&j.stall===stall&&!j.confirmed&&j.inDate<newOut&&j.outDate>inD); if(busy) stall=""; } return {...p,outDate:newOut,stall}; }); },
+                onChange:e=>{ var newOut=e.target.value; setDraft(p=>{ var inD=p.inDate; var stall=p.stall; if(inD&&newOut&&stall){ var busy=bpJobs.some(j=>j.id!==p.id&&j.stall===stall&&!j.confirmed&&j.inDate<newOut&&j.outDate>=inD); if(busy) stall=""; } return {...p,outDate:newOut,stall}; }); },
                 style:dateInputStyle })
           ),
 
@@ -6967,7 +6977,7 @@ React.createElement('select', {
               j.id !== draft.id &&
               j.stall === draft.stall &&
               !j.confirmed &&
-              j.inDate < draft.outDate && j.outDate > draft.inDate
+              j.inDate < draft.outDate && j.outDate >= draft.inDate
             );
             if (conflict.length > 0) {
               setBpOverlapMsg("⚠ すでに予定が入っているため登録できません");
