@@ -5038,7 +5038,7 @@ React.createElement('select', {
       const [bpAccept2w, setBpAccept2w] = useState(function(){ return window.loadFromDb('bp_accept_2w', ''); });
       const [listSortKey,  setListSortKey]  = useState('outDate');
       const [listViewType, setListViewType] = useState('table');
-      const [ovMonths,     setOvMonths]     = useState(3);
+      const [ovMonths,     setOvMonths]     = useState(1);
       const [modalJob, setModalJob] = useState(null);  // null | {} (new) | {id,...} (edit)
       const [bpFlashJobId, setBpFlashJobId] = useState(null);
       window.__openBpJob = function(job){ setModalJob({...job}); };
@@ -6203,16 +6203,16 @@ React.createElement('select', {
                         React.createElement('div', { style:{ fontSize:14, fontWeight:900, color:'#e2e8f0',
                           marginBottom:2 }}, job.plate||'（未入力）'),
                         /* 車種・オーナー */
-                        React.createElement('div', { style:{ fontSize:11, color:'#64748b', marginBottom:6 }},
+                        React.createElement('div', { style:{ fontSize:11, color:'#c0cfe0', marginBottom:6 }},
                           (job.carModel||'')+(job.owner?' / '+job.owner:'')),
                         /* 日付バー */
                         React.createElement('div', { style:{ display:'flex', gap:6, fontSize:10, marginBottom:6 }},
-                          React.createElement('span', { style:{ color:'#475569' }}, '入'),
-                          React.createElement('span', { style:{ color:'#94a3b8' }}, job.inDate?job.inDate.slice(5):'--'),
-                          React.createElement('span', { style:{ color:'#475569' }}, '→'),
-                          React.createElement('span', { style:{ color: job.outDate<=today?'#f87171':'#94a3b8' }},
+                          React.createElement('span', { style:{ color:'#94a3b8' }}, '入'),
+                          React.createElement('span', { style:{ color:'#c0cfe0', fontWeight:600 }}, job.inDate?job.inDate.slice(5):'--'),
+                          React.createElement('span', { style:{ color:'#94a3b8' }}, '→'),
+                          React.createElement('span', { style:{ color: job.outDate<=today?'#f87171':'#c0cfe0', fontWeight:600 }},
                             job.outDate?job.outDate.slice(5):'--'),
-                          stayDays>0 && React.createElement('span', { style:{ color:'#475569', marginLeft:'auto' }}, stayDays+'日目')
+                          stayDays>0 && React.createElement('span', { style:{ color:'#94a3b8', marginLeft:'auto' }}, stayDays+'日目')
                         ),
                         /* バッジ行 */
                         React.createElement('div', { style:{ display:'flex', flexWrap:'wrap', gap:3 }},
@@ -6262,17 +6262,17 @@ React.createElement('select', {
                             onClick:function(){ setModalJob(Object.assign({},job)); },
                             style:{ borderBottom:'1px solid #0a1020', cursor:'pointer',
                               background: idx%2===0 ? '#040b14' : '#06101a' }},
-                            React.createElement('td', { style:{ padding:'5px 8px', color:'#334155', width:28 }}, idx+1),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#64748b', width:28 }}, idx+1),
                             React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap' }},
                               React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:sc.accent,
                                 background:sc.bar, borderRadius:3, padding:'1px 6px' }}, job.status||'入庫待ち')),
                             React.createElement('td', { style:{ padding:'5px 8px', fontWeight:700, color:'#e2e8f0', whiteSpace:'nowrap' }}, job.plate||''),
-                            React.createElement('td', { style:{ padding:'5px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}, job.carModel||''),
-                            React.createElement('td', { style:{ padding:'5px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}, job.owner||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#c0cfe0', fontWeight:500, whiteSpace:'nowrap' }}, job.carModel||''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#c0cfe0', fontWeight:500, whiteSpace:'nowrap' }}, job.owner||''),
                             React.createElement('td', { style:{ padding:'5px 8px', color:'#3b82f6', whiteSpace:'nowrap' }}, stall?stall.name:''),
-                            React.createElement('td', { style:{ padding:'5px 8px', color:'#64748b', whiteSpace:'nowrap' }}, job.inDate?job.inDate.slice(5):''),
+                            React.createElement('td', { style:{ padding:'5px 8px', color:'#c0cfe0', fontWeight:600, whiteSpace:'nowrap' }}, job.inDate?job.inDate.slice(5):''),
                             React.createElement('td', { style:{ padding:'5px 8px', whiteSpace:'nowrap',
-                              color: isOverdue?'#f87171':'#94a3b8', fontWeight: isOverdue?800:400 }},
+                              color: isOverdue?'#f87171':'#c0cfe0', fontWeight: isOverdue?800:600 }},
                               job.outDate?job.outDate.slice(5):''),
                             React.createElement('td', { style:{ padding:'5px 8px', color: stayDays>14?'#f87171':stayDays>7?'#fb923c':'#64748b',
                               fontWeight: stayDays>7?700:400, whiteSpace:'nowrap' }}, stayDays>0?stayDays+'日':''),
@@ -6363,16 +6363,16 @@ React.createElement('select', {
                     return React.createElement('button', { key:n, onClick:function(){ setOvMonths(n); },
                       style:{ padding:'2px 10px', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:700,
                         background:active?'#0d9488':'#06101a', border:'1px solid '+(active?'#2dd4bf':'#1e3a5f'),
-                        color:active?'#fff':'#475569' }}, n+'ヶ月');
+                        color:active?'#fff':'#94a3b8' }}, n+'ヶ月');
                   })
                 ),
-                React.createElement('span', { style:{ fontSize:11, color:'#475569', whiteSpace:'nowrap' }},
+                React.createElement('span', { style:{ fontSize:11, color:'#e2e8f0', whiteSpace:'nowrap' }},
                   ovStart.slice(0,7).replace('-','年')+'月'+(ovMonths>1?' 〜 '+ovEnd.slice(0,7).replace('-','年')+'月':'')),
-                ovMonths===1 && React.createElement('span', { style:{ fontSize:10, color:'#334155', whiteSpace:'nowrap' }},
+                ovMonths===1 && React.createElement('span', { style:{ fontSize:10, color:'#e2e8f0', whiteSpace:'nowrap' }},
                   '（行'+ROW_H+'px / '+ovJobs.length+'件）'),
-                React.createElement('span', { style:{ fontSize:11, color:'#334155', marginLeft:'auto', whiteSpace:'nowrap' }}, ovJobs.length+'件'),
+                React.createElement('span', { style:{ fontSize:11, color:'#e2e8f0', marginLeft:'auto', whiteSpace:'nowrap' }}, ovJobs.length+'件'),
                 React.createElement('button', { onClick:function(){ setBpView('gantt'); },
-                  style:{ background:'none', border:'1px solid #1e3a5f', borderRadius:5, color:'#475569',
+                  style:{ background:'none', border:'1px solid #1e3a5f', borderRadius:5, color:'#e2e8f0',
                     fontSize:14, fontWeight:700, cursor:'pointer', padding:'0 7px', lineHeight:'20px', marginLeft:4 }}, '✕')
               ),
 
@@ -6386,7 +6386,7 @@ React.createElement('select', {
                       style:{ flex:mo.spanDays, minWidth:0, borderRight:'1px solid #1e3a5f',
                         padding:'3px 4px', background:mo.isCurrent?'#0a1e35':'transparent', overflow:'hidden' }},
                       React.createElement('span', { style:{ fontSize:10, fontWeight:700,
-                        color:mo.isCurrent?'#60a5fa':'#475569', whiteSpace:'nowrap' }}, mo.label));
+                        color:mo.isCurrent?'#60a5fa':'#94a3b8', whiteSpace:'nowrap' }}, mo.label));
                   })
                 )
               ),
@@ -6421,7 +6421,7 @@ React.createElement('select', {
                         React.createElement('span', { style:{
                           position:'relative', zIndex:4,
                           fontSize:9, fontWeight: isT||dn===1 ? 700 : 400,
-                          color: isT?'#60a5fa': dn===1?'#94a3b8':'#475569',
+                          color: isT?'#60a5fa': dn===1?'#c0cfe0':'#94a3b8',
                           paddingLeft:2, lineHeight:'22px', whiteSpace:'nowrap' }},
                           dn===1 ? mo+'/'+dn : dn)
                       ));
@@ -6446,14 +6446,27 @@ React.createElement('select', {
                       var dow  = ['日','月','火','水','木','金','土'][new Date(dStr+'T00:00:00').getDay()];
                       var isT  = dStr===today;
                       var isSun = dow==='日'; var isSat = dow==='土';
+                      var dayoffEntry = bpDayoff.find(function(x){ return x.date===dStr; });
+                      var isTeikyu = !!(dayoffEntry && dayoffEntry.workerIds && dayoffEntry.workerIds.includes('__teikyu__'));
+                      var offWorkers = dayoffEntry ? bpWorkers.filter(function(w){ return dayoffEntry.workerIds.includes(w.id); }) : [];
                       cells.push(React.createElement('div', { key:di,
                         style:{ flex:1, minWidth:0, textAlign:'center',
                           borderRight:'1px solid #0d1e30', padding:'2px 0',
-                          background: isT?'#1e3a5f':(isSun||isSat)?'#0a1020':'transparent' }},
+                          background: isT?'#1e3a5f': isTeikyu?'#1a0800': (isSun||isSat)?'#0a1020':'transparent' }},
                         React.createElement('div', { style:{ fontSize:10, fontWeight:isT?800:500, lineHeight:1.2,
-                          color: isT?'#60a5fa':isSun?'#f87171':isSat?'#38bdf8':'#64748b' }}, dn),
+                          color: isT?'#60a5fa':isSun?'#f87171':isSat?'#38bdf8':'#c0cfe0' }}, dn),
                         React.createElement('div', { style:{ fontSize:8, lineHeight:1,
-                          color: isT?'#3b82f6':isSun?'#f87171':isSat?'#38bdf8':'#334155' }}, dow)
+                          color: isT?'#3b82f6':isSun?'#f87171':isSat?'#38bdf8':'#94a3b8' }}, dow),
+                        isTeikyu && React.createElement('div', { style:{ fontSize:8, fontWeight:800,
+                          color:'#f87171', lineHeight:1.1 }}, '休'),
+                        offWorkers.length > 0 && React.createElement('div', { style:{
+                          display:'flex', justifyContent:'center', gap:1, marginTop:1, flexWrap:'wrap' }},
+                          offWorkers.map(function(w){
+                            var wc = BP_WORKER_COLORS[w.colorIdx % BP_WORKER_COLORS.length];
+                            return React.createElement('div', { key:w.id,
+                              style:{ width:4, height:4, borderRadius:'50%', background:wc.color, flexShrink:0 }});
+                          })
+                        )
                       ));
                     }
                     return cells;
@@ -6464,7 +6477,7 @@ React.createElement('select', {
               /* ── 案件行 ── */
               React.createElement('div', { style:{ flex:1, overflowY:'hidden', overflowX:'hidden' }},
                 ovJobs.length === 0
-                  ? React.createElement('div', { style:{ padding:20, color:'#334155', fontSize:13 }}, '表示できる案件がありません')
+                  ? React.createElement('div', { style:{ padding:20, color:'#e2e8f0', fontSize:13 }}, '表示できる案件がありません')
                   : ovJobs.map(function(job){
                       var sc = BP_STATUS_COLOR[job.status] || BP_STATUS_COLOR['入庫待ち'];
                       var preClamp  = job.inDate  < ovStart ? ovStart : job.inDate;
@@ -6483,9 +6496,9 @@ React.createElement('select', {
                             borderRight:'1px solid #1e3a5f', overflow:'hidden', height:'100%' }},
                           React.createElement('div', { style:{ fontSize:FS_MAIN, fontWeight:700, color:sc.accent,
                             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.2 }}, job.owner||'（未入力）'),
-                          React.createElement('div', { style:{ fontSize:FS_SUB, color:'#64748b',
+                          React.createElement('div', { style:{ fontSize:FS_SUB, color:'#e2e8f0',
                             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.2 }}, job.carModel||''),
-                          ROW_H >= 40 && job.noshaDate && React.createElement('div', { style:{ fontSize:FS_SUB-1, color:'#334155',
+                          ROW_H >= 40 && job.noshaDate && React.createElement('div', { style:{ fontSize:FS_SUB-1, color:'#e2e8f0',
                             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.2 }},
                             '納車 '+job.noshaDate.slice(5))
                         ),
@@ -6546,7 +6559,7 @@ React.createElement('select', {
                             ),
                             /* 2行目: 車種（BAR_Hに余裕があるとき） */
                             BAR_H >= 28 && React.createElement('div', { style:{ fontSize:FS_SUB,
-                              color:sc.text, opacity:0.8, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }},
+                              color:sc.text, opacity:0.95, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3 }},
                               job.carModel||'')
                           ),
                           React.createElement('div', { style:{ flex:postDays, minWidth:0 }})
