@@ -110,14 +110,13 @@
 [FIX-07] BPモーダルのストール選択に空き状況を表示（2026-03-28）
 
 [BUG-13] BPボード車両登録で完了日＝入庫日の場合にストール重複を許可してしまう（2026-03-29）
-  原因: 空き判定の条件が j.outDate > draft.inDate（厳密な大なり）のため、
-        既存ジョブの完了日と新規ジョブの入庫日が同日の場合に重複なしと誤判定
-  影響箇所: ①ストール選択肢✅/❌表示
-            ②入庫日変更時のストール自動クリア
-            ③納車日変更時のストール自動クリア
-            ④保存時のconflictチェック
-  修正: 全4箇所の j.outDate > draft.inDate を j.outDate >= draft.inDate に変更
-        （同日＝重複とみなして必ずブロック）
+  原因: 空き判定 j.outDate > draft.inDate が厳密大なりのため同日を許可してしまう
+  修正: 全4箇所を j.outDate >= draft.inDate に変更（同日＝重複としてブロック）
+
+[FIX-08] 入庫登録フォームに音声入力機能を追加・Gemini API版（2026-03-29）
+  方式: Web Speech API（音声認識）→ Gemini 2.0 Flash API（フィールド振り分け）
+  APIキー: localStorage.getItem('gemini_api_key') から読み込み
+  機能: 発話→AI解析→確認パネル表示→各フィールドへ個別/一括反映
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -7571,6 +7570,10 @@ React.createElement('select', {
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
       const [nj, setNj] = useState({date:TODAY_STR,stall:stalls[0]?.id||"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",deliveryTime:"",checkinTime:"",loanCar:"なし",transport:"なし",isNew:false});
+      // [FIX-08] 音声入力ステート
+      const [vjListening, setVjListening] = useState(false);
+      const [vjLoading,   setVjLoading]   = useState(false);
+      const [vjPreview,   setVjPreview]   = useState(null);
       var FIELD_ERROR_MAP = { owner:"オーナー名", plate:"ナンバー", model:"車種", date:"入庫日", type:"作業種目", receptionDate:"受付日", receptionist:"受付担当", isNew:"顧客区分" };
       var updateNj = function(updater) {
         setNj(function(prev) {
@@ -8184,6 +8187,7 @@ React.createElement('select', {
         editJob, setEditJob,
         ra, setRa,
         nj, setNj, updateNj,
+        vjListening, setVjListening, vjLoading, setVjLoading, vjPreview, setVjPreview,
         searchQuery, setSearchQuery,
         searchResults, setSearchResults,
         showSearchResults, setShowSearchResults,
@@ -8240,6 +8244,7 @@ React.createElement('select', {
         reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard,
         reAssign, setReAssign, editJob, setEditJob, ra, setRa,
         nj, setNj, updateNj,
+        vjListening, setVjListening, vjLoading, setVjLoading, vjPreview, setVjPreview,
         searchQuery, setSearchQuery, searchResults, setSearchResults,
         showSearchResults, setShowSearchResults, flashJobId, setFlashJobId,
         loanTomorrowTick,
@@ -9982,6 +9987,107 @@ React.createElement('select', {
                   , React.createElement('div', { style: { fontFamily:"'Orbitron',sans-serif", fontSize:13, color:"#3b82f6", letterSpacing:2 }}, "VEHICLE CHECK-IN" )
                   , React.createElement('button', { onClick: () => { setShowAdd(false); setAddError([]); }, style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18 }}, "✕")
                 )
+                /* [FIX-08] 音声入力ボタン＆確認パネル（Gemini API版） */
+                , (function(){
+                  var SRClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+                  if (!SRClass) return null;
+                  var VJ_FIELDS = [
+                    {key:"owner",      label:"オーナー名"},
+                    {key:"plate",      label:"ナンバー"},
+                    {key:"model",      label:"車種"},
+                    {key:"type",       label:"作業種別"},
+                    {key:"date",       label:"入庫日"},
+                    {key:"checkinTime",label:"入庫時間"},
+                    {key:"deliveryDate", label:"納車予定日"},
+                    {key:"deliveryTime", label:"納車時間"},
+                    {key:"mechanic",   label:"担当メカ"},
+                    {key:"memo",       label:"メモ"},
+                  ];
+                  var startVoice = function() {
+                    if (vjListening || vjLoading) return;
+                    var sr = new SRClass();
+                    sr.lang = 'ja-JP';
+                    sr.interimResults = false;
+                    sr.maxAlternatives = 1;
+                    setVjListening(true);
+                    sr.onresult = function(e) {
+                      var transcript = e.results[0][0].transcript;
+                      setVjListening(false);
+                      setVjLoading(true);
+                      var apiKey = (window.GEMINI_API_KEY) || localStorage.getItem('gemini_api_key') || '';
+                      if (!apiKey) {
+                        var k = prompt('Gemini APIキーを入力してください（次回から自動入力）:');
+                        if (!k) { setVjLoading(false); return; }
+                        localStorage.setItem('gemini_api_key', k);
+                        apiKey = k;
+                      }
+                      var today = new Date().toISOString().split('T')[0];
+                      var prompt_text = '自動車整備の入庫受付です。以下の発話から入庫情報を抽出し、JSONのみ返してください。前置き不要。\n今日: ' + today + '\n相対日付（明日・来週月曜等）はYYYY-MM-DD形式に変換。不明は空文字。\n作業種別はホリデー車検/一般車検/ユーザー車検/継続車検/新規車検/12ヶ月点検/6ヶ月点検/オイル交換/タイヤ交換/バッテリー交換/修理/その他から選択。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","mechanic":"","memo":""}';
+                      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt_text }] }] })
+                      }).then(function(r){ return r.json(); }).then(function(data) {
+                        setVjLoading(false);
+                        var text = '';
+                        try { text = data.candidates[0].content.parts[0].text; } catch(e2){}
+                        var m = text.match(/\{[\s\S]*\}/);
+                        if (!m) return;
+                        try {
+                          var parsed = JSON.parse(m[0]);
+                          var filled = {};
+                          VJ_FIELDS.forEach(function(f){
+                            if (parsed[f.key] && parsed[f.key].trim()) filled[f.key] = parsed[f.key].trim();
+                          });
+                          if (Object.keys(filled).length > 0) setVjPreview(filled);
+                        } catch(e3){}
+                      }).catch(function(){ setVjLoading(false); });
+                    };
+                    sr.onerror = function(){ setVjListening(false); };
+                    sr.onend   = function(){ setVjListening(false); };
+                    sr.start();
+                  };
+                  return React.createElement(React.Fragment, null,
+                    React.createElement('button', {
+                      onClick: startVoice,
+                      disabled: vjListening || vjLoading,
+                      style: { width:'100%', padding:'10px', marginBottom:14, borderRadius:8, cursor: vjListening||vjLoading?'default':'pointer',
+                        border:'1px solid ' + (vjListening?'#ef4444':vjLoading?'#f59e0b':'#334155'),
+                        background: vjListening?'#2a0a0a':vjLoading?'#1a1200':'#0d1625',
+                        color: vjListening?'#ef4444':vjLoading?'#f59e0b':'#94a3b8',
+                        fontSize:13, fontWeight:700, letterSpacing:1, transition:'all .2s' }
+                    }, vjListening ? '🔴 話してください…' : vjLoading ? '⏳ AI解析中…' : '🎤 まとめて音声入力'),
+                    vjPreview && React.createElement('div', {
+                      style: { background:'#0a1e14', border:'1px solid #22c55e', borderRadius:10, padding:'12px 16px', marginBottom:14 }
+                    },
+                      React.createElement('div', { style: { fontSize:11, color:'#22c55e', fontWeight:700, letterSpacing:1, marginBottom:8 }}, '✅ AI解析結果 — 確認してから反映'),
+                      Object.keys(vjPreview).map(function(k) {
+                        var label = (VJ_FIELDS.find(function(f){return f.key===k;})||{label:k}).label;
+                        return React.createElement('div', { key:k, style:{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }},
+                          React.createElement('div', { style:{ fontSize:11, color:'#64748b', width:80, flexShrink:0 }}, label),
+                          React.createElement('div', { style:{ fontSize:13, color:'#f1f5f9', flex:1, background:'#071810', borderRadius:5, padding:'3px 8px' }}, vjPreview[k]),
+                          React.createElement('button', { onClick: function(){
+                              var patch = {}; patch[k] = vjPreview[k];
+                              updateNj(function(p){ return Object.assign({}, p, patch); });
+                              setVjPreview(function(prev){ if(!prev) return null; var next=Object.assign({},prev); delete next[k]; return Object.keys(next).length>0?next:null; });
+                            }, style:{ fontSize:11, background:'#0e2444', border:'1px solid #3b82f6', color:'#3b82f6', borderRadius:5, padding:'2px 8px', cursor:'pointer' }}, '反映'),
+                          React.createElement('button', { onClick: function(){
+                              setVjPreview(function(prev){ if(!prev) return null; var next=Object.assign({},prev); delete next[k]; return Object.keys(next).length>0?next:null; });
+                            }, style:{ fontSize:11, background:'none', border:'1px solid #475569', color:'#475569', borderRadius:5, padding:'2px 6px', cursor:'pointer' }}, '✕')
+                        );
+                      }),
+                      React.createElement('div', { style:{ display:'flex', gap:8, marginTop:8 }},
+                        React.createElement('button', { onClick: function(){
+                            updateNj(function(p){ return Object.assign({}, p, vjPreview); });
+                            setVjPreview(null);
+                          }, style:{ flex:1, padding:'7px', borderRadius:7, background:'#0e2444', border:'1px solid #3b82f6', color:'#3b82f6', fontSize:12, fontWeight:700, cursor:'pointer' }}, '✅ すべて反映'),
+                        React.createElement('button', { onClick: function(){ setVjPreview(null); },
+                          style:{ padding:'7px 14px', borderRadius:7, background:'none', border:'1px solid #334155', color:'#475569', fontSize:12, cursor:'pointer' }}, 'キャンセル')
+                      )
+                    )
+                  );
+                })()
+                /* オーナー名・ナンバー・車種フィールド */
                 , [{key:"owner",label:"オーナー名",ph:"田中 太郎"},{key:"plate",label:"ナンバープレート",ph:"品川330あ1234"},{key:"model",label:"車種",ph:"トヨタ プリウス"}].map(f => (
                   React.createElement('div', { key: f.key, style: { marginBottom:12 }}
                     , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:5, letterSpacing:1, fontWeight:600 }}, f.label, React.createElement('span', { style: { color:"#ef4444", marginLeft:3, fontWeight:700 }}, "*"))
