@@ -1718,8 +1718,9 @@ react-dom/cjs/react-dom-client.production.js:
               parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
             );
             if (conflict.length > 0) {
-              setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
-              setTimeout(() => setDragOverlapMsg(null), 2000);
+              const cj = conflict[0];
+              setDragOverlapMsg("⚠ すでに予定が入っているため移動できません（" + (cj.owner||"") + "/" + (cj.plate||"") + " " + cj.status + " " + cj.workState + " stall:" + cj.stall + " " + cj.start + "-" + cj.end + "）→ 移動先stall:" + g.stall + " " + g.start + "-" + g.end);
+              setTimeout(() => setDragOverlapMsg(null), 8000);
             } else {
               setJobs(prev => prev.map(j => j.id===g.id ? {...j, stall:g.stall, start:g.start, end:g.end} : j));
               setSel(prev => _optionalChain([prev, 'optionalAccess', _7 => _7.id])===g.id ? {...prev, stall:g.stall, start:g.start, end:g.end} : prev);
