@@ -103,6 +103,11 @@
   修正: 返却済みバーのzIndexをreturned ? 1 : 2に変更
         返却済みバーのダブルクリック編集は重ならない部分で引き続き使用可能
 
+[BUG-13] 画面に表示されない札のストールに新規登録・ドラッグするとconflictと誤判定（2026-03-30）
+  原因: ドラッグ移動・新規登録のconflictチェックがSHELVE_ON_STATUS（部品待ち・一時中断等）を
+        除外していなかった。boardJobsでは非表示のジョブがjobsRef参照でhitしていた。
+  修正: ドラッグ移動・新規登録の2箇所に !SHELVE_STATUSES.has(j.status) を追加
+
 [BUG-12] BPボードで空のストールにドラッグするとブロックされる（2026-03-28）
   原因: conflictチェックがconfirmed:trueの車両を除外していなかった
   修正: ドラッグ移動・クリック新規登録・モーダル保存の3箇所に !j.confirmed を追加
@@ -1701,11 +1706,13 @@ react-dom/cjs/react-dom-client.production.js:
           if (!dragRef.current) return;
           const g = ghostRef.current;
           if (g) {
+            const SHELVE_STATUSES = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
             const conflict = jobsRef.current.filter(j =>
               j.id !== g.id &&
               !j.completed &&
               j.status !== "当日来店/預かり" &&
               j.workState !== "shelved" &&
+              !SHELVE_STATUSES.has(j.status) &&
               (j.displayDate || j.date) === boardDateRef.current &&
               j.stall === g.stall &&
               parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
@@ -7704,16 +7711,19 @@ React.createElement('select', {
         const isDuration1 = ["車検系","点検系"].includes((JT_GROUPS.find(g=>g.items.some(i=>i.key===nj.type))||{}).label);
         const newEnd    = nj.end && parseFloat(nj.end) > newStart ? parseFloat(nj.end) : newStart + (isDuration1 ? 1 : 2/3);
         const checkDate = nj.date || boardDate;
+        const ADD_SHELVE_STATUSES = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
         const conflict  = jobsRef.current.filter(j =>
           !j.completed &&
           j.status !== "当日来店/預かり" &&
           j.workState !== "shelved" &&
+          !ADD_SHELVE_STATUSES.has(j.status) &&
           (j.displayDate || j.date) === checkDate &&
           j.stall === nj.stall &&
           parseFloat(j.start) < newEnd && parseFloat(j.end) > newStart
         );
         if (conflict.length > 0) {
-          setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています`]);
+          const cj = conflict[0];
+          setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています（${cj.owner||""}/${cj.plate||""} ${cj.status} ${cj.workState}）`]);
           return;
         }
         // ── 休業ブロックチェック ──
