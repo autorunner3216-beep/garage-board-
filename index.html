@@ -108,15 +108,6 @@
   修正: ドラッグ移動・クリック新規登録・モーダル保存の3箇所に !j.confirmed を追加
 
 [FIX-07] BPモーダルのストール選択に空き状況を表示（2026-03-28）
-
-[BUG-13] BPボード車両登録で完了日＝入庫日の場合にストール重複を許可してしまう（2026-03-29）
-  原因: 空き判定 j.outDate > draft.inDate が厳密大なりのため同日を許可してしまう
-  修正: 全4箇所を j.outDate >= draft.inDate に変更（同日＝重複としてブロック）
-
-[FIX-08] 入庫登録フォームに音声入力機能を追加・Gemini API版（2026-03-29）
-  方式: Web Speech API（音声認識）→ Gemini 2.0 Flash API（フィールド振り分け）
-  APIキー: localStorage.getItem('gemini_api_key') から読み込み
-  機能: 発話→AI解析→確認パネル表示→各フィールドへ個別/一括反映
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -7203,7 +7194,7 @@ React.createElement('select', {
       // ── §A UI 表示状態（タブ・モーダル開閉・選択状態等）──
       const [tab,      setTab]     = useState("board");
       const [view,     setView]    = useState("gantt");
-      const [jobs,     setJobs]    = useState(INIT);
+      const [jobs,     setJobs]    = useState(() => window.loadFromDb('garage_board_jobs', INIT));
       const jobsRef = React.useRef(jobs);
       React.useEffect(() => { jobsRef.current = jobs; }, [jobs]);
       const [stalls,   setStalls]  = useState(() => window.loadFromDb('garage_stalls', INIT_STALLS));
@@ -7362,14 +7353,14 @@ React.createElement('select', {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true; setJobs(val);
             try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
-            setTimeout(() => { _fbIncoming.current = false; }, 50); }
+            setTimeout(() => { _fbIncoming.current = false; }, 500); }
         });
         window.fbOn('garage_stalls', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true;
             try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setStalls(val);
-            setTimeout(() => { _fbIncoming.current = false; }, 50);
+            setTimeout(() => { _fbIncoming.current = false; }, 500);
           }
         });
         window.fbOn('garage_blockdays', function(val) {
@@ -7780,11 +7771,15 @@ React.createElement('select', {
       }, []);
       const confirmReAssign = () => {
         const t = nowStr();
-        setJobs(p => p.map(j => j.id===reAssign.jobId ? {
-          ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
-          end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
-          workState:"idle", startedAt:null, endedAt:null, displayDate:undefined
-        } : j));
+        setJobs(p => {
+          const next = p.map(j => j.id===reAssign.jobId ? {
+            ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
+            end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
+            workState:"idle", startedAt:null, endedAt:null, displayDate:null
+          } : j);
+          try { localStorage.setItem('garage_board_jobs', JSON.stringify(next)); } catch(e) {}
+          return next;
+        });
         setReAssign(null);
       };
       const confirmStatusOnly = () => {
@@ -9974,7 +9969,7 @@ React.createElement('select', {
                   , React.createElement('div', { style: { fontFamily:"'Orbitron',sans-serif", fontSize:13, color:"#3b82f6", letterSpacing:2 }}, "VEHICLE CHECK-IN" )
                   , React.createElement('button', { onClick: () => { setShowAdd(false); setAddError([]); }, style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18 }}, "✕")
                 )
-                /* [FIX-08] 音声入力ボタン＆確認パネル（Gemini API版） */
+                /* [FIX-08] 音声入力（Gemini API版） */
                 , (function(){
                   var SRClass = window.SpeechRecognition || window.webkitSpeechRecognition;
                   if (!SRClass) return null;
