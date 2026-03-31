@@ -9988,6 +9988,45 @@ React.createElement('select', {
                     sr.onresult = function(e) {
                       var transcript = e.results[0][0].transcript;
                       setVjListening(false); setVjLoading(true);
+                      // [FIX-08] 作業種別キーワードマッチング
+                      var TYPE_MAP = [
+                        {keys:['ホリデー車検再入庫','ホリデー再入庫','再入庫'], val:'ホリデー車検/再入庫'},
+                        {keys:['はじめてくん','ホリデーはじめてくん'], val:'ホリデーはじめてくん'},
+                        {keys:['楽天車検','楽天','ホリデー楽天'], val:'ホリデー/楽天車検'},
+                        {keys:['ホリデー車検','ホリデー'], val:'ホリデー車検'},
+                        {keys:['車検後日整備','後日整備'], val:'車検後日整備'},
+                        {keys:['一般車検','いっぱん車検'], val:'一般車検'},
+                        {keys:['中古新規','ちゅうこしんき'], val:'中古新規'},
+                        {keys:['中古12検','中古12ヶ月','ちゅうこ12'], val:'中古12検'},
+                        {keys:['3ヶ月点検','3ヶ月','3か月点検','3か月'], val:'3ヶ月点検'},
+                        {keys:['6ヶ月点検','6ヶ月','6か月点検','6か月','半年点検'], val:'6ヶ月点検'},
+                        {keys:['12ヶ月点検','12ヶ月','12か月点検','12か月','年次点検','じゅうにかげつ','じゅうにかげつてんけん','じゅうにけん'], val:'12ヶ月点検'},
+                        {keys:['ジョイカル30','じょいかる30','じょいかるさんじゅう'], val:'ジョイカル30'},
+                        {keys:['ジョイカル24','じょいかる24','じょいかるにじゅうし'], val:'ジョイカル24'},
+                        {keys:['ジョイカル18','じょいかる18','じょいかるじゅうはち'], val:'ジョイカル18'},
+                        {keys:['ジョイカル12','じょいかる12','じょいかるじゅうに'], val:'ジョイカル12'},
+                        {keys:['ジョイカル6','じょいかる6','じょいかるろく'], val:'ジョイカル6'},
+                        {keys:['ジョイカル','じょいかる'], val:'ジョイカル12'},
+                        {keys:['新車6','しんしゃ6','しんしゃろく','しんしゃろっかげつてんけん'], val:'新車6'},
+                        {keys:['新車1','しんしゃ1','しんしゃいち','しんしゃいっかげつてんけん'], val:'新車1'},
+                        {keys:['10ポイント点検','10ポイント','てんぽいんと'], val:'10ポイント点検'},
+                        {keys:['オイル交換','オイル'], val:'オイル交換'},
+                        {keys:['一般整備B','いっぱん整備B','整備B'], val:'一般整備B'},
+                        {keys:['一般整備','いっぱん整備','整備'], val:'一般整備'},
+                        {keys:['故障診断','こしょう診断','診断'], val:'故障診断'},
+                        {keys:['用品取付','用品','ようひん'], val:'用品取付'},
+                        {keys:['納車前洗車','納車前','洗車'], val:'納車前/洗車'},
+                        {keys:['BP見積り','BP見積','ビーピー見積','ぴーぴー見積','板金見積','ビーピー','ぴーぴー'], val:'BP見積り'},
+                      ];
+                      var matchedType = '';
+                      for(var ti=0; ti<TYPE_MAP.length; ti++){
+                        for(var ki=0; ki<TYPE_MAP[ti].keys.length; ki++){
+                          if(transcript.indexOf(TYPE_MAP[ti].keys[ki]) >= 0){
+                            matchedType = TYPE_MAP[ti].val; break;
+                          }
+                        }
+                        if(matchedType) break;
+                      }
                       var apiKey = localStorage.getItem('openai_api_key') || '';
                       if (!apiKey) {
                         var k = prompt('OpenAI APIキーを入力してください（次回から自動入力）:');
@@ -9995,7 +10034,7 @@ React.createElement('select', {
                         localStorage.setItem('openai_api_key', k); apiKey = k;
                       }
                       var today = new Date().toISOString().split('T')[0];
-                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\n作業種別はホリデー車検/一般車検/ユーザー車検/継続車検/新規車検/12ヶ月点検/6ヶ月点検/オイル交換/タイヤ交換/バッテリー交換/修理/その他から選択。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","mechanic":"","memo":""}';
+                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/BP見積り\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","mechanic":"","memo":""}';
                       fetch('https://api.openai.com/v1/chat/completions', {
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
@@ -10007,6 +10046,7 @@ React.createElement('select', {
                         try{
                           var parsed=JSON.parse(m[0]); var filled={};
                           VJ_FIELDS.forEach(function(f){ if(parsed[f.key]&&parsed[f.key].trim()) filled[f.key]=parsed[f.key].trim(); });
+                          if(matchedType) filled['type'] = matchedType;
                           if(Object.keys(filled).length>0) setVjPreview(filled);
                         }catch(e3){}
                       }).catch(function(){setVjLoading(false);});
