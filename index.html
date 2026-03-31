@@ -1617,7 +1617,7 @@ react-dom/cjs/react-dom-client.production.js:
     };
 
     // ── ガントボード ──
-    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg, reserveCards, setReserveCards, setEditReserveCard }) {
+    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg, reserveCards, setReserveCards, setEditReserveCard, setEditRoleCard }) {
       const boardRef = useRef(null);
       const dragRef  = useRef(null);
       const panRef   = useRef(null); // {startX, scrollLeft}
@@ -2039,16 +2039,17 @@ react-dom/cjs/react-dom-client.production.js:
                             const rect = boardRef.current.getBoundingClientRect();
                             const cardLeft = LEFT_W + (card.start - 8) * CELL_W - boardRef.current.scrollLeft;
                             const grabOffsetX = e.clientX - (rect.left + cardLeft);
-                            roleCardDragRef.current={type:"move",cardId:card.id,startX:e.clientX,origCard:{...card},grabOffsetX};
+                            roleCardDragRef.current={type:"move",cardId:card.id,startX:e.clientX,origCard:{...card},grabOffsetX,moved:false};
                             document.body.classList.add("gantt-dragging"); },
+                            onClick: e => { e.stopPropagation(); var wasMoved = e.currentTarget._wasMoved; e.currentTarget._wasMoved=false; if (wasMoved) return; setEditRoleCard({...card}); },
+                            onMouseUp: e => { e.currentTarget._wasMoved = roleCardDragRef.current && roleCardDragRef.current.moved; },
                             style: { flex:1, display:"flex", alignItems:"center", justifyContent:"space-between",
                               padding:"0 3px", cursor:"grab", overflow:"hidden", minWidth:0 }}
-                            , React.createElement('span', { style: { fontSize:10, fontWeight:700, color:rt.color, whiteSpace:"nowrap",
-                              overflow:"hidden", textOverflow:"ellipsis", minWidth:0 }}
-                              , rt.label
-                              , w > 80 && React.createElement('span', { style: { fontSize:8, color:rt.color+"99", marginLeft:4 }}
-                                , String(Math.floor(card.start)).padStart(2,"0"), ":", String(Math.round((card.start%1)*60)).padStart(2,"0"), "〜", String(Math.floor(card.end)).padStart(2,"0"), ":", String(Math.round((card.end%1)*60)).padStart(2,"0")
+                            , React.createElement('div', { style: { display:"flex", flexDirection:"column", justifyContent:"center", minWidth:0, overflow:"hidden", flex:1 }}
+                              , React.createElement('span', { style: { fontSize:10, fontWeight:700, color:rt.color, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}
+                                , rt.label
                               )
+                              , card.note && React.createElement('span', { style: { fontSize:7, color:"#ffffff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", fontWeight:500, opacity:0.85 }}, "✏ ", card.note)
                             )
                             , React.createElement('span', { onMouseDown: e=>e.stopPropagation(), onClick: e=>{ e.stopPropagation(); setRoleCards(p=>p.filter(c2=>c2.id!==card.id)); },
                               style: { fontSize:13, fontWeight:900, color:"#ffffff", cursor:"pointer", flexShrink:0,
@@ -7544,6 +7545,7 @@ React.createElement('select', {
       }, [reserveCards, reserveCardsDate]);
       // フリー札の編集モーダル
       const [editReserveCard, setEditReserveCard] = useState(null); // {id, text}
+      const [editRoleCard,    setEditRoleCard]    = useState(null); // {id, type, note} ROLES札メモ編集
       const [reAssign, setReAssign] = useState(null);
       const [editJob, setEditJob] = useState(null);
       const [ra, setRa] = useState({ date:"", stall:"S01", start:"9", end:"11", status:"作業待ち" });
@@ -8165,7 +8167,7 @@ React.createElement('select', {
         endModal, setEndModal,
         roleCards, setRoleCards,
         roleCardsDate, setRoleCardsDate,
-        reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard,
+        reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard, editRoleCard, setEditRoleCard,
         reAssign, setReAssign,
         editJob, setEditJob,
         ra, setRa,
@@ -8225,7 +8227,7 @@ React.createElement('select', {
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset, resetMonthAt, setResetMonthAt,
         endModal, setEndModal, roleCards, setRoleCards, roleCardsDate, setRoleCardsDate,
-        reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard,
+        reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard, editRoleCard, setEditRoleCard,
         reAssign, setReAssign, editJob, setEditJob, ra, setRa,
         nj, setNj, updateNj,
         vjListening, setVjListening, vjLoading, setVjLoading, vjPreview, setVjPreview,
@@ -8862,7 +8864,7 @@ React.createElement('select', {
                   )
                 )
                 , view==="gantt"
-                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg, reserveCards: reserveCards, setReserveCards: setReserveCards, setEditReserveCard: setEditReserveCard})
+                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg, reserveCards: reserveCards, setReserveCards: setReserveCards, setEditReserveCard: setEditReserveCard, setEditRoleCard: setEditRoleCard})
                   : React.createElement(CardView, { jobs: boardJobs})
             ) /* tab===board外div閉じ */
             ) /* tab===board && 閉じ */
@@ -10445,6 +10447,40 @@ React.createElement('select', {
               )
             )
           )
+          , editRoleCard && React.createElement('div', { onClick: () => setEditRoleCard(null),
+              style: { position:"fixed", inset:0, background:"rgba(0,0,0,.75)",
+                display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
+              , React.createElement('div', { onClick: e => e.stopPropagation(),
+                style: { background:"#0d1625", border:"1px solid " + ((ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color) + "88", borderRadius:16,
+                  padding:28, width:400, boxShadow:"0 24px 64px " + ((ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color) + "33" }}
+                , React.createElement('div', { style: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}
+                  , React.createElement('div', { style: { fontFamily:"'Orbitron',sans-serif", fontSize:13, color:(ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color, letterSpacing:2 }}, (ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{label:editRoleCard.type}).label)
+                  , React.createElement('button', { onClick: () => setEditRoleCard(null),
+                    style: { background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:18 }}, "✕")
+                )
+                , React.createElement('div', { style: { fontSize:12, color:"#94a3b8", marginBottom:8, letterSpacing:1, fontWeight:600 }}, "メモ（任意）")
+                , React.createElement('input', { value: editRoleCard.note || "",
+                  onChange: e => setEditRoleCard(p => ({...p, note: e.target.value})),
+                  placeholder: "例：山田さん担当",
+                  autoFocus: true,
+                  onKeyDown: e => {
+                    if (e.key === "Enter") { setRoleCards(p => p.map(c => c.id === editRoleCard.id ? {...c, note: editRoleCard.note} : c)); setEditRoleCard(null); }
+                    if (e.key === "Escape") setEditRoleCard(null);
+                  },
+                  style: { width:"100%", background:"#0d1625", border:"1px solid " + ((ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color) + "88",
+                    borderRadius:8, padding:"10px 12px", color:"#f1f5f9", fontSize:13,
+                    outline:"none", boxSizing:"border-box", marginBottom:20 }})
+                , React.createElement('div', { style: { display:"flex", gap:10 }}
+                  , React.createElement('button', { onClick: () => { setRoleCards(p => p.map(c => c.id === editRoleCard.id ? {...c, note: editRoleCard.note} : c)); setEditRoleCard(null); },
+                    style: { flex:1, background:"linear-gradient(135deg," + ((ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color) + "cc," + ((ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color) + "99)", border:"none",
+                      borderRadius:10, color:"#fff", padding:12, fontSize:13, fontWeight:700,
+                      cursor:"pointer", boxShadow:"0 0 16px " + ((ROLE_TYPES.find(r=>r.key===editRoleCard.type)||{color:"#3b82f6"}).color) + "44" }}, "保存")
+                  , React.createElement('button', { onClick: () => { setRoleCards(p => p.map(c => c.id === editRoleCard.id ? {...c, note: ""} : c)); setEditRoleCard(null); },
+                    style: { background:"#1e293b", border:"1px solid #33415566", borderRadius:10,
+                      color:"#94a3b8", padding:12, fontSize:13, fontWeight:700, cursor:"pointer" }}, "メモ削除")
+                )
+              )
+            )
           , showStallEdit && (
             React.createElement('div', { style: { position:"fixed", inset:0, background:"rgba(0,0,0,.82)",
               display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}
