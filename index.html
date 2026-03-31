@@ -9994,11 +9994,21 @@ React.createElement('select', {
                   var startVoice = function() {
                     if (vjListening || vjLoading) return;
                     var sr = new SRClass();
-                    sr.lang = 'ja-JP'; sr.interimResults = false; sr.maxAlternatives = 1;
+                    sr.lang = 'ja-JP'; sr.interimResults = false; sr.maxAlternatives = 1; sr.continuous = true;
                     setVjListening(true);
-                    sr.onresult = function(e) {
-                      var transcript = e.results[0][0].transcript;
+                    var _vrTranscript = '';
+                    var _vrTimer = null;
+                    var processTranscript = function(transcript) {
+                      sr.stop();
                       setVjListening(false); setVjLoading(true);
+                      // スタッフ名よみがな正規化（音声誤変換を正しい漢字に置換してからAIへ渡す）
+                      var STAFF_YOMI_MAP = [
+                        {keys:['けんもつ','剣持','剣もつ'], val:'剱持'},
+                        {keys:['むとう','無党','無糖','無頭','夢都'], val:'武藤（専）'},
+                      ];
+                      STAFF_YOMI_MAP.forEach(function(m){
+                        m.keys.forEach(function(k){ transcript = transcript.split(k).join(m.val); });
+                      });
                       // [FIX-08] 作業種別キーワードマッチング
                       var TYPE_MAP = [
                         {keys:['ホリデー車検再入庫','ホリデー再入庫','再入庫'], val:'ホリデー車検/再入庫'},
@@ -10049,7 +10059,12 @@ React.createElement('select', {
                         localStorage.setItem('openai_api_key', k); apiKey = k;
                       }
                       var today = new Date().toISOString().split('T')[0];
-                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/預夏/預冬/持夏/持冬/BP見積り\nreceptionist=受付担当者、mechanic=担当メカ（整備士）。「受付は〇〇」ならreceptionist、「メカは〇〇」ならmechanic。\nisNew=顧客区分。「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
+                      var _receptStaff = []; var _mechStaff = [];
+                      try { _receptStaff = JSON.parse(localStorage.getItem('garage_recept') || '[]'); } catch(e){}
+                      try { _mechStaff  = JSON.parse(localStorage.getItem('garage_mech')   || '[]'); } catch(e){}
+                      var _receptNames = _receptStaff.map(function(s){ return typeof s==='string'?s:(s.name||''); }).filter(Boolean).join('/');
+                      var _mechNames   = _mechStaff.map(function(s){ return typeof s==='string'?s:(s.name||''); }).filter(Boolean).join('/');
+                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。ナンバープレートには数字・ひらがな・地名のみ含まれ、NやRなどのアルファベットの車種略称は含まれない。発話にアルファベットの車種名らしき単語（例：NX・RX・CR-V・GR・AMG等）が含まれる場合はmodelに入れ、plateには入れないこと。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/預夏/預冬/持夏/持冬/BP見積り\nタイヤ履き替えの読み仮名（あずなつ・あずふゆ・あずかりなつ・あずかりふゆ・もちなつ・もちふゆ・もちこみなつ・もちこみふゆ）はmemoに入れないこと。\nreceptionist=受付担当者。登録済み受付スタッフリスト:' + (_receptNames||'未登録') + '。mechanic=担当メカ。登録済みメカスタッフリスト:' + (_mechNames||'未登録') + '。音が最も近いリスト内の名前を選択。リストにない名前は絶対に空文字にすること。難読名の読み仮名ヒント：剱持＝ケンモツ、武藤（専）＝むとう。「受付は〇〇」ならreceptionist、「メカは〇〇」ならmechanic。\nisNew=顧客区分。「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
                       fetch('https://api.openai.com/v1/chat/completions', {
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
@@ -10065,6 +10080,12 @@ React.createElement('select', {
                           if(Object.keys(filled).length>0) setVjPreview(filled);
                         }catch(e3){}
                       }).catch(function(){setVjLoading(false);});
+                    };
+                    sr.onresult = function(e) {
+                      var last = e.results[e.results.length - 1];
+                      _vrTranscript += last[0].transcript;
+                      if (_vrTimer) clearTimeout(_vrTimer);
+                      _vrTimer = setTimeout(function(){ processTranscript(_vrTranscript); }, 2000);
                     };
                     sr.onerror=function(){setVjListening(false);}; sr.onend=function(){setVjListening(false);}; sr.start();
                   };
@@ -10131,7 +10152,7 @@ React.createElement('select', {
                         var label=(VJ_FIELDS.find(function(f){return f.key===k;})||{label:k}).label;
                         return React.createElement('div',{key:k,style:{display:'flex',alignItems:'center',gap:8,marginBottom:5}},
                           React.createElement('div',{style:{fontSize:11,color:'#64748b',width:80,flexShrink:0}},label),
-                          React.createElement('div',{style:{fontSize:13,color:'#f1f5f9',flex:1,background:'#071810',borderRadius:5,padding:'3px 8px'}},vjPreview[k]),
+                          React.createElement('div',{style:{fontSize:13,color:'#f1f5f9',flex:1,background:'#071810',borderRadius:5,padding:'3px 8px'}},k==='isNew'?({'existing':'既存客','new':'新規客','newcar':'車両のみ新規'}[vjPreview[k]]||vjPreview[k]):vjPreview[k]),
                           React.createElement('button',{onClick:function(){
                             var patch={}; patch[k]=vjPreview[k];
                             updateNj(function(p){return Object.assign({},p,patch);});
