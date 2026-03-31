@@ -715,6 +715,12 @@ react-dom/cjs/react-dom-client.production.js:
         {key:"一般整備B",         badge:"#eab308",short:"整備B"},
         {key:"納車前/洗車",       badge:"#06b6d4",short:"洗車"},
       ]},
+      { label:"タイヤ履き替え系", items:[
+        {key:"預夏",  badge:"#a855f7",short:"預夏"},
+        {key:"預冬",  badge:"#a855f7",short:"預冬"},
+        {key:"持夏",  badge:"#e2e8f0",short:"持夏"},
+        {key:"持冬",  badge:"#e2e8f0",short:"持冬"},
+      ]},
       { label:"鈑金系", items:[
         {key:"BP見積り",           badge:"#eab308",short:"BP見積"},
       ]},
@@ -10021,6 +10027,10 @@ React.createElement('select', {
                         {keys:['故障診断','こしょう診断','診断'], val:'故障診断'},
                         {keys:['用品取付','用品','ようひん'], val:'用品取付'},
                         {keys:['納車前洗車','納車前','洗車'], val:'納車前/洗車'},
+                        {keys:['あずなつ','あずかりなつ','預夏'], val:'預夏'},
+                        {keys:['あずふゆ','あずかりふゆ','預冬'], val:'預冬'},
+                        {keys:['もちなつ','もちこみなつ','持夏'], val:'持夏'},
+                        {keys:['もちふゆ','もちこみふゆ','持冬'], val:'持冬'},
                         {keys:['BP見積り','BP見積','ビーピー見積','ぴーぴー見積','板金見積','ビーピー','ぴーぴー'], val:'BP見積り'},
                       ];
                       var matchedType = '';
@@ -10039,7 +10049,7 @@ React.createElement('select', {
                         localStorage.setItem('openai_api_key', k); apiKey = k;
                       }
                       var today = new Date().toISOString().split('T')[0];
-                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/BP見積り\nreceptionist=受付担当者、mechanic=担当メカ（整備士）。「受付は〇〇」ならreceptionist、「メカは〇〇」ならmechanic。\nisNew=顧客区分。「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
+                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/預夏/預冬/持夏/持冬/BP見積り\nreceptionist=受付担当者、mechanic=担当メカ（整備士）。「受付は〇〇」ならreceptionist、「メカは〇〇」ならmechanic。\nisNew=顧客区分。「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
                       fetch('https://api.openai.com/v1/chat/completions', {
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
