@@ -7552,6 +7552,7 @@ React.createElement('select', {
       const [vjListening, setVjListening] = useState(false);
       const [vjLoading,   setVjLoading]   = useState(false);
       const [vjPreview,   setVjPreview]   = useState(null);
+      const [vjGuide,     setVjGuide]     = useState(false);
       var FIELD_ERROR_MAP = { owner:"オーナー名", plate:"ナンバー", model:"車種", date:"入庫日", type:"作業種目", receptionDate:"受付日", receptionist:"受付担当", isNew:"顧客区分" };
       var updateNj = function(updater) {
         setNj(function(prev) {
@@ -8170,6 +8171,7 @@ React.createElement('select', {
         ra, setRa,
         nj, setNj, updateNj,
         vjListening, setVjListening, vjLoading, setVjLoading, vjPreview, setVjPreview,
+        vjGuide, setVjGuide,
         searchQuery, setSearchQuery,
         searchResults, setSearchResults,
         showSearchResults, setShowSearchResults,
@@ -8227,6 +8229,7 @@ React.createElement('select', {
         reAssign, setReAssign, editJob, setEditJob, ra, setRa,
         nj, setNj, updateNj,
         vjListening, setVjListening, vjLoading, setVjLoading, vjPreview, setVjPreview,
+        vjGuide, setVjGuide,
         searchQuery, setSearchQuery, searchResults, setSearchResults,
         showSearchResults, setShowSearchResults, flashJobId, setFlashJobId,
         loanTomorrowTick,
@@ -10054,14 +10057,62 @@ React.createElement('select', {
                     sr.onerror=function(){setVjListening(false);}; sr.onend=function(){setVjListening(false);}; sr.start();
                   };
                   return React.createElement(React.Fragment, null,
-                    React.createElement('button',{
-                      onClick:startVoice, disabled:vjListening||vjLoading,
-                      style:{width:'100%',padding:'10px',marginBottom:14,borderRadius:8,cursor:vjListening||vjLoading?'default':'pointer',
-                        border:'1px solid '+(vjListening?'#ef4444':vjLoading?'#f59e0b':'#334155'),
-                        background:vjListening?'#2a0a0a':vjLoading?'#1a1200':'#0d1625',
-                        color:vjListening?'#ef4444':vjLoading?'#f59e0b':'#94a3b8',
-                        fontSize:13,fontWeight:700,letterSpacing:1,transition:'all .2s'}
-                    }, vjListening?'🔴 話してください…':vjLoading?'⏳ AI解析中…':'🎤 まとめて音声入力'),
+                    React.createElement('div',{style:{display:'flex',gap:6,marginBottom:10}},
+                      React.createElement('button',{
+                        onClick:startVoice, disabled:vjListening||vjLoading,
+                        style:{flex:1,padding:'7px 6px',borderRadius:8,cursor:vjListening||vjLoading?'default':'pointer',
+                          border:'1px solid '+(vjListening?'#ef4444':vjLoading?'#f59e0b':'#16a34a'),
+                          background:vjListening?'#2a0a0a':vjLoading?'#1a1200':'#052e16',
+                          color:vjListening?'#ef4444':vjLoading?'#f59e0b':'#4ade80',
+                          display:'flex',flexDirection:'column',alignItems:'center',gap:2,
+                          boxShadow:vjListening?'0 0 8px rgba(239,68,68,.3)':vjLoading?'0 0 8px rgba(245,158,11,.3)':'0 0 8px rgba(22,163,74,.2)',
+                          transition:'all .2s'}
+                      },
+                        React.createElement('span',{style:{fontSize:16,lineHeight:1}}, vjListening?'🔴':vjLoading?'⏳':'🎤'),
+                        React.createElement('span',{style:{fontSize:9,fontWeight:700,letterSpacing:0.5}}, vjListening?'話してください…':vjLoading?'AI解析中…':'まとめて音声入力')
+                      ),
+                      React.createElement('button',{
+                        onClick:function(){setVjGuide(function(v){return !v;});},
+                        style:{flex:1,padding:'7px 6px',borderRadius:8,cursor:'pointer',
+                          border:'1px solid '+(vjGuide?'#f59e0b':'#334155'),
+                          background:vjGuide?'#1a1200':'#0d1625',
+                          color:vjGuide?'#f59e0b':'#64748b',
+                          display:'flex',flexDirection:'column',alignItems:'center',gap:2,
+                          transition:'all .2s'}
+                      },
+                        React.createElement('span',{style:{fontSize:16,lineHeight:1}},'📖'),
+                        React.createElement('span',{style:{fontSize:9,fontWeight:700,letterSpacing:0.5}}, vjGuide?'ガイドを閉じる':'話し方ガイド')
+                      )
+                    ),
+                    vjGuide && React.createElement('div',{style:{
+                      position:'fixed',top:80,right:20,width:300,maxHeight:'80vh',overflowY:'auto',
+                      background:'#0a1020',border:'1px solid #f59e0b',borderRadius:12,
+                      padding:'16px',zIndex:9999,boxShadow:'0 4px 24px rgba(0,0,0,.6)'
+                    }},
+                      React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
+                        React.createElement('div',{style:{fontSize:13,color:'#f59e0b',fontWeight:700,letterSpacing:1}},'🎤 音声入力ガイド'),
+                        React.createElement('button',{onClick:function(){setVjGuide(false);},style:{background:'none',border:'none',color:'#475569',cursor:'pointer',fontSize:16}},'✕')
+                      ),
+                      React.createElement('div',{style:{fontSize:11,color:'#94a3b8',marginBottom:12,lineHeight:1.6,background:'#0d1625',borderRadius:8,padding:'10px'}},
+                        '例：「田中様、プリウス、品川330あ1234、ホリデー車検、明日入庫、受付は山田、メカは鈴木、新規客」'
+                      ),
+                      [['オーナー名','田中様 / 田中さん'],
+                       ['車種','プリウス / アルファード'],
+                       ['ナンバー','品川330あ1234（下4桁だけでもOK）'],
+                       ['作業種別','ホリデー車検 / 12ヶ月 / オイル（略称OK）'],
+                       ['入庫日','明日 / 4月5日 / 来週月曜'],
+                       ['入庫時間','9時 / 午前10時'],
+                       ['納車予定日','明後日 / 4月6日'],
+                       ['受付担当者','受付は山田'],
+                       ['担当メカ','メカは鈴木'],
+                       ['顧客区分','新規客 / 既存 / 車両新規'],
+                       ['メモ','〇〇とメモ']].map(function(row){
+                        return React.createElement('div',{key:row[0],style:{display:'flex',gap:8,marginBottom:6,alignItems:'flex-start'}},
+                          React.createElement('div',{style:{fontSize:10,color:'#3b82f6',fontWeight:700,width:80,flexShrink:0,paddingTop:1}},row[0]),
+                          React.createElement('div',{style:{fontSize:11,color:'#cbd5e1',flex:1,lineHeight:1.5}},row[1])
+                        );
+                      })
+                    ),
                     vjPreview && React.createElement('div',{style:{background:'#0a1e14',border:'1px solid #22c55e',borderRadius:10,padding:'12px 16px',marginBottom:14}},
                       React.createElement('div',{style:{fontSize:11,color:'#22c55e',fontWeight:700,letterSpacing:1,marginBottom:8}},'✅ AI解析結果 — 確認してから反映'),
                       Object.keys(vjPreview).map(function(k){
