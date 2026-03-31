@@ -9978,7 +9978,7 @@ React.createElement('select', {
                     {key:"model",label:"車種"},{key:"type",label:"作業種別"},
                     {key:"date",label:"入庫日"},{key:"checkinTime",label:"入庫時間"},
                     {key:"deliveryDate",label:"納車予定日"},{key:"deliveryTime",label:"納車時間"},
-                    {key:"mechanic",label:"担当メカ"},{key:"memo",label:"メモ"},
+                    {key:"receptionist",label:"受付担当者"},{key:"mechanic",label:"担当メカ"},{key:"isNew",label:"顧客区分"},{key:"memo",label:"メモ"},
                   ];
                   var startVoice = function() {
                     if (vjListening || vjLoading) return;
@@ -10034,7 +10034,7 @@ React.createElement('select', {
                         localStorage.setItem('openai_api_key', k); apiKey = k;
                       }
                       var today = new Date().toISOString().split('T')[0];
-                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/BP見積り\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","mechanic":"","memo":""}';
+                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\nナンバープレート（plate）は半角英数字で出力。漢数字は半角数字に変換。\n作業種別は以下のリストから最も近いものを選択。リスト外なら空文字にする。リスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/BP見積り\nreceptionist=受付担当者、mechanic=担当メカ（整備士）。「受付は〇〇」ならreceptionist、「メカは〇〇」ならmechanic。\nisNew=顧客区分。「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
                       fetch('https://api.openai.com/v1/chat/completions', {
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
