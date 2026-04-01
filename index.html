@@ -71,6 +71,13 @@
   修正: ジョブ削除処理を完全除去。カウンターリセット（garage_reset_month_at更新）のみに変更
         確認ダイアログのメッセージを「カウンターのみリセット・データ削除なし」に変更
 
+[BUG-14] 当日入庫・当日納車のジョブが事前日から納期アラートに表示される
+  原因: アラートフィルタが納期日のdiff<=3のみで判定しており、
+        入庫日と納期日が同じ日（当日完結）のジョブも前日以前からカウントされていた
+  修正: バッジ・パネル両方のfilterに条件を追加
+        「入庫日(checkinDate||date) === deliveryDate かつ deliveryDate > TODAY_STR」
+        の場合はアラート対象外とし、当日になって初めて表示されるようにした
+
 [BUG-13] 納期アラートパネルにジョブが表示されない（繰り返し発生）
   原因: バッジのカウントはdiff<=3（3日以内）でフィルタリングしているのに対し、
         パネル表示側はdiff<=1（1日以内）でフィルタリングしており条件が不一致だった
@@ -8760,7 +8767,11 @@ React.createElement('select', {
                     var alertJobs = jobs.filter(function(j){
                       if(!j.deliveryDate || j.completed) return false;
                       var diff = Math.round((new Date(j.deliveryDate+"T00:00:00") - new Date(TODAY_STR+"T00:00:00")) / 86400000);
-                      return diff <= 3;
+                      if(diff > 3) return false;
+                      // 当日入庫・当日納車のジョブは当日のみ表示
+                      var jobDate = j.checkinDate || j.date || "";
+                      if(jobDate === j.deliveryDate && j.deliveryDate > TODAY_STR) return false;
+                      return true;
                     });
                     var overdue = alertJobs.filter(function(j){ return j.deliveryDate < TODAY_STR; }).length;
                     var today   = alertJobs.filter(function(j){ return j.deliveryDate === TODAY_STR; }).length;
@@ -9617,7 +9628,11 @@ React.createElement('select', {
             var alertJobs = jobs.filter(function(j){
               if(!j.deliveryDate || j.completed) return false;
               var diff = Math.round((new Date(j.deliveryDate+"T00:00:00") - new Date(TODAY_STR+"T00:00:00")) / 86400000);
-              return diff <= 3;
+              if(diff > 3) return false;
+              // 当日入庫・当日納車のジョブは当日のみ表示
+              var jobDate = j.checkinDate || j.date || "";
+              if(jobDate === j.deliveryDate && j.deliveryDate > TODAY_STR) return false;
+              return true;
             }).sort(function(a,b){ return (a.deliveryDate||"") > (b.deliveryDate||"") ? 1 : -1; });
             var overdue = alertJobs.filter(function(j){ return j.deliveryDate < TODAY_STR; });
             var today   = alertJobs.filter(function(j){ return j.deliveryDate === TODAY_STR; });
