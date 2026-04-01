@@ -84,6 +84,7 @@ const db = firebase.database();
 function setTomorrow(){const t=new Date();t.setDate(t.getDate()+1);document.getElementById('targetDate').value=t.toISOString().slice(0,10);}
 function getWorkType(t){if(!t)return'その他';if(t.includes('車検'))return'車検';if(t.includes('点検'))return'点検';if(t.includes('BP')||t.includes('板金')||t.includes('塗装'))return'BP';if(t.includes('整備')||t.includes('修理')||t.includes('交換'))return'整備';return'その他';}
 function fmtTime(h){if(h==null)return'--:--';const hh=Math.floor(h),mm=Math.round((h-hh)*60);return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}
+function cleanName(n){return(n||'').replace(/[\(（]新規[\)）]/g,'').replace(/新規/g,'').trim();}
 
 // ══ 季節テーマ定義 ══
 const THEMES = {
@@ -274,7 +275,7 @@ function buildPage(pageJobs, period, dateStr, pageIdx, totalPages, month) {
         <td style="padding:3.5mm 4mm;white-space:nowrap"><div style="display:flex;align-items:baseline;gap:3mm"><span style="font-size:14pt;font-weight:700;color:#475569;letter-spacing:1px">ご来店時間：</span><span style="font-family:'Montserrat',sans-serif;font-size:26pt;font-weight:900;color:#0f172a;line-height:1">${fmtTime(job.start)}</span></div></td>
         <td style="padding:3mm 4mm;position:relative;width:99%;text-align:center">
           <div style="font-family:'Noto Serif JP',serif;font-size:28pt;font-weight:700;color:#0f172a;line-height:1.2;display:inline-flex;align-items:baseline;gap:4mm">
-            <span style="font-size:28pt;font-weight:700;color:#475569;letter-spacing:2px">お客様名：</span><span>${job.owner||job.plate||'—'}</span>&nbsp;<span style="font-size:18pt;color:#94a3b8;font-weight:400">様</span>${bpBadge}
+            <span style="font-size:28pt;font-weight:700;color:#475569;letter-spacing:2px">お客様名：</span><span>${cleanName(job.owner)||cleanName(job.plate)||'—'}</span>&nbsp;<span style="font-size:18pt;color:#94a3b8;font-weight:400">様</span>${bpBadge}
           </div>
           ${theme.rowDeco()}
         </td>
