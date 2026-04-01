@@ -321,7 +321,7 @@ function loadAndGenerate(){
     }
 
     const regularJobs = allJobsRaw
-      .filter(j=>j&&!j.completed&&(j.date===date||j.displayDate===date))
+      .filter(j=>j&&!j.completed&&(j.date===date||j.displayDate===date)&&!['中古新規','中古12検','納車前/洗車'].includes(j.type))
       .map(j=>({...j, _source:'board'}));
 
     const bpRaw = bpSnap.val();
