@@ -268,9 +268,7 @@ function buildPage(pageJobs, period, dateStr, pageIdx, totalPages, month) {
       const rowBg=theme.rowStyle(idx);
       const tr=document.createElement('tr');
       tr.style.cssText=`border-bottom:1px solid rgba(0,0,0,0.06);position:relative;${rowBg}`;
-      const bpBadge = job._source==='bp'
-        ? `<span style="font-size:9pt;background:#f3e8ff;color:#9333ea;border:1px solid #d8b4fe;border-radius:6px;padding:1mm 3mm;margin-left:3mm;font-weight:700">BP</span>`
-        : '';
+      const bpBadge = '';
       tr.innerHTML=`
         <td style="padding:3.5mm 4mm;white-space:nowrap"><div style="display:flex;align-items:baseline;gap:3mm"><span style="font-size:14pt;font-weight:700;color:#475569;letter-spacing:1px">ご来店時間：</span><span style="font-family:'Montserrat',sans-serif;font-size:26pt;font-weight:900;color:#0f172a;line-height:1">${fmtTime(job.start)}</span></div></td>
         <td style="padding:3mm 4mm;position:relative;width:99%;text-align:center">
