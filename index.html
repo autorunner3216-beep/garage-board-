@@ -71,6 +71,14 @@
   修正: ジョブ削除処理を完全除去。カウンターリセット（garage_reset_month_at更新）のみに変更
         確認ダイアログのメッセージを「カウンターのみリセット・データ削除なし」に変更
 
+[BUG-13] 納期アラートパネルにジョブが表示されない（繰り返し発生）
+  原因: バッジのカウントはdiff<=3（3日以内）でフィルタリングしているのに対し、
+        パネル表示側はdiff<=1（1日以内）でフィルタリングしており条件が不一致だった
+        バッジに件数が出てもパネルを開くと「納期が近いジョブはありません」と表示される
+  修正: パネル側のフィルタ条件をdiff<=3に統一
+        「明日」ラベルを「3日以内」に変更（alertCard・ヘッダーバッジ・リスト見出し）
+  備考: 同じバグが過去にも発生・修正されているため再発注意
+
 [FIX-01] 予約ログ(garage_today_log)のFirebase同期がオブジェクト形式を無視していた（2026-03-27）
   原因: fbOn受信時にArray.isArray(val)チェックのみで、
         Firebaseインポート後はオブジェクト形式になり受信されなかった
@@ -9609,14 +9617,14 @@ React.createElement('select', {
             var alertJobs = jobs.filter(function(j){
               if(!j.deliveryDate || j.completed) return false;
               var diff = Math.round((new Date(j.deliveryDate+"T00:00:00") - new Date(TODAY_STR+"T00:00:00")) / 86400000);
-              return diff <= 1;
+              return diff <= 3;
             }).sort(function(a,b){ return (a.deliveryDate||"") > (b.deliveryDate||"") ? 1 : -1; });
             var overdue = alertJobs.filter(function(j){ return j.deliveryDate < TODAY_STR; });
             var today   = alertJobs.filter(function(j){ return j.deliveryDate === TODAY_STR; });
             var tmrw    = alertJobs.filter(function(j){ return j.deliveryDate > TODAY_STR; });
             function alertCard(j, level) {
               var col = level==="overdue" ? "#ef4444" : level==="today" ? "#f97316" : "#eab308";
-              var label = level==="overdue" ? "期限切れ" : level==="today" ? "本日納期" : "明日納期";
+              var label = level==="overdue" ? "期限切れ" : level==="today" ? "本日納期" : "3日以内納期";
               var labelBg = level==="overdue" ? "#450a0a" : level==="today" ? "#431407" : "#3b2a00";
               return React.createElement('div', { key:j.id,
                 onDoubleClick: function(){ setEditJob(j); },
@@ -9664,7 +9672,7 @@ React.createElement('select', {
                 React.createElement('div', { style:{ display:"flex", gap:5 }},
                   overdue.length>0 && React.createElement('span', { style:{ fontSize:9, color:"#fff", background:"#ef4444", borderRadius:10, padding:"1px 8px", fontWeight:700 }}, "期限切れ "+overdue.length),
                   today.length>0  && React.createElement('span', { style:{ fontSize:9, color:"#fff", background:"#f97316", borderRadius:10, padding:"1px 8px", fontWeight:700 }}, "本日 "+today.length),
-                  tmrw.length>0   && React.createElement('span', { style:{ fontSize:9, color:"#1a1000", background:"#eab308", borderRadius:10, padding:"1px 8px", fontWeight:700 }}, "明日 "+tmrw.length)
+                  tmrw.length>0   && React.createElement('span', { style:{ fontSize:9, color:"#1a1000", background:"#eab308", borderRadius:10, padding:"1px 8px", fontWeight:700 }}, "3日以内 "+tmrw.length)
                 )
               ),
               /* リスト */
@@ -9676,7 +9684,7 @@ React.createElement('select', {
                     ...overdue.map(function(j){ return alertCard(j,"overdue"); }),
                     today.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#f97316", fontWeight:800, letterSpacing:2, marginBottom:4, marginTop:overdue.length?8:0 }}, "▼ 本日納期"),
                     ...today.map(function(j){ return alertCard(j,"today"); }),
-                    tmrw.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#eab308", fontWeight:800, letterSpacing:2, marginBottom:4, marginTop:(overdue.length||today.length)?8:0 }}, "▼ 明日納期"),
+                    tmrw.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#eab308", fontWeight:800, letterSpacing:2, marginBottom:4, marginTop:(overdue.length||today.length)?8:0 }}, "▼ 3日以内納期"),
                     ...tmrw.map(function(j){ return alertCard(j,"tmrw"); })
                   )
               )
