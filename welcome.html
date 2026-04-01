@@ -4,60 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ウェルカムボード生成</title>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Montserrat:wght@700;900&family=Noto+Serif+JP:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&family=Noto+Sans+JP:wght@700;900&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
-  :root { --bg:#0a0e1a; --card:#111827; --border:#1e293b; --text:#e2e8f0; --sub:#64748b; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--bg); color:var(--text); font-family:'Zen Kaku Gothic New',sans-serif; min-height:100vh; padding:24px; }
-  h1 { font-family:'Montserrat',sans-serif; font-size:22px; font-weight:900; letter-spacing:3px; background:linear-gradient(90deg,#f43f5e,#8b5cf6,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:4px; }
-  .sub-title { font-size:12px; color:var(--sub); letter-spacing:2px; margin-bottom:20px; }
+  body { background:#1e293b; color:#e2e8f0; font-family:'Noto Sans JP',sans-serif; min-height:100vh; padding:24px; }
+  h1 { font-size:20px; font-weight:900; color:#fff; margin-bottom:4px; }
+  .sub-title { font-size:11px; color:#64748b; letter-spacing:2px; margin-bottom:20px; }
   .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
-  .date-input { background:var(--card); border:1px solid var(--border); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; font-family:inherit; }
-  .btn { padding:10px 20px; border-radius:8px; border:none; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; letter-spacing:1px; }
-  .btn-primary { background:linear-gradient(135deg,#f43f5e,#8b5cf6); color:#fff; }
-  .btn-primary:hover { opacity:.85; transform:translateY(-1px); }
-  .btn-print { background:linear-gradient(135deg,#06b6d4,#10b981); color:#fff; }
-  .btn-secondary { background:var(--card); border:1px solid var(--border); color:var(--text); }
-  .btn-secondary:hover { border-color:#06b6d4; color:#06b6d4; }
-  .status { font-size:12px; color:var(--sub); padding:8px 0; }
+  .date-input { background:#0f172a; border:1px solid #334155; color:#e2e8f0; padding:10px 16px; border-radius:8px; font-size:14px; font-family:inherit; }
+  .btn { padding:10px 20px; border-radius:8px; border:none; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; }
+  .btn-primary { background:#f43f5e; color:#fff; }
+  .btn-print { background:#10b981; color:#fff; }
+  .btn-secondary { background:#334155; color:#e2e8f0; }
+  .status { font-size:12px; color:#64748b; padding:8px 0; }
   .status.ok { color:#10b981; } .status.err { color:#f43f5e; }
   .preview-area { display:flex; gap:40px; flex-wrap:wrap; margin-top:16px; }
   .preview-wrap { flex:0 0 auto; }
-  .preview-label { font-size:11px; color:var(--sub); letter-spacing:2px; margin-bottom:8px; font-weight:700; }
-
-  /* A3縦ボード本体 */
+  .preview-label { font-size:11px; color:#64748b; letter-spacing:2px; margin-bottom:8px; font-weight:700; }
   .board-page {
-    width:297mm; min-height:420mm; color:#0f172a;
-    font-family:'Zen Kaku Gothic New',sans-serif;
-    border-radius:6px; box-shadow:0 20px 80px rgba(0,0,0,.8);
+    width:297mm; min-height:420mm;
+    font-family:'Zen Maru Gothic','Noto Sans JP',sans-serif;
+    border-radius:12px; box-shadow:0 20px 80px rgba(0,0,0,.8);
     overflow:hidden; position:relative;
     transform-origin:top left; transform:scale(0.42);
     margin-bottom:calc((420mm * 0.42) - 420mm);
+    display:flex; flex-direction:column;
   }
-
-  .type-badge { display:inline-block; padding:2.5mm 7mm; border-radius:20px; font-size:14pt; font-weight:900; letter-spacing:1px; white-space:nowrap; }
-  .type-車検  { background:linear-gradient(135deg,#fef2f2,#fee2e2); color:#dc2626; border:1.5px solid #fca5a5; }
-  .type-点検  { background:linear-gradient(135deg,#eff6ff,#dbeafe); color:#2563eb; border:1.5px solid #93c5fd; }
-  .type-整備  { background:linear-gradient(135deg,#f0fdf4,#dcfce7); color:#16a34a; border:1.5px solid #86efac; }
-  .type-BP    { background:linear-gradient(135deg,#fdf4ff,#f3e8ff); color:#9333ea; border:1.5px solid #d8b4fe; }
-  .type-その他{ background:linear-gradient(135deg,#fffbeb,#fef3c7); color:#d97706; border:1.5px solid #fcd34d; }
-
   @media print {
     body { background:#fff; padding:0; }
     .controls,.sub-title,h1,.status,.preview-label,.no-print { display:none !important; }
     .preview-area { display:block; }
     .preview-wrap { page-break-after:always; }
     .board-page { transform:none !important; margin:0 !important; box-shadow:none; border-radius:0; width:100%; min-height:auto; }
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
   }
 </style>
 </head>
 <body>
-
-<h1>Welcome Board Generator</h1>
-<p class="sub-title">翌日来店ウェルカムボード自動生成 / GARAGE SMB BOARD</p>
-
+<h1>🎉 Welcome Board Generator</h1>
+<p class="sub-title">季節テーマ ウェルカムボード自動生成 / GARAGE SMB BOARD</p>
 <div class="controls">
   <input type="date" id="targetDate" class="date-input">
   <button class="btn btn-primary" onclick="loadAndGenerate()">📋 データ取得・生成</button>
@@ -66,7 +53,6 @@
 </div>
 <div id="status" class="status">日付を選択してデータを取得してください</div>
 <div class="preview-area" id="previewArea"></div>
-
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDAyqKSD4oxh3PqZW1UIjuqL73Ejp33_E0",
@@ -83,300 +69,181 @@ function setTomorrow(){const t=new Date();t.setDate(t.getDate()+1);document.getE
 function getWorkType(t){if(!t)return'その他';if(t.includes('車検'))return'車検';if(t.includes('点検'))return'点検';if(t.includes('BP')||t.includes('板金')||t.includes('塗装'))return'BP';if(t.includes('整備')||t.includes('修理')||t.includes('交換'))return'整備';return'その他';}
 function fmtTime(h){if(h==null)return'--:--';const hh=Math.floor(h),mm=Math.round((h-hh)*60);return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}
 
-// ══ 季節テーマ定義 ══
-const THEMES = {
-  // 1月 冬・お正月
-  1: {
-    bg:'#fef9f0', bodyBg:'#fffef9',
-    headerHTML: (dateStr,periodLabel,count) => `
-      <div style="background:linear-gradient(160deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);position:relative;overflow:hidden;padding:14mm 14mm 10mm;min-height:70mm">
-        <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.15" viewBox="0 0 297 70" preserveAspectRatio="xMidYMid slice">
-          ${Array.from({length:25},(_,i)=>`<circle cx="${(i*13)%297}" cy="${10+(i*17)%55}" r="${1+i%3}" fill="#fbbf24" opacity="${0.4+0.6*(i%3)/3}"/>`).join('')}
-        </svg>
-        <div style="position:absolute;right:10mm;top:5mm;opacity:0.12;font-family:'Noto Serif JP',serif;font-size:80pt;font-weight:900;color:#fbbf24;line-height:1">謹賀</div>
-        <div style="position:relative;z-index:2">
-          <div style="display:flex;align-items:center;gap:4mm;margin-bottom:4mm">
-            <svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="none" stroke="#fbbf24" stroke-width="2"/>${Array.from({length:6},(_,i)=>{const a=i*60*Math.PI/180;return`<line x1="${20+10*Math.cos(a)}" y1="${20+10*Math.sin(a)}" x2="${20+17*Math.cos(a)}" y2="${20+17*Math.sin(a)}" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>`}).join('')}<circle cx="20" cy="20" r="5" fill="#fbbf24"/></svg>
-            <span style="font-size:10pt;font-weight:700;letter-spacing:5px;color:rgba(255,255,255,0.7);text-transform:uppercase">新年 Welcome</span>
-          </div>
-          <div>
-              <div style="font-family:'Montserrat',sans-serif;font-size:80pt;font-weight:900;color:rgba(255,255,255,0.4);letter-spacing:6px;line-height:0.85;margin-bottom:5mm;display:block">WELCOME</div><div style="font-family:'Noto Serif JP',serif;font-size:18pt;font-weight:900;color:#fff;margin-bottom:3mm;line-height:1.2">${dateStr}</div>
-              <div style="display:flex;align-items:center;gap:4mm">
-                <span style="background:rgba(251,191,36,0.25);border:1.5px solid #fbbf24;color:#fde68a;font-size:12pt;font-weight:900;padding:2mm 7mm;border-radius:30px;letter-spacing:3px">${periodLabel}</span>
-              </div>
-          </div>
-        </div>
-      </div>
-      <div style="height:5px;background:linear-gradient(90deg,#fbbf24,#f59e0b,#d97706,#fbbf24)"></div>`,
-    rowStyle: (idx) => idx%2===0 ? 'background:linear-gradient(90deg,rgba(251,191,36,0.04),transparent)' : '',
-    rowDeco: () => `<svg style="position:absolute;right:3mm;top:50%;transform:translateY(-50%);opacity:0.06" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="none" stroke="#d97706" stroke-width="1.5"/></svg>`,
-  },
+const TYPE_COLORS={
+  '車検': {bg:'#e91e63',text:'#fff'},
+  '点検': {bg:'#1e88e5',text:'#fff'},
+  '整備': {bg:'#43a047',text:'#fff'},
+  'BP':   {bg:'#8e24aa',text:'#fff'},
+  'その他':{bg:'#fb8c00',text:'#fff'},
+};
 
-  // 3・4月 春・桜
-  3: {
-    bg:'#fff5f7', bodyBg:'#fff9fb',
-    headerHTML: (dateStr,periodLabel,count) => `
-      <div style="background:linear-gradient(160deg,#be185d 0%,#ec4899 45%,#f9a8d4 100%);position:relative;overflow:hidden;padding:14mm 14mm 10mm;min-height:70mm">
-        <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:1" viewBox="0 0 297 70" preserveAspectRatio="xMidYMid slice">
-          ${Array.from({length:18},(_,i)=>{const x=(i*17+5)%285,y=(i*13)%60,s=6+i%8;return`<g transform="translate(${x},${y}) rotate(${i*37})"><ellipse cx="0" cy="-${s*0.7}" rx="${s*0.4}" ry="${s*0.7}" fill="rgba(255,255,255,0.25)"/><ellipse cx="${s*0.6}" cy="-${s*0.2}" rx="${s*0.4}" ry="${s*0.7}" fill="rgba(255,255,255,0.2)" transform="rotate(72)"/><ellipse cx="${s*0.35}" cy="${s*0.55}" rx="${s*0.4}" ry="${s*0.7}" fill="rgba(255,255,255,0.2)" transform="rotate(144)"/><ellipse cx="-${s*0.35}" cy="${s*0.55}" rx="${s*0.4}" ry="${s*0.7}" fill="rgba(255,255,255,0.2)" transform="rotate(216)"/><ellipse cx="-${s*0.6}" cy="-${s*0.2}" rx="${s*0.4}" ry="${s*0.7}" fill="rgba(255,255,255,0.2)" transform="rotate(288)"/></g>`}).join('')}
-        </svg>
-        <div style="position:absolute;right:8mm;top:3mm;opacity:0.15;font-family:'Montserrat',sans-serif;font-size:72pt;font-weight:900;color:#fff;line-height:1">SPRING</div>
-        <div style="position:relative;z-index:2">
-          <div>
-              <div style="font-size:9pt;font-weight:700;letter-spacing:5px;color:rgba(255,255,255,0.65);margin-bottom:2mm;text-transform:uppercase">🌸 Spring Welcome</div>
-              <div style="font-family:'Montserrat',sans-serif;font-size:80pt;font-weight:900;color:rgba(255,255,255,0.4);letter-spacing:6px;line-height:0.85;margin-bottom:5mm;display:block">WELCOME</div><div style="font-family:'Noto Serif JP',serif;font-size:18pt;font-weight:900;color:#fff;margin-bottom:3mm;line-height:1.2">${dateStr}</div>
-              <div style="display:flex;align-items:center;gap:4mm">
-                <span style="background:rgba(255,255,255,0.25);border:1.5px solid rgba(255,255,255,0.6);color:#fff;font-size:12pt;font-weight:900;padding:2mm 7mm;border-radius:30px;letter-spacing:3px">${periodLabel}</span>
-              </div>
-          </div>
-        </div>
-      </div>
-      <div style="height:5px;background:linear-gradient(90deg,#f9a8d4,#fce7f3,#fb7185,#f9a8d4)"></div>`,
-    rowStyle: (idx) => idx%2===0 ? 'background:linear-gradient(90deg,rgba(249,168,212,0.08),transparent)' : '',
-    rowDeco: () => `<svg style="position:absolute;right:2mm;top:50%;transform:translateY(-50%);opacity:0.08" width="28" height="28" viewBox="0 0 28 28"><g transform="translate(14,14)">${[0,72,144,216,288].map(r=>`<ellipse cx="0" cy="-7" rx="3" ry="5.5" fill="#be185d" transform="rotate(${r})"/>`).join('')}<circle cx="0" cy="0" r="2.5" fill="#fbbf24"/></g></svg>`,
+const THEMES={
+  1:{
+    pageBg:'linear-gradient(180deg,#e3f2fd 0%,#ffffff 50%)',
+    headerBg:'linear-gradient(135deg,#1565c0,#1e88e5,#42a5f5)',
+    borderColor:'#42a5f5',rowEvenBg:'#e3f2fd',rowOddBg:'#ffffff',dividerColor:'#90caf9',
+    footerBg:'#1565c0',footerText:'#fff',periodBg:'#ffd600',periodText:'#1565c0',
+    emoji:'🎍',
+    deco:()=>`<svg style="position:absolute;bottom:0;right:0;opacity:0.15;pointer-events:none" width="160" height="110" viewBox="0 0 160 110">
+      <circle cx="125" cy="28" r="24" fill="#ffd600"/>
+      ${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180;return`<line x1="${125+28*Math.cos(a)}" y1="${28+28*Math.sin(a)}" x2="${125+38*Math.cos(a)}" y2="${28+38*Math.sin(a)}" stroke="#ffd600" stroke-width="3"/>`}).join('')}
+      <polygon points="20,110 65,38 110,110" fill="white" stroke="#42a5f5" stroke-width="2"/>
+      <polygon points="38,110 65,58 92,110" fill="#e3f2fd"/>
+      <rect x="0" y="96" width="160" height="14" fill="#c8e6c9"/>
+    </svg>
+    <div style="position:absolute;top:6mm;right:10mm;font-size:48pt;opacity:0.18;line-height:1">🎋</div>`,
   },
-
-  // 7・8月 夏
-  7: {
-    bg:'#f0f9ff', bodyBg:'#f7feff',
-    headerHTML: (dateStr,periodLabel,count) => `
-      <div style="background:linear-gradient(160deg,#0c4a6e 0%,#0284c7 40%,#22d3ee 80%,#67e8f9 100%);position:relative;overflow:hidden;padding:14mm 14mm 10mm;min-height:70mm">
-        <svg style="position:absolute;bottom:0;left:0;right:0;opacity:0.3" viewBox="0 0 297 30" preserveAspectRatio="none"><path d="M0,15 Q37,0 74,15 Q111,30 148,15 Q185,0 222,15 Q259,30 297,15 L297,30 L0,30Z" fill="#7dd3fc"/><path d="M0,20 Q50,8 100,20 Q150,32 200,20 Q250,8 297,20 L297,30 L0,30Z" fill="#38bdf8" opacity="0.7"/></svg>
-        <svg style="position:absolute;right:6mm;top:4mm;opacity:0.2" width="90" height="90" viewBox="0 0 90 90"><circle cx="45" cy="45" r="28" fill="#fbbf24"/>${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180;return`<line x1="${45+32*Math.cos(a)}" y1="${45+32*Math.sin(a)}" x2="${45+44*Math.cos(a)}" y2="${45+44*Math.sin(a)}" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>`}).join('')}</svg>
-        <div style="position:relative;z-index:2">
-          <div>
-              <div style="font-size:9pt;font-weight:700;letter-spacing:5px;color:rgba(255,255,255,0.65);margin-bottom:2mm;text-transform:uppercase">☀️ Summer Welcome</div>
-              <div style="font-family:'Montserrat',sans-serif;font-size:80pt;font-weight:900;color:rgba(255,255,255,0.4);letter-spacing:6px;line-height:0.85;margin-bottom:5mm;display:block">WELCOME</div><div style="font-family:'Noto Serif JP',serif;font-size:18pt;font-weight:900;color:#fff;margin-bottom:3mm;line-height:1.2">${dateStr}</div>
-              <div style="display:flex;align-items:center;gap:4mm">
-                <span style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.6);color:#fff;font-size:12pt;font-weight:900;padding:2mm 7mm;border-radius:30px;letter-spacing:3px">${periodLabel}</span>
-              </div>
-          </div>
-        </div>
-      </div>
-      <div style="height:5px;background:linear-gradient(90deg,#22d3ee,#fbbf24,#f87171,#22d3ee)"></div>`,
-    rowStyle: (idx) => idx%2===0 ? 'background:linear-gradient(90deg,rgba(34,211,238,0.06),transparent)' : '',
-    rowDeco: () => `<svg style="position:absolute;right:2mm;top:50%;transform:translateY(-50%);opacity:0.07" width="32" height="26" viewBox="0 0 32 26"><path d="M0,13 Q8,4 16,13 Q24,22 32,13 L32,26 L0,26Z" fill="#0284c7"/></svg>`,
+  3:{
+    pageBg:'linear-gradient(180deg,#fce4ec 0%,#fff9fb 50%)',
+    headerBg:'linear-gradient(135deg,#c2185b,#e91e63,#f48fb1)',
+    borderColor:'#f48fb1',rowEvenBg:'#fce4ec',rowOddBg:'#fff9fb',dividerColor:'#f8bbd0',
+    footerBg:'#c2185b',footerText:'#fff',periodBg:'#fff176',periodText:'#880e4f',
+    emoji:'🌸',
+    deco:()=>{const p=Array.from({length:22},(_,i)=>{const x=(i*43+8)%268,y=(i*19+4)%82,s=7+i%9,r=i*17;return`<g transform="translate(${x},${y}) rotate(${r})"><ellipse cx="0" cy="-${s*.6}" rx="${s*.32}" ry="${s*.6}" fill="rgba(255,255,255,0.55)"/><ellipse cx="${s*.52}" cy="-${s*.18}" rx="${s*.32}" ry="${s*.6}" fill="rgba(255,255,255,0.45)" transform="rotate(72)"/><ellipse cx="${s*.32}" cy="${s*.48}" rx="${s*.32}" ry="${s*.6}" fill="rgba(255,255,255,0.45)" transform="rotate(144)"/><ellipse cx="-${s*.32}" cy="${s*.48}" rx="${s*.32}" ry="${s*.6}" fill="rgba(255,255,255,0.45)" transform="rotate(216)"/><ellipse cx="-${s*.52}" cy="-${s*.18}" rx="${s*.32}" ry="${s*.6}" fill="rgba(255,255,255,0.45)" transform="rotate(288)"/></g>`;}).join('');return`<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 297 110" preserveAspectRatio="xMidYMid slice">${p}</svg><div style="position:absolute;top:5mm;right:9mm;font-size:50pt;opacity:0.2;line-height:1">🌸</div>`;}
   },
-
-  // 9・10月 秋
-  9: {
-    bg:'#fffbf0', bodyBg:'#fffdf5',
-    headerHTML: (dateStr,periodLabel,count) => `
-      <div style="background:linear-gradient(160deg,#78350f 0%,#b45309 35%,#d97706 65%,#f59e0b 100%);position:relative;overflow:hidden;padding:14mm 14mm 10mm;min-height:70mm">
-        <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.2" viewBox="0 0 297 70" preserveAspectRatio="xMidYMid slice">
-          ${Array.from({length:14},(_,i)=>{const x=(i*22+8)%280,y=(i*11+5)%55,s=10+i%10,c=i%3===0?'#ef4444':i%3===1?'#f97316':'#fbbf24';return`<g transform="translate(${x+s/2},${y+s/2}) rotate(${i*25})"><path d="M0,-${s} L${s*0.4},-${s*0.3} L${s},-${s*0.3} L${s*0.5},${s*0.2} L${s*0.7},${s} L0,${s*0.5} L-${s*0.7},${s} L-${s*0.5},${s*0.2} L-${s},-${s*0.3} L-${s*0.4},-${s*0.3}Z" fill="${c}" opacity="0.7"/></g>`}).join('')}
-        </svg>
-        <div style="position:relative;z-index:2">
-          <div>
-              <div style="font-size:9pt;font-weight:700;letter-spacing:5px;color:rgba(255,255,255,0.65);margin-bottom:2mm;text-transform:uppercase">🍁 Autumn Welcome</div>
-              <div style="font-family:'Montserrat',sans-serif;font-size:80pt;font-weight:900;color:rgba(255,255,255,0.4);letter-spacing:6px;line-height:0.85;margin-bottom:5mm;display:block">WELCOME</div><div style="font-family:'Noto Serif JP',serif;font-size:18pt;font-weight:900;color:#fff;margin-bottom:3mm;line-height:1.2">${dateStr}</div>
-              <div style="display:flex;align-items:center;gap:4mm">
-                <span style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.6);color:#fff;font-size:12pt;font-weight:900;padding:2mm 7mm;border-radius:30px;letter-spacing:3px">${periodLabel}</span>
-              </div>
-          </div>
-        </div>
-      </div>
-      <div style="height:5px;background:linear-gradient(90deg,#fbbf24,#f97316,#ef4444,#f97316,#fbbf24)"></div>`,
-    rowStyle: (idx) => idx%2===0 ? 'background:linear-gradient(90deg,rgba(217,119,6,0.07),transparent)' : '',
-    rowDeco: () => `<svg style="position:absolute;right:2mm;top:50%;transform:translateY(-50%);opacity:0.08" width="28" height="28" viewBox="0 0 28 28"><path d="M14,2 L17,10 L24,5 L20,13 L27,14 L20,17 L24,24 L16,20 L14,27 L12,20 L4,24 L8,17 L1,14 L8,13 L4,5 L11,10Z" fill="#d97706"/></svg>`,
+  5:{
+    pageBg:'linear-gradient(180deg,#e8f5e9 0%,#f9fbe7 50%)',
+    headerBg:'linear-gradient(135deg,#2e7d32,#388e3c,#66bb6a)',
+    borderColor:'#81c784',rowEvenBg:'#e8f5e9',rowOddBg:'#f9fbe7',dividerColor:'#a5d6a7',
+    footerBg:'#2e7d32',footerText:'#fff',periodBg:'#fff176',periodText:'#1b5e20',
+    emoji:'🌿',
+    deco:()=>{const l=Array.from({length:14},(_,i)=>{const x=(i*20+4)%272,y=(i*15+3)%82;return`<g transform="translate(${x},${y}) rotate(${i*23})"><path d="M0,-14 C5,-9 9,-3 0,0 C-9,-3 -5,-9 0,-14Z" fill="rgba(255,255,255,0.5)"/><line x1="0" y1="0" x2="0" y2="9" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/></g>`;}).join('');return`<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 297 110" preserveAspectRatio="xMidYMid slice">${l}</svg><div style="position:absolute;top:5mm;right:9mm;font-size:50pt;opacity:0.2;line-height:1">🍃</div>`;}
   },
-
-  // 12月 冬・クリスマス
-  12: {
-    bg:'#f0f4ff', bodyBg:'#f7f9ff',
-    headerHTML: (dateStr,periodLabel,count) => `
-      <div style="background:linear-gradient(160deg,#0f172a 0%,#1e3a8a 40%,#1e40af 70%,#2563eb 100%);position:relative;overflow:hidden;padding:14mm 14mm 10mm;min-height:70mm">
-        <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.2" viewBox="0 0 297 70" preserveAspectRatio="xMidYMid slice">
-          ${Array.from({length:20},(_,i)=>{const x=(i*15+3)%292,y=(i*9+4)%62;return`<circle cx="${x}" cy="${y}" r="${0.8+i%2}" fill="${i%3===0?'#fbbf24':'#fff'}" opacity="${0.5+0.5*(i%3)/3}"/>`}).join('')}
-        </svg>
-        <div style="position:relative;z-index:2">
-          <div>
-              <div style="font-size:9pt;font-weight:700;letter-spacing:5px;color:rgba(255,255,255,0.65);margin-bottom:2mm;text-transform:uppercase">🎄 Winter Welcome</div>
-              <div style="font-family:'Montserrat',sans-serif;font-size:80pt;font-weight:900;color:rgba(255,255,255,0.4);letter-spacing:6px;line-height:0.85;margin-bottom:5mm;display:block">WELCOME</div><div style="font-family:'Noto Serif JP',serif;font-size:18pt;font-weight:900;color:#fff;margin-bottom:3mm;line-height:1.2">${dateStr}</div>
-              <div style="display:flex;align-items:center;gap:4mm">
-                <span style="background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.5);color:#fff;font-size:12pt;font-weight:900;padding:2mm 7mm;border-radius:30px;letter-spacing:3px">${periodLabel}</span>
-              </div>
-          </div>
-        </div>
-      </div>
-      <div style="height:5px;background:linear-gradient(90deg,#3b82f6,#60a5fa,#fbbf24,#ef4444,#22c55e,#3b82f6)"></div>`,
-    rowStyle: (idx) => idx%2===0 ? 'background:linear-gradient(90deg,rgba(59,130,246,0.06),transparent)' : '',
-    rowDeco: () => `<svg style="position:absolute;right:2mm;top:50%;transform:translateY(-50%);opacity:0.08" width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 14,9 21,9 15,14 17,21 12,16 7,21 9,14 3,9 10,9" fill="#fbbf24"/></svg>`,
+  7:{
+    pageBg:'linear-gradient(180deg,#e0f7fa 0%,#ffffff 50%)',
+    headerBg:'linear-gradient(135deg,#0277bd,#0288d1,#29b6f6)',
+    borderColor:'#4dd0e1',rowEvenBg:'#e0f7fa',rowOddBg:'#ffffff',dividerColor:'#80deea',
+    footerBg:'#0277bd',footerText:'#fff',periodBg:'#fff176',periodText:'#01579b',
+    emoji:'☀️',
+    deco:()=>`<svg style="position:absolute;bottom:0;left:0;right:0;pointer-events:none" viewBox="0 0 297 28" preserveAspectRatio="none" height="28">
+      <path d="M0,10 Q37,0 74,10 Q111,20 148,10 Q185,0 222,10 Q259,20 297,10 L297,28 L0,28Z" fill="rgba(255,255,255,0.3)"/>
+      <path d="M0,16 Q50,5 100,16 Q150,27 200,16 Q250,5 297,16 L297,28 L0,28Z" fill="rgba(255,255,255,0.2)"/>
+    </svg>
+    <svg style="position:absolute;right:8mm;top:3mm;opacity:0.18;pointer-events:none" width="72" height="72" viewBox="0 0 72 72">
+      <circle cx="36" cy="36" r="20" fill="#ffd600"/>
+      ${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180;return`<line x1="${36+24*Math.cos(a)}" y1="${36+24*Math.sin(a)}" x2="${36+33*Math.cos(a)}" y2="${36+33*Math.sin(a)}" stroke="#ffd600" stroke-width="3.5" stroke-linecap="round"/>`}).join('')}
+    </svg>
+    <div style="position:absolute;top:8mm;left:12mm;font-size:34pt;opacity:0.18;line-height:1">🏖️</div>`,
+  },
+  9:{
+    pageBg:'linear-gradient(180deg,#fff3e0 0%,#fffde7 50%)',
+    headerBg:'linear-gradient(135deg,#e65100,#ef6c00,#ffa726)',
+    borderColor:'#ffb74d',rowEvenBg:'#fff3e0',rowOddBg:'#fffde7',dividerColor:'#ffcc80',
+    footerBg:'#e65100',footerText:'#fff',periodBg:'#fff176',periodText:'#bf360c',
+    emoji:'🍁',
+    deco:()=>{const l=Array.from({length:18},(_,i)=>{const x=(i*16+5)%268,y=(i*12+3)%82,s=9+i%9;const c=i%3===0?'rgba(239,83,80,0.55)':i%3===1?'rgba(255,152,0,0.55)':'rgba(255,213,79,0.55)';return`<g transform="translate(${x+s/2},${y+s/2}) rotate(${i*20})"><path d="M0,-${s} L${s*.4},-${s*.3} L${s},-${s*.3} L${s*.5},${s*.2} L${s*.7},${s} L0,${s*.5} L-${s*.7},${s} L-${s*.5},${s*.2} L-${s},-${s*.3} L-${s*.4},-${s*.3}Z" fill="${c}"/></g>`;}).join('');return`<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 297 110" preserveAspectRatio="xMidYMid slice">${l}</svg><div style="position:absolute;top:5mm;right:9mm;font-size:50pt;opacity:0.2;line-height:1">🍂</div>`;}
+  },
+  12:{
+    pageBg:'linear-gradient(180deg,#e8eaf6 0%,#ffffff 50%)',
+    headerBg:'linear-gradient(135deg,#b71c1c,#c62828,#ef5350)',
+    borderColor:'#ef9a9a',rowEvenBg:'#e8eaf6',rowOddBg:'#ffffff',dividerColor:'#9fa8da',
+    footerBg:'#b71c1c',footerText:'#fff',periodBg:'#fff176',periodText:'#7f0000',
+    emoji:'🎄',
+    deco:()=>{const s=Array.from({length:22},(_,i)=>{const x=(i*14+3)%278,y=(i*11+4)%86;return`<circle cx="${x}" cy="${y}" r="${1+i%2}" fill="${i%3===0?'#ffd600':'rgba(255,255,255,0.8)'}" opacity="${0.4+0.5*(i%3)/3}"/>`;}).join('');return`<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 297 110" preserveAspectRatio="xMidYMid slice">${s}</svg>
+    <svg style="position:absolute;right:9mm;top:2mm;opacity:0.2;pointer-events:none" width="65" height="88" viewBox="0 0 65 88">
+      <polygon points="32,4 43,28 65,28 47,44 54,68 32,54 10,68 17,44 0,28 22,28" fill="#ffd600"/>
+      <rect x="25" y="68" width="15" height="18" fill="#8d6e63"/>
+    </svg>
+    <div style="position:absolute;top:5mm;left:11mm;font-size:34pt;opacity:0.18;line-height:1">⛄</div>`;}
   },
 };
 
-// 月→テーマキー
-function getThemeKey(m) {
-  if(m===3||m===4) return 3;
-  if(m===5||m===6) return 5;
-  if(m===7||m===8) return 7;
-  if(m===9||m===10||m===11) return 9;
-  if(m===12) return 12;
-  return 1;
-}
+function getThemeKey(m){if(m<=2)return 1;if(m<=4)return 3;if(m<=6)return 5;if(m<=8)return 7;if(m<=11)return 9;return 12;}
 
-// 5・6月用テーマ（新緑・初夏）
-THEMES[5] = {
-  bg:'#f0fdf4', bodyBg:'#f7fef9',
-  headerHTML: (dateStr,periodLabel,count) => `
-    <div style="background:linear-gradient(160deg,#14532d 0%,#16a34a 45%,#4ade80 80%,#86efac 100%);position:relative;overflow:hidden;padding:14mm 14mm 10mm;min-height:70mm">
-      <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.18" viewBox="0 0 297 70" preserveAspectRatio="xMidYMid slice">
-        ${Array.from({length:16},(_,i)=>{const x=(i*19+5)%285,y=(i*13)%62;return`<g transform="translate(${x},${y})"><path d="M0,-12 C4,-8 8,-4 0,0 C-8,-4 -4,-8 0,-12Z" fill="rgba(255,255,255,0.5)"/><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(255,255,255,0.4)" stroke-width="1"/></g>`}).join('')}
-      </svg>
-      <div style="position:relative;z-index:2">
-        <div>
-              <div style="font-size:9pt;font-weight:700;letter-spacing:5px;color:rgba(255,255,255,0.65);margin-bottom:2mm;text-transform:uppercase">🌿 Fresh Green Welcome</div>
-              <div style="font-family:'Montserrat',sans-serif;font-size:80pt;font-weight:900;color:rgba(255,255,255,0.4);letter-spacing:6px;line-height:0.85;margin-bottom:5mm;display:block">WELCOME</div><div style="font-family:'Noto Serif JP',serif;font-size:18pt;font-weight:900;color:#fff;margin-bottom:3mm;line-height:1.2">${dateStr}</div>
-              <div style="display:flex;align-items:center;gap:4mm">
-                <span style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.6);color:#fff;font-size:12pt;font-weight:900;padding:2mm 7mm;border-radius:30px;letter-spacing:3px">${periodLabel}</span>
-              </div>
-          </div>
-      </div>
-    </div>
-    <div style="height:5px;background:linear-gradient(90deg,#4ade80,#86efac,#fef08a,#4ade80)"></div>`,
-  rowStyle: (idx) => idx%2===0 ? 'background:linear-gradient(90deg,rgba(74,222,128,0.07),transparent)' : '',
-  rowDeco: () => `<svg style="position:absolute;right:2mm;top:50%;transform:translateY(-50%);opacity:0.08" width="30" height="30" viewBox="0 0 30 30"><path d="M15,2 C20,2 28,10 28,18 C28,24 22,28 15,28 C8,28 2,24 2,18 C2,10 10,2 15,2Z" fill="#16a34a"/><line x1="15" y1="28" x2="15" y2="10" stroke="#14532d" stroke-width="1.5"/><line x1="15" y1="20" x2="8" y2="14" stroke="#14532d" stroke-width="1.2"/><line x1="15" y1="17" x2="22" y2="11" stroke="#14532d" stroke-width="1.2"/></svg>`,
-};
+function buildPage(pageJobs,period,dateStr,pageIdx,totalPages,month){
+  const isAm=period==='am';
+  const th=THEMES[getThemeKey(month)];
 
-function buildPage(pageJobs, period, dateStr, pageIdx, totalPages, month) {
-  const isAm = period==='am';
-  const key = getThemeKey(month);
-  const theme = THEMES[key];
+  const page=document.createElement('div');
+  page.className='board-page';
+  page.style.cssText=`background:${th.pageBg};`;
 
-  const page = document.createElement('div');
-  page.className = 'board-page';
-  page.style.background = theme.bg;
+  // ヘッダー
+  const hdr=document.createElement('div');
+  hdr.style.cssText=`background:${th.headerBg};position:relative;overflow:hidden;padding:10mm 14mm 8mm;min-height:55mm;flex-shrink:0;`;
+  hdr.innerHTML=`
+    ${th.deco()}
+    <div style="position:relative;z-index:2">
+      <div style="font-family:'Zen Maru Gothic',sans-serif;font-size:58pt;font-weight:900;color:rgba(255,255,255,0.2);letter-spacing:4px;line-height:0.88;margin-bottom:3mm">welcome</div>
+      <div style="font-family:'Zen Maru Gothic',sans-serif;font-size:21pt;font-weight:900;color:#fff;line-height:1.2;margin-bottom:4mm;text-shadow:0 2px 8px rgba(0,0,0,0.25)">${dateStr}</div>
+      <span style="display:inline-block;background:${th.periodBg};color:${th.periodText};font-size:13pt;font-weight:900;padding:2mm 9mm;border-radius:30px;letter-spacing:2px">${isAm?'午前の部':'午後の部'}</span>
+    </div>`;
+  page.appendChild(hdr);
 
-  const header = document.createElement('div');
-  header.innerHTML = theme.headerHTML(dateStr, isAm?'午前の部':'午後の部', pageJobs.length);
-  page.appendChild(header);
+  // テーブルヘッダー
+  const thead=document.createElement('div');
+  thead.style.cssText=`display:grid;grid-template-columns:1fr 46mm 42mm;padding:3mm 12mm 2.5mm;border-bottom:3px solid ${th.borderColor};background:${th.rowEvenBg};flex-shrink:0;`;
+  thead.innerHTML=`
+    <div style="font-size:11pt;font-weight:900;color:#546e7a;letter-spacing:3px">お　名　前</div>
+    <div style="font-size:11pt;font-weight:900;color:#546e7a;letter-spacing:2px;text-align:center">作業内容</div>
+    <div style="font-size:11pt;font-weight:900;color:#546e7a;letter-spacing:2px;text-align:center">ご来店時間</div>`;
+  page.appendChild(thead);
 
-  const body = document.createElement('div');
-  body.style.cssText = `background:${theme.bodyBg};padding:6mm 12mm 8mm;`;
-
-  const table = document.createElement('table');
-  table.style.cssText = 'width:100%;border-collapse:collapse;';
-
-  const thead = document.createElement('thead');
-  thead.innerHTML = `<tr style="border-bottom:2px solid rgba(0,0,0,0.1)">
-    <th style="padding:2.5mm 4mm;font-size:8pt;font-weight:700;letter-spacing:2px;color:#94a3b8;text-align:left;width:32mm"></th>
-    <th style="padding:2.5mm 4mm;font-size:8pt;font-weight:700;letter-spacing:2px;color:#94a3b8;text-align:left"></th>
-    <th style="padding:2.5mm 4mm;font-size:8pt;font-weight:700;letter-spacing:2px;color:#94a3b8;text-align:left;width:36mm">作業内容</th>
-  </tr>`;
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-
+  // 行
+  const list=document.createElement('div');
+  list.style.cssText='flex:1;';
   if(pageJobs.length===0){
-    tbody.innerHTML=`<tr><td colspan="3" style="text-align:center;padding:16mm;color:#94a3b8;font-size:14pt">本日の予定はありません</td></tr>`;
+    list.style.cssText='flex:1;text-align:center;padding:20mm;font-size:14pt;color:#90a4ae;';
+    list.textContent='本日の予定はありません';
   } else {
     pageJobs.forEach((job,idx)=>{
       const wtype=getWorkType(job.type);
-      const rowBg=theme.rowStyle(idx);
-      const tr=document.createElement('tr');
-      tr.style.cssText=`border-bottom:1px solid rgba(0,0,0,0.06);position:relative;${rowBg}`;
-      // BPジョブはバッジで区別
-      const bpBadge = job._source==='bp'
-        ? `<span style="font-size:9pt;background:#f3e8ff;color:#9333ea;border:1px solid #d8b4fe;border-radius:6px;padding:1mm 3mm;margin-left:3mm;font-weight:700">BP</span>`
-        : '';
-      tr.innerHTML=`
-        <td style="padding:3.5mm 4mm;white-space:nowrap"><div style="display:flex;align-items:baseline;gap:3mm"><span style="font-size:14pt;font-weight:700;color:#475569;letter-spacing:1px">ご来店時間：</span><span style="font-family:'Montserrat',sans-serif;font-size:26pt;font-weight:900;color:#0f172a;line-height:1">${fmtTime(job.start)}</span></div></td>
-        <td style="padding:3mm 4mm;position:relative;width:99%">
-          <div style="font-family:'Noto Serif JP',serif;font-size:28pt;font-weight:700;color:#0f172a;line-height:1.2">
-            <span style="font-size:28pt;font-weight:700;color:#475569;letter-spacing:2px">お客様名：</span>${job.owner||job.plate||'—'} <span style="font-size:18pt;color:#94a3b8;font-weight:400">様</span>${bpBadge}
-          </div>
-          ${theme.rowDeco()}
-        </td>
-        <td style="padding:3.5mm 4mm"><span class="type-badge type-${wtype}">${wtype}</span></td>
-      `;
-      tbody.appendChild(tr);
-
-      if((idx+1)%5===0&&idx+1<pageJobs.length){
-        const dr=document.createElement('tr');
-        dr.innerHTML=`<td colspan="3" style="padding:1.5mm 0"><div style="height:2px;background:linear-gradient(90deg,rgba(0,0,0,0.08),rgba(0,0,0,0.04),transparent);border-radius:2px"></div></td>`;
-        tbody.appendChild(dr);
-      }
+      const tc=TYPE_COLORS[wtype]||TYPE_COLORS['その他'];
+      const row=document.createElement('div');
+      row.style.cssText=`display:grid;grid-template-columns:1fr 46mm 42mm;padding:3.8mm 12mm;background:${idx%2===0?th.rowEvenBg:th.rowOddBg};border-bottom:1.5px solid ${th.dividerColor};align-items:center;`;
+      row.innerHTML=`
+        <div style="font-family:'Zen Maru Gothic',sans-serif;font-size:25pt;font-weight:900;color:#212121;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${job.owner||job.plate||'—'}<span style="font-size:13pt;font-weight:700;color:#78909c;margin-left:2mm"> 様</span>
+          ${job._source==='bp'?`<span style="font-size:9pt;background:#f3e8ff;color:#9333ea;border:1px solid #d8b4fe;border-radius:6px;padding:1mm 3mm;margin-left:2mm;font-weight:700;vertical-align:middle">BP</span>`:''}
+        </div>
+        <div style="text-align:center;">
+          <span style="display:inline-block;background:${tc.bg};color:${tc.text};font-size:14pt;font-weight:900;padding:1.5mm 4mm;border-radius:10px;letter-spacing:1px;min-width:34mm;text-align:center;">${wtype}</span>
+        </div>
+        <div style="text-align:center;font-family:'Montserrat',sans-serif;font-size:27pt;font-weight:900;color:#212121;">${fmtTime(job.start)}</div>`;
+      list.appendChild(row);
     });
   }
+  page.appendChild(list);
 
-  table.appendChild(tbody);
-  body.appendChild(table);
-  page.appendChild(body);
+  // フッター
+  const ftr=document.createElement('div');
+  ftr.style.cssText=`background:${th.footerBg};padding:5mm 14mm;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;`;
+  ftr.innerHTML=`
+    <div style="font-family:'Zen Maru Gothic',sans-serif;font-size:13pt;font-weight:900;color:${th.footerText};letter-spacing:2px;">ご来店ありがとうございます ${th.emoji}</div>
+    <div style="font-size:9pt;color:rgba(255,255,255,0.55);letter-spacing:2px;">${totalPages>1?`(${pageIdx+1}/${totalPages}) `:''}GARAGE SMB BOARD</div>`;
+  page.appendChild(ftr);
 
-  const footer=document.createElement('div');
-  footer.style.cssText=`margin:0 12mm;padding:4mm 0;border-top:1px solid rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center;background:${theme.bodyBg}`;
-  footer.innerHTML=`
-    <div style="font-size:9pt;color:#94a3b8;letter-spacing:2px">本日もご来店ありがとうございます${totalPages>1?` (${pageIdx+1}/${totalPages})`:''}</div>
-    <div style="font-family:'Montserrat',sans-serif;font-size:9pt;font-weight:900;letter-spacing:3px;color:#cbd5e1">GARAGE SMB BOARD</div>
-  `;
-  page.appendChild(footer);
   return page;
 }
 
-// ── [修正] garage_jobs と bp_jobs を統合して表示 ──
 function loadAndGenerate(){
   const date=document.getElementById('targetDate').value;
   if(!date){document.getElementById('status').textContent='日付を選択してください';document.getElementById('status').className='status err';return;}
   document.getElementById('status').textContent='Firebaseからデータ取得中...';
   document.getElementById('status').className='status';
 
-  // garage_jobs と bp_jobs を同時取得
   Promise.all([
     db.ref('garage/garage_jobs').once('value'),
     db.ref('garage/bp_jobs').once('value')
-  ]).then(([jobsSnap, bpSnap]) => {
-    const allJobsRaw = jobsSnap.val();
-    if(!allJobsRaw||!Array.isArray(allJobsRaw)){
-      document.getElementById('status').textContent='データが見つかりません';
-      document.getElementById('status').className='status err';
-      return;
-    }
+  ]).then(([jobsSnap,bpSnap])=>{
+    const allJobsRaw=jobsSnap.val();
+    if(!allJobsRaw||!Array.isArray(allJobsRaw)){document.getElementById('status').textContent='データが見つかりません';document.getElementById('status').className='status err';return;}
 
-    // 通常ジョブを抽出
-    const regularJobs = allJobsRaw
-      .filter(j=>j&&!j.completed&&(j.date===date||j.displayDate===date))
-      .map(j=>({...j, _source:'board'}));
-
-    // BPジョブを抽出して変換
-    const bpRaw = bpSnap.val();
-    const bpArr = bpRaw
-      ? (Array.isArray(bpRaw) ? bpRaw : Object.values(bpRaw))
-      : [];
-    const bpJobs = bpArr
-      .filter(j=>j&&j.inDate===date&&!j.confirmed)
-      .map(j=>{
-        // inTime を数値に変換（例: "14:30" → 14.5）
-        let startNum = null;
-        if(j.inTime){
-          const pts = j.inTime.split(':');
-          startNum = parseInt(pts[0]) + (parseInt(pts[1]||0)/60);
-        } else if(j.inAmPm==='AM'){
-          startNum = 9;
-        } else if(j.inAmPm==='PM'){
-          startNum = 13;
-        }
-        return {
-          _source: 'bp',
-          owner: j.owner || j.plate || '—',
-          plate: j.plate || '',
-          type: j.type || 'BP板金',
-          start: startNum,
-          date: date
-        };
-      });
-
-    // 統合してstartでソート（nullは末尾）
-    const jobs = [...regularJobs, ...bpJobs].sort((a,b)=>{
-      const as = a.start != null ? a.start : 99;
-      const bs = b.start != null ? b.start : 99;
-      return as - bs;
+    const regularJobs=allJobsRaw.filter(j=>j&&!j.completed&&(j.date===date||j.displayDate===date)).map(j=>({...j,_source:'board'}));
+    const bpRaw=bpSnap.val();
+    const bpArr=bpRaw?(Array.isArray(bpRaw)?bpRaw:Object.values(bpRaw)):[];
+    const bpJobs=bpArr.filter(j=>j&&j.inDate===date&&!j.confirmed).map(j=>{
+      let s=null;
+      if(j.inTime){const p=j.inTime.split(':');s=parseInt(p[0])+(parseInt(p[1]||0)/60);}
+      else if(j.inAmPm==='AM')s=9;else if(j.inAmPm==='PM')s=13;
+      return{_source:'bp',owner:j.owner||j.plate||'—',plate:j.plate||'',type:j.type||'BP板金',start:s,date:date};
     });
 
+    const jobs=[...regularJobs,...bpJobs].sort((a,b)=>(a.start??99)-(b.start??99));
     const amJobs=jobs.filter(j=>j.start==null||j.start<12);
     const pmJobs=jobs.filter(j=>j.start!=null&&j.start>=12);
 
-    document.getElementById('status').textContent=
-      `✅ ${date} — 午前 ${amJobs.length}件 / 午後 ${pmJobs.length}件（BP ${bpJobs.length}件含む）`;
+    document.getElementById('status').textContent=`✅ ${date} — 午前 ${amJobs.length}件 / 午後 ${pmJobs.length}件（BP ${bpJobs.length}件含む）`;
     document.getElementById('status').className='status ok';
 
     const d=new Date(date+'T00:00:00');
@@ -387,31 +254,20 @@ function loadAndGenerate(){
     const area=document.getElementById('previewArea');
     area.innerHTML='';
 
-    const seasonNames={1:'冬',3:'春',5:'新緑',7:'夏',9:'秋',12:'冬'};
-    const key=getThemeKey(month);
-
     [['am',amJobs],['pm',pmJobs]].forEach(([period,pJobs])=>{
       const pages=[];
-      for(let i=0;i<Math.max(1,Math.ceil(pJobs.length/15));i++) pages.push(pJobs.slice(i*15,(i+1)*15));
+      for(let i=0;i<Math.max(1,Math.ceil(pJobs.length/12));i++)pages.push(pJobs.slice(i*12,(i+1)*12));
       pages.forEach((pageJobs,pageIdx)=>{
-        const wrap=document.createElement('div');
-        wrap.className='preview-wrap';
-        const label=document.createElement('div');
-        label.className='preview-label no-print';
-        label.textContent=`${period==='am'?'午前':'午後'} ${seasonNames[key]||'季節'}テーマ${pages.length>1?` (${pageIdx+1}/${pages.length})`:''} — A3縦`;
+        const wrap=document.createElement('div');wrap.className='preview-wrap';
+        const label=document.createElement('div');label.className='preview-label no-print';
+        label.textContent=`${period==='am'?'午前':'午後'}${pages.length>1?` (${pageIdx+1}/${pages.length})`:''} — A3縦`;
         wrap.appendChild(label);
         wrap.appendChild(buildPage(pageJobs,period,dateStr,pageIdx,pages.length,month));
         area.appendChild(wrap);
       });
     });
-  }).catch(err=>{
-    document.getElementById('status').textContent='データ取得エラー: '+err.message;
-    document.getElementById('status').className='status err';
-  });
+  }).catch(err=>{document.getElementById('status').textContent='データ取得エラー: '+err.message;document.getElementById('status').className='status err';});
 }
-
-document.getElementById('tab-shaken') && (document.getElementById('tab-shaken').onclick=function(){});
-document.getElementById('btn-today') && (document.getElementById('btn-today').onclick=function(){var t=new Date().toISOString().slice(0,10);document.getElementById('targetDate').value=t;});
 
 setTomorrow();
 </script>
