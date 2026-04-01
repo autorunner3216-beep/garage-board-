@@ -78,6 +78,14 @@
         「入庫日(checkinDate||date) === deliveryDate かつ deliveryDate > TODAY_STR」
         の場合はアラート対象外とし、当日になって初めて表示されるようにした
 
+[FIX-08] 入庫日(checkinDate)が保存されておらず持ち越し時にずれる問題（2026-04-01）
+  原因: ジョブ登録時にcheckinDateフィールドが保存されていなかった
+        持ち越しでdisplayDateが更新されると入庫日を参照できなくなっていた
+  修正: 新規ジョブ作成時にcheckinDate:checkDateを追加して保存するようにした
+        既存データはcheckinDate||dateのフォールバックで引き続き動作する
+        ストール表示・boardDateフィルタはdisplayDate||date（作業日）基準のまま
+        納期アラート等はcheckinDate||date（入庫日）基準で参照される
+
 [BUG-13] 納期アラートパネルにジョブが表示されない（繰り返し発生）
   原因: バッジのカウントはdiff<=3（3日以内）でフィルタリングしているのに対し、
         パネル表示側はdiff<=1（1日以内）でフィルタリングしており条件が不一致だった
@@ -7754,7 +7762,7 @@ React.createElement('select', {
         }
         setAddError([]);
         const newJobId = Date.now();
-        setJobs(p => [...p, { id:newJobId, date:checkDate, stall:nj.stall,
+        setJobs(p => [...p, { id:newJobId, date:checkDate, checkinDate:checkDate, stall:nj.stall,
           owner:nj.owner, plate:nj.plate, model:nj.model, type:nj.type,
           start:newStart, end:newEnd,
           status:asWaiting ? "当日来店/預かり" : "作業待ち", memo:nj.memo, priority:nj.priority,
