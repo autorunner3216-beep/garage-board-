@@ -131,6 +131,24 @@
   修正: ドラッグ移動・クリック新規登録・モーダル保存の3箇所に !j.confirmed を追加
 
 [FIX-07] BPモーダルのストール選択に空き状況を表示（2026-03-28）
+
+[ADD-02] 当日入庫パネル新設（2026-04-04）
+  ・翌営業日ボタン／パネルを流用し「テーブル」ボタン＋当日入庫パネルに改修
+  ・判定基準：date/displayDate/checkinDate === TODAY かつ未完了・棚上げステータス除外
+  ・BPジョブも統合表示（入庫日=TODAY かつ未確認）
+  ・カード2列グリッド表示（360px幅）
+  ・席番号（1〜7）：クリックでサイクル切替、番号ごとに7色カラーコーディング
+  ・担当フロント：クリックで展開するドロップダウン選択
+  ・担当スタッフリストはreceptListとは独立した専用リスト（garage_front_staffs）
+  ・⚙ボタンでパネル内から名前の追加・削除が可能、Firebase保存で全PC共有
+  ・seatNo・frontStaff・_frontOpenフィールドをジョブに追加（既存データはundefinedで無害）
+
+[NOTE] 発光CSS（.bar-working）について（2026-04-04）
+  ・現在の設定：ホワイトシルバー・強め
+    @keyframes blinkBorder: rgba(226,232,240,.75)、0 0 14px 4px
+    @keyframes pulseBg: #141820 / #1e2430
+  ・アップロードされた元ファイルには発光変更が入っていないため、
+    出力ファイルを引き継いで作業すること（元ファイルから作業すると緑・弱めに戻る）
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -759,11 +777,11 @@ react-dom/cjs/react-dom-client.production.js:
     // ── アニメーション CSS（JS注入用）──
     const CSS = `
     @keyframes blinkBorder {
-      0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0),inset 0 0 0 0 rgba(16,185,129,0);}
-      50%    {box-shadow:0 0 8px 2px rgba(16,185,129,.55),inset 0 0 6px 0 rgba(16,185,129,.15);}
+      0%,100%{box-shadow:0 0 0 0 rgba(226,232,240,0),inset 0 0 0 0 rgba(226,232,240,0);}
+      50%    {box-shadow:0 0 14px 4px rgba(226,232,240,.75),inset 0 0 10px 0 rgba(226,232,240,.25);}
     }
     @keyframes blinkDot { 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
-    @keyframes pulseBg  { 0%,100%{background-color:#0a2218;} 50%{background-color:#0e3024;} }
+    @keyframes pulseBg  { 0%,100%{background-color:#141820;} 50%{background-color:#1e2430;} }
     .bar-working { animation: blinkBorder 1.4s ease-in-out infinite, pulseBg 1.4s ease-in-out infinite; }
     .dot-blink   { animation: blinkDot 1s step-start infinite; }
     @keyframes searchFlash {
