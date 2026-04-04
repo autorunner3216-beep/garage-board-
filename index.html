@@ -9395,26 +9395,29 @@ React.createElement('select', {
                             fontSize:13, fontWeight:900, color:"#f1f5f9",
                             flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, c.name),
                           c.job.plate && React.createElement('span', { style:{
-                            fontSize:12, fontWeight:800, color:"#fbbf24",
-                            background:"#1a1200", border:"1px solid #92400e",
+                            fontSize:12, fontWeight:800, color:"#1d4ed8",
+                            background:"#ffffff", border:"1px solid #93c5fd",
                             borderRadius:4, padding:"1px 6px", flexShrink:0,
-                            letterSpacing:"0.05em" }}, c.job.plate)
+                            letterSpacing:"0.05em", display:"flex", alignItems:"center", gap:3 }},
+                            React.createElement('span', { style:{ fontSize:10, fontWeight:900, color:"#1e40af" }}, "ナンバー："),
+                            c.job.plate)
                         ),
 
                         /* 車種 */
                         (c.job.model||c.job.carModel) && React.createElement('div', { style:{
-                          fontSize:10, color:"#64748b", marginBottom:5,
+                          fontSize:12, fontWeight:700, color:"#e2e8f0", marginBottom:5,
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }},
                           c.job.model||c.job.carModel),
 
                         /* バッジ行 */
                         React.createElement('div', { style:{ display:"flex", gap:3, flexWrap:"wrap", marginBottom:6 }},
                           isBoard && c.mechanic && React.createElement('span', { style:{
-                            fontSize:9, padding:"1px 5px", borderRadius:3,
-                            background:"#052e16", color:"#4ade80" }}, "🔧 "+c.mechanic),
+                            fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
+                            background:"#052e16", color:"#4ade80",
+                            border:"1px solid #16a34a" }}, "🔧 "+c.mechanic),
                           isBoard && c.stall && React.createElement('span', { style:{
-                            fontSize:9, padding:"1px 5px", borderRadius:3,
-                            background:"#0f172a", color:"#64748b", border:"1px solid #1e293b" }}, c.stall),
+                            fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
+                            background:"#0f172a", color:"#cbd5e1", border:"1px solid #475569" }}, c.stall),
                           isBoard && c.loanCar==="あり" && React.createElement('span', { style:{
                             fontSize:9, padding:"1px 5px", borderRadius:3,
                             background:"#052e16", color:"#4ade80" }}, "代車"),
