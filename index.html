@@ -7407,6 +7407,12 @@ React.createElement('select', {
             try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setTimeout(() => { _fbIncoming.current = false; }, 500); }
         });
+        window.fbOn('garage_front_staffs', function(val) {
+          if (val && Array.isArray(val)) {
+            try { localStorage.setItem('garage_front_staffs', JSON.stringify(val)); } catch {}
+            setFrontStaffList(val);
+          }
+        });
         window.fbOn('garage_stalls', function(val) {
           if (val && Array.isArray(val)) {
             _fbIncoming.current = true;
