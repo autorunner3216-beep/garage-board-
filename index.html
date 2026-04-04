@@ -149,6 +149,23 @@
     @keyframes pulseBg: #141820 / #1e2430
   ・アップロードされた元ファイルには発光変更が入っていないため、
     出力ファイルを引き継いで作業すること（元ファイルから作業すると緑・弱めに戻る）
+
+[ADD-03] 当日入庫パネル カードUI改修（2026-04-04）
+  ・名前の右横に車種を横並び表示（同じ白文字・同じ大きさ）
+  ・名前に「様」を追加
+  ・ナンバーを白背景・青文字・「ナンバー：」ラベル付きで表示
+  ・作業者（ストール名）をオレンジの「作業者：」ラベル付きバッジで表示
+  ・メカニック名バッジは削除
+  ・ピット名はナンバー横から削除（作業者バッジに統合）
+  ・担当スタッフのFirebase fbOnリスナー追加（全PC即時反映）
+  ・ボタンカウントが翌営業日のままだったのを当日入庫フィルターに修正
+  ・ボタンラベル「タイムテーブル」→「テーブル」（はみ出し対策）
+  ・パネル幅 360px → 425px
+
+[NOTE] 作業上の注意（2026-04-04）
+  ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
+  ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
+    作業すると発光CSS・当日入庫パネルの変更がすべて失われる
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -9389,39 +9406,41 @@ React.createElement('select', {
                       /* 本体 */
                       React.createElement('div', { style:{ padding:"7px 8px" }},
 
-                        /* 名前＋ナンバー横並び */
-                        React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }},
+                        /* 名前行＋車種 */
+                        React.createElement('div', { style:{ display:"flex", alignItems:"baseline", gap:5, marginBottom:3, flexWrap:"nowrap" }},
                           React.createElement('span', { style:{
                             fontSize:13, fontWeight:900, color:"#f1f5f9",
-                            flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                            display:"flex", alignItems:"baseline", gap:3 }},
-                            c.name,
-                            React.createElement('span', { style:{ fontSize:11, fontWeight:400, color:"#94a3b8" }}, " 様")
-                          ),
+                            whiteSpace:"nowrap", flexShrink:0 }}, c.name),
+                          React.createElement('span', { style:{ fontSize:11, fontWeight:400, color:"#94a3b8", flexShrink:0 }}, "様"),
+                          (c.job.model||c.job.carModel) && React.createElement('span', { style:{
+                            fontSize:13, fontWeight:900, color:"#f1f5f9",
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }},
+                            c.job.model||c.job.carModel)
+                        ),
+
+                        /* ナンバー＋作業種別横並び */
+                        React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5, marginBottom:4, flexWrap:"wrap" }},
                           c.job.plate && React.createElement('span', { style:{
                             fontSize:12, fontWeight:800, color:"#1d4ed8",
                             background:"#ffffff", border:"1px solid #93c5fd",
                             borderRadius:4, padding:"1px 6px", flexShrink:0,
                             letterSpacing:"0.05em", display:"flex", alignItems:"center", gap:3 }},
                             React.createElement('span', { style:{ fontSize:10, fontWeight:900, color:"#1e40af" }}, "ナンバー："),
-                            c.job.plate)
+                            c.job.plate),
+
                         ),
 
-                        /* 車種 */
-                        (c.job.model||c.job.carModel) && React.createElement('div', { style:{
-                          fontSize:12, fontWeight:700, color:"#e2e8f0", marginBottom:5,
-                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }},
-                          c.job.model||c.job.carModel),
+                        
 
                         /* バッジ行 */
                         React.createElement('div', { style:{ display:"flex", gap:3, flexWrap:"wrap", marginBottom:6 }},
-                          isBoard && c.mechanic && React.createElement('span', { style:{
-                            fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
-                            background:"#052e16", color:"#4ade80",
-                            border:"1px solid #16a34a" }}, "🔧 "+c.mechanic),
+
                           isBoard && c.stall && React.createElement('span', { style:{
                             fontSize:10, padding:"2px 7px", borderRadius:4, fontWeight:700,
-                            background:"#0f172a", color:"#cbd5e1", border:"1px solid #475569" }}, c.stall),
+                            background:"#0f172a", color:"#cbd5e1", border:"1px solid #475569",
+                            display:"flex", alignItems:"center", gap:3 }},
+                            React.createElement('span', { style:{ fontSize:9, fontWeight:900, color:"#f97316" }}, "作業者："),
+                            c.stall),
                           isBoard && c.loanCar==="あり" && React.createElement('span', { style:{
                             fontSize:9, padding:"1px 5px", borderRadius:3,
                             background:"#052e16", color:"#4ade80" }}, "代車"),
