@@ -8691,11 +8691,15 @@ React.createElement('select', {
                   , React.createElement('div', { style: { width:1, height:20, background:"#1e293b", flexShrink:0, margin:"0 2px" }})
                   /* 翌日来店ボタン */
                   , (()=>{
-                    const tmr = shiftDate(TODAY_STR, 1);
                     var bpRaw=[];
                     bpRaw = window.loadFromDb('bp_jobs', []);
-                    const cnt = jobs.filter(j=>j.date===tmr&&!j.displayDate&&!j.completed).length
-                              + bpRaw.filter(j=>j.inDate===tmr&&!j.confirmed).length;
+                    const SHELVE_SET_TM = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+                    const cnt = jobs.filter(j=>
+                      (j.date===TODAY_STR||j.displayDate===TODAY_STR||j.checkinDate===TODAY_STR)
+                      && !j.completed
+                      && !SHELVE_SET_TM.has(j.status)
+                    ).length
+                              + bpRaw.filter(j=>j.inDate===TODAY_STR&&!j.confirmed).length;
                     return React.createElement('button', {
                       onClick:()=>{ var next=!showTomorrow; setShowTomorrow(next); setShowTodayDelivery(false); if(next){ setShowLoanTomorrow(false); setShowDeadline(false); setShowMemo(false); } },
                       style:{ position:"relative", flexShrink:0,
