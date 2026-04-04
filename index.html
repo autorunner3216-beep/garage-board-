@@ -172,13 +172,12 @@
         エラーは既存のsetDragOverlapMsg（2.5秒表示）を使用
         エラーメッセージ：「⚠ すでに予定が入っているため貼れません」
   備考: 「空きに見えるのに貼れない」という現象の根本原因。
-        以下5箇所すべてにROLES札・フリー札との相互チェックがなかった：
-        ①ジョブのドラッグ移動（GanttBoard mouseup）
-        ②ROLES札の新規ドロップ/移動/リサイズ完了時
-        ③フリー札の新規ドロップ/移動/リサイズ完了時
-        ④入庫登録モーダル（addJob）
-        ⑤ジョブ編集保存（saveEditJob）・再アサイン（confirmReAssign）
-        どこかで見えない重なりが蓄積し、後から別の札を貼るとブロックされていた
+        以下の箇所にROLES札・フリー札との相互チェックがなかった：
+        ①ROLES札の新規ドロップ/移動/リサイズ完了時
+        ②フリー札の新規ドロップ/移動/リサイズ完了時
+        ③入庫登録モーダル（addJob）
+        ジョブのドラッグ移動・saveEditJob・confirmReAssignへのROLES/フリー札チェック追加は
+        見えないデータとの誤検知を引き起こすため実施しない
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
@@ -1794,15 +1793,7 @@ react-dom/cjs/react-dom-client.production.js:
               j.stall === g.stall &&
               parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
             );
-            const conflictRole = roleCardsRef.current.some(c =>
-              c.stall === g.stall && c.start != null &&
-              c.start < parseFloat(g.end) && c.end > parseFloat(g.start)
-            );
-            const conflictReserve = reserveCardsRef.current.some(c =>
-              c.stall === g.stall &&
-              c.start < parseFloat(g.end) && c.end > parseFloat(g.start)
-            );
-            if (conflict.length > 0 || conflictRole || conflictReserve) {
+            if (conflict.length > 0) {
               setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
               setTimeout(() => setDragOverlapMsg(null), 2000);
             } else {
@@ -7959,37 +7950,9 @@ React.createElement('select', {
         setNj({date:boardDate,stall:stalls[0]?.id||"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",deliveryTime:"",loanCar:"なし",transport:"なし",isNew:false});
       };
       const saveEditJob = (id, patch) => {
-        // ── 重複チェック（stall/start/endが変わる場合のみ） ──
-        const isAsWaiting = patch.status === "当日来店/預かり";
-        if (!isAsWaiting && (patch.stall || patch.start || patch.end)) {
-          const orig = jobs.find(j => j.id === id);
-          if (orig) {
-            const chkStall = patch.stall  || orig.stall;
-            const chkStart = parseFloat(patch.start != null ? patch.start : orig.start);
-            const chkEnd   = parseFloat(patch.end   != null ? patch.end   : orig.end);
-            const chkDate  = patch.date   || orig.displayDate || orig.date;
-            const conflictJob = jobs.some(j =>
-              j.id !== id && !j.completed &&
-              j.status !== "当日来店/預かり" && j.workState !== "shelved" &&
-              (j.displayDate || j.date) === chkDate && j.stall === chkStall &&
-              parseFloat(j.start) < chkEnd && parseFloat(j.end) > chkStart
-            );
-            const conflictRole = _appRoleCardsRef.current.some(c =>
-              c.stall === chkStall && c.start != null &&
-              c.start < chkEnd && c.end > chkStart
-            );
-            const conflictReserve = _appReserveCardsRef.current.some(c =>
-              c.stall === chkStall &&
-              c.start < chkEnd && c.end > chkStart
-            );
-            if (conflictJob || conflictRole || conflictReserve) {
-              alert("⚠ 指定の時間帯にすでに予定が入っているため保存できません");
-              return;
-            }
-          }
-        }
         setJobs(p => p.map(j => {
           if (j.id !== id) return j;
+          const isAsWaiting = patch.status === "当日来店/預かり";
           const newDate = patch.date || j.date;
           const currentDisplayDate = j.displayDate || j.date;
           const dateChanged = newDate !== currentDisplayDate;
@@ -8013,24 +7976,15 @@ React.createElement('select', {
         const t = nowStr();
         const raStart = parseFloat(ra.start);
         const raEnd   = parseFloat(ra.end);
-        // ── 重複チェック（既存ジョブ） ──
+        // ── 重複チェック（既存ジョブのみ） ──
         const conflictJob = jobs.some(j =>
           j.id !== reAssign.jobId && !j.completed &&
           j.status !== "当日来店/預かり" && j.workState !== "shelved" &&
           (j.displayDate || j.date) === ra.date && j.stall === ra.stall &&
           parseFloat(j.start) < raEnd && parseFloat(j.end) > raStart
         );
-        // ── 重複チェック（ROLES札・フリー札） ──
-        const conflictRole = _appRoleCardsRef.current.some(c =>
-          c.stall === ra.stall && c.start != null &&
-          c.start < raEnd && c.end > raStart
-        );
-        const conflictReserve = _appReserveCardsRef.current.some(c =>
-          c.stall === ra.stall &&
-          c.start < raEnd && c.end > raStart
-        );
-        if (conflictJob || conflictRole || conflictReserve) {
-          alert("⚠ 指定の時間帯にすでに予定が入っているため割り当てできません");
+        if (conflictJob) {
+          alert("⚠ 指定の時間帯にすでに別の作業が入っているため割り当てできません");
           return;
         }
         setJobs(p => {
@@ -10750,17 +10704,19 @@ React.createElement('select', {
           /* ストール設定モーダル */
           /* 未対応ジョブ アラートモーダル */
           , showUnhandledAlert && (() => {
-            const EXCLUDE_STATUSES = new Set(["完成","車検証/来店","車検証/郵送","引き渡し準備/完了","洗車待ち"]);
+            // 棚上げ・完了系は未対応アラート対象外
+            const EXCLUDE_STATUSES = new Set(["完成","車検証/来店","車検証/郵送","引き渡し準備/完了","洗車待ち","連絡待ち","部品待ち","一時中断","検査・保適待ち"]);
             const unhandledJobs = jobs.filter(j => {
               if (j.completed) return false;
               if (EXCLUDE_STATUSES.has(j.status)) return false;
+              if (j.workState === "shelved") return false;
               const d = j.displayDate || j.date;
               if (!d) return false;
               const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
-              // ① 当日の未着手
+              // ① 当日の未着手（作業待ち idle または当日来店）
               const isTodayUnhandled = d === TODAY_STR && (j.status === "当日来店/預かり" || (j.status === "作業待ち" && j.workState === "idle"));
-              // ② 2日以上放置
-              const isNeglected = diffDays >= 2;
+              // ② 作業待ち・当日来店で2日以上放置
+              const isNeglected = diffDays >= 2 && (j.status === "作業待ち" || j.status === "当日来店/預かり");
               return isTodayUnhandled || isNeglected;
             }).sort((a,b) => (a.displayDate||a.date).localeCompare(b.displayDate||b.date));
 
