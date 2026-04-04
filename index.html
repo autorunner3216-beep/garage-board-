@@ -9387,7 +9387,7 @@ React.createElement('select', {
                         padding:"5px 10px",
                         display:"flex", alignItems:"center", justifyContent:"space-between" }},
                         React.createElement('div', { style:{
-                          background:c.color+"22", border:"1px solid "+c.color+"55",
+                          background:"#ffffff", border:"1px solid "+c.color,
                           borderRadius:4, padding:"2px 8px",
                           fontSize:10, fontWeight:800, color:c.color,
                           maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }},
@@ -10574,8 +10574,8 @@ React.createElement('select', {
               const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
               // ① 当日の未着手
               const isTodayUnhandled = d === TODAY_STR && (j.status === "当日来店/預かり" || (j.status === "作業待ち" && j.workState === "idle"));
-              // ② 7日以上放置
-              const isNeglected = diffDays >= 7;
+              // ② 2日以上放置
+              const isNeglected = diffDays >= 2;
               return isTodayUnhandled || isNeglected;
             }).sort((a,b) => (a.displayDate||a.date).localeCompare(b.displayDate||b.date));
 
@@ -10599,7 +10599,7 @@ React.createElement('select', {
                 , unhandledJobs.map(j => {
                   const d = j.displayDate || j.date;
                   const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
-                  const isNeglected = diffDays >= 7;
+                  const isNeglected = diffDays >= 2;
                   const jt = JT[j.type] || null;
                   const stall = stalls.find(s=>s.id===j.stall);
                   return React.createElement('div', { key:j.id,
