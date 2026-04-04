@@ -178,6 +178,14 @@
         ③入庫登録モーダル（addJob）
         ジョブのドラッグ移動・saveEditJob・confirmReAssignへのROLES/フリー札チェック追加は
         見えないデータとの誤検知を引き起こすため実施しない
+
+[BUG-16] 端と端が接触するだけのジョブが「重なっている」と誤判定される（2026-04-04）
+  原因: コンフリクト判定が j.start < g.end && j.end > g.start だったため、
+        スナップ後の浮動小数点誤差で端がぴったり接触するケース
+        （例：g.end=11.000333...、j.start=11）が重なりと誤判定されていた
+  修正: 全7箇所に0.01（約36秒）の許容誤差を追加
+        j.start < g.end - 0.01 && j.end > g.start + 0.01 に変更
+        対象：ジョブドラッグ移動・ROLES/フリー札配置&移動・addJob・confirmReAssign
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
@@ -1784,7 +1792,6 @@ react-dom/cjs/react-dom-client.production.js:
           if (!dragRef.current) return;
           const g = ghostRef.current;
           if (g) {
-            console.log("[DRAG DROP] ghost=", JSON.stringify({stall:g.stall,start:g.start,end:g.end,id:g.id}), "date=", boardDateRef.current);
             const conflict = jobsRef.current.filter(j =>
               j.id !== g.id &&
               !j.completed &&
@@ -1792,10 +1799,9 @@ react-dom/cjs/react-dom-client.production.js:
               j.workState !== "shelved" &&
               (j.displayDate || j.date) === boardDateRef.current &&
               j.stall === g.stall &&
-              parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
+              parseFloat(j.start) < parseFloat(g.end) - 0.01 && parseFloat(j.end) > parseFloat(g.start) + 0.01
             );
             if (conflict.length > 0) {
-              console.warn("[CONFLICT]", JSON.stringify(conflict.map(j=>({id:j.id,owner:j.owner,stall:j.stall,start:j.start,end:j.end,status:j.status,workState:j.workState,date:j.date,displayDate:j.displayDate,completed:j.completed}))));
               setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
               setTimeout(() => setDragOverlapMsg(null), 2000);
             } else {
@@ -1894,7 +1900,7 @@ react-dom/cjs/react-dom-client.production.js:
               const overlapJob = jobsRef.current.some(j =>
                 !j.completed && j.workState !== "shelved" &&
                 (j.displayDate || j.date) === cur && j.stall === moved.stall &&
-                parseFloat(j.start) < moved.end && parseFloat(j.end) > moved.start
+                parseFloat(j.start) < moved.end - 0.01 && parseFloat(j.end) > moved.start + 0.01
               );
               const overlapRole = roleCardsRef.current.some(c =>
                 c.stall === moved.stall && c.start != null &&
@@ -1924,7 +1930,7 @@ react-dom/cjs/react-dom-client.production.js:
               const overlapJob = jobsRef.current.some(j =>
                 !j.completed && j.workState !== "shelved" &&
                 (j.displayDate || j.date) === cur && j.stall === moved.stall &&
-                parseFloat(j.start) < moved.end && parseFloat(j.end) > moved.start
+                parseFloat(j.start) < moved.end - 0.01 && parseFloat(j.end) > moved.start + 0.01
               );
               const overlapRole = roleCardsRef.current.some(c =>
                 c.id !== moved.id && c.stall === moved.stall && c.start != null &&
@@ -1954,7 +1960,7 @@ react-dom/cjs/react-dom-client.production.js:
               const overlapJob = jobsRef.current.some(j =>
                 !j.completed && j.workState !== "shelved" &&
                 (j.displayDate || j.date) === cur && j.stall === g.stall &&
-                parseFloat(j.start) < g.end && parseFloat(j.end) > g.start
+                parseFloat(j.start) < g.end - 0.01 && parseFloat(j.end) > g.start + 0.01
               );
               const overlapRole = roleCardsRef.current.some(c =>
                 c.stall === g.stall && c.start != null &&
@@ -1985,7 +1991,7 @@ react-dom/cjs/react-dom-client.production.js:
             const overlapJob = jobsRef.current.some(j =>
               !j.completed && j.workState !== "shelved" &&
               (j.displayDate || j.date) === cur && j.stall === g.stall &&
-              parseFloat(j.start) < g.end && parseFloat(j.end) > g.start
+              parseFloat(j.start) < g.end - 0.01 && parseFloat(j.end) > g.start + 0.01
             );
             const overlapRole = roleCardsRef.current.some(c =>
               c.stall === g.stall && c.start != null &&
@@ -7902,7 +7908,7 @@ React.createElement('select', {
           j.workState !== "shelved" &&
           (j.displayDate || j.date) === checkDate &&
           j.stall === nj.stall &&
-          parseFloat(j.start) < newEnd && parseFloat(j.end) > newStart
+          parseFloat(j.start) < newEnd - 0.01 && parseFloat(j.end) > newStart + 0.01
         );
         if (conflict.length > 0) {
           setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています`]);
@@ -7983,7 +7989,7 @@ React.createElement('select', {
           j.id !== reAssign.jobId && !j.completed &&
           j.status !== "当日来店/預かり" && j.workState !== "shelved" &&
           (j.displayDate || j.date) === ra.date && j.stall === ra.stall &&
-          parseFloat(j.start) < raEnd && parseFloat(j.end) > raStart
+          parseFloat(j.start) < raEnd - 0.01 && parseFloat(j.end) > raStart + 0.01
         );
         if (conflictJob) {
           alert("⚠ 指定の時間帯にすでに別の作業が入っているため割り当てできません");
