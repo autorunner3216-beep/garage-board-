@@ -172,16 +172,16 @@
         エラーは既存のsetDragOverlapMsg（2.5秒表示）を使用
         エラーメッセージ：「⚠ すでに予定が入っているため貼れません」
   備考: 「空きに見えるのに貼れない」という現象の根本原因。
-        微妙に他の札が重なっていても配置できてしまい、
-        後から別の札を貼ろうとしたときに初めてブロックされる形になっていた
+        以下5箇所すべてにROLES札・フリー札との相互チェックがなかった：
+        ①ジョブのドラッグ移動（GanttBoard mouseup）
+        ②ROLES札の新規ドロップ/移動/リサイズ完了時
+        ③フリー札の新規ドロップ/移動/リサイズ完了時
+        ④入庫登録モーダル（addJob）
+        ⑤ジョブ編集保存（saveEditJob）・再アサイン（confirmReAssign）
+        どこかで見えない重なりが蓄積し、後から別の札を貼るとブロックされていた
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
-
-[FIX-09] 未対応ジョブの放置判定を2日→7日に変更（2026-04-04）
-  変更: 未対応アラートモーダルの「放置」判定閾値を diffDays >= 2 から diffDays >= 7 に変更
-        フィルター判定（isNeglected）とカード表示の色分け判定の2箇所を修正
-
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -1794,7 +1794,15 @@ react-dom/cjs/react-dom-client.production.js:
               j.stall === g.stall &&
               parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
             );
-            if (conflict.length > 0) {
+            const conflictRole = roleCardsRef.current.some(c =>
+              c.stall === g.stall && c.start != null &&
+              c.start < parseFloat(g.end) && c.end > parseFloat(g.start)
+            );
+            const conflictReserve = reserveCardsRef.current.some(c =>
+              c.stall === g.stall &&
+              c.start < parseFloat(g.end) && c.end > parseFloat(g.start)
+            );
+            if (conflict.length > 0 || conflictRole || conflictReserve) {
               setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
               setTimeout(() => setDragOverlapMsg(null), 2000);
             } else {
@@ -7604,6 +7612,8 @@ React.createElement('select', {
       const [resetMonthAt, setResetMonthAt] = useState(() => window.loadFromDb('garage_reset_month_at', null)); // ISO文字列 or null
       const [endModal, setEndModal] = useState(null);
       const [roleCards, setRoleCards] = useState([]);
+      const _appRoleCardsRef = React.useRef([]);
+      React.useEffect(() => { _appRoleCardsRef.current = roleCards; }, [roleCards]);
       const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
       const _fbIncomingRole = React.useRef(false);
       const _boardDateRef = React.useRef(TODAY_STR);
@@ -7668,6 +7678,8 @@ React.createElement('select', {
 
       // ── フリー札 state & Firebase同期（roleCardsと同じ仕組みでboardDate管理）──
       const [reserveCards, setReserveCards] = useState([]);
+      const _appReserveCardsRef = React.useRef([]);
+      React.useEffect(() => { _appReserveCardsRef.current = reserveCards; }, [reserveCards]);
       const [reserveCardsDate, setReserveCardsDate] = useState(TODAY_STR);
       const _allReserveCards = React.useRef({});
       const _fbIncomingReserve = React.useRef(false);
@@ -7903,6 +7915,19 @@ React.createElement('select', {
           setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にすでに別の作業が入っています`]);
           return;
         }
+        // ── ROLES札・フリー札との重複チェック ──
+        const conflictRole = _appRoleCardsRef.current.some(c =>
+          c.stall === nj.stall && c.start != null &&
+          c.start < newEnd && c.end > newStart
+        );
+        const conflictReserve = _appReserveCardsRef.current.some(c =>
+          c.stall === nj.stall &&
+          c.start < newEnd && c.end > newStart
+        );
+        if (conflictRole || conflictReserve) {
+          setAddError([`「${stalls.find(s=>s.id===nj.stall)?.name||nj.stall}」は指定の時間帯にROLS札またはフリー札が入っています`]);
+          return;
+        }
         // ── 休業ブロックチェック ──
         const isBlockedForAdd = blockDaysRef.current.some(b => {
           if (b.date !== checkDate || b.stallId !== nj.stall) return false;
@@ -7934,9 +7959,37 @@ React.createElement('select', {
         setNj({date:boardDate,stall:stalls[0]?.id||"S01",owner:"",plate:"",model:"",type:"ホリデー車検",start:"9",end:"11",memo:"",priority:false,receptionDate:TODAY_STR,receptionist:"",mechanic:"",deliveryDate:"",deliveryTime:"",loanCar:"なし",transport:"なし",isNew:false});
       };
       const saveEditJob = (id, patch) => {
+        // ── 重複チェック（stall/start/endが変わる場合のみ） ──
+        const isAsWaiting = patch.status === "当日来店/預かり";
+        if (!isAsWaiting && (patch.stall || patch.start || patch.end)) {
+          const orig = jobs.find(j => j.id === id);
+          if (orig) {
+            const chkStall = patch.stall  || orig.stall;
+            const chkStart = parseFloat(patch.start != null ? patch.start : orig.start);
+            const chkEnd   = parseFloat(patch.end   != null ? patch.end   : orig.end);
+            const chkDate  = patch.date   || orig.displayDate || orig.date;
+            const conflictJob = jobs.some(j =>
+              j.id !== id && !j.completed &&
+              j.status !== "当日来店/預かり" && j.workState !== "shelved" &&
+              (j.displayDate || j.date) === chkDate && j.stall === chkStall &&
+              parseFloat(j.start) < chkEnd && parseFloat(j.end) > chkStart
+            );
+            const conflictRole = _appRoleCardsRef.current.some(c =>
+              c.stall === chkStall && c.start != null &&
+              c.start < chkEnd && c.end > chkStart
+            );
+            const conflictReserve = _appReserveCardsRef.current.some(c =>
+              c.stall === chkStall &&
+              c.start < chkEnd && c.end > chkStart
+            );
+            if (conflictJob || conflictRole || conflictReserve) {
+              alert("⚠ 指定の時間帯にすでに予定が入っているため保存できません");
+              return;
+            }
+          }
+        }
         setJobs(p => p.map(j => {
           if (j.id !== id) return j;
-          const isAsWaiting = patch.status === "当日来店/預かり";
           const newDate = patch.date || j.date;
           const currentDisplayDate = j.displayDate || j.date;
           const dateChanged = newDate !== currentDisplayDate;
@@ -7958,10 +8011,32 @@ React.createElement('select', {
       }, []);
       const confirmReAssign = () => {
         const t = nowStr();
+        const raStart = parseFloat(ra.start);
+        const raEnd   = parseFloat(ra.end);
+        // ── 重複チェック（既存ジョブ） ──
+        const conflictJob = jobs.some(j =>
+          j.id !== reAssign.jobId && !j.completed &&
+          j.status !== "当日来店/預かり" && j.workState !== "shelved" &&
+          (j.displayDate || j.date) === ra.date && j.stall === ra.stall &&
+          parseFloat(j.start) < raEnd && parseFloat(j.end) > raStart
+        );
+        // ── 重複チェック（ROLES札・フリー札） ──
+        const conflictRole = _appRoleCardsRef.current.some(c =>
+          c.stall === ra.stall && c.start != null &&
+          c.start < raEnd && c.end > raStart
+        );
+        const conflictReserve = _appReserveCardsRef.current.some(c =>
+          c.stall === ra.stall &&
+          c.start < raEnd && c.end > raStart
+        );
+        if (conflictJob || conflictRole || conflictReserve) {
+          alert("⚠ 指定の時間帯にすでに予定が入っているため割り当てできません");
+          return;
+        }
         setJobs(p => {
           const next = p.map(j => j.id===reAssign.jobId ? {
-            ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
-            end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
+            ...j, date:ra.date, stall:ra.stall, start:raStart,
+            end:raEnd, status:"作業待ち", statusChangedAt:t,
             workState:"idle", startedAt:null, endedAt:null, displayDate:null
           } : j);
           try { localStorage.setItem('garage_board_jobs', JSON.stringify(next)); } catch(e) {}
@@ -10684,8 +10759,8 @@ React.createElement('select', {
               const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
               // ① 当日の未着手
               const isTodayUnhandled = d === TODAY_STR && (j.status === "当日来店/預かり" || (j.status === "作業待ち" && j.workState === "idle"));
-              // ② 7日以上放置（2026-04-04: 2日→7日に変更）
-              const isNeglected = diffDays >= 7;
+              // ② 2日以上放置
+              const isNeglected = diffDays >= 2;
               return isTodayUnhandled || isNeglected;
             }).sort((a,b) => (a.displayDate||a.date).localeCompare(b.displayDate||b.date));
 
@@ -10709,7 +10784,7 @@ React.createElement('select', {
                 , unhandledJobs.map(j => {
                   const d = j.displayDate || j.date;
                   const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
-                  const isNeglected = diffDays >= 7; // 2026-04-04: 2日→7日に変更
+                  const isNeglected = diffDays >= 2;
                   const jt = JT[j.type] || null;
                   const stall = stalls.find(s=>s.id===j.stall);
                   return React.createElement('div', { key:j.id,
