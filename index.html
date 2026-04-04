@@ -162,7 +162,18 @@
   ・ボタンラベル「タイムテーブル」→「テーブル」（はみ出し対策）
   ・パネル幅 360px → 425px
 
-[NOTE] 作業上の注意（2026-04-04）
+[BUG-15] ROLES札・フリー札の配置/移動時に重複チェックがなかった（2026-04-04）
+  原因: ドラッグ&ドロップで新規配置するときのmouseup処理に、
+        既存ジョブ・ROLES札・フリー札との時間帯重複チェックが存在しなかった
+        また既存札をドラッグ移動/リサイズした際も同様にチェックなし
+  修正: GanttBoard内にroleCardsRef・reserveCardsRefを追加（最新状態をリアルタイム参照）
+        新規ドロップ時：ジョブ/ROLES札/フリー札の3者すべてと時間重複チェック
+        既存札の移動/リサイズ完了時：同様に3者チェックし重複があれば元の位置に戻す
+        エラーは既存のsetDragOverlapMsg（2.5秒表示）を使用
+        エラーメッセージ：「⚠ すでに予定が入っているため貼れません」
+  備考: 「空きに見えるのに貼れない」という現象の根本原因。
+        微妙に他の札が重なっていても配置できてしまい、
+        後から別の札を貼ろうとしたときに初めてブロックされる形になっていた
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
@@ -1688,6 +1699,10 @@ react-dom/cjs/react-dom-client.production.js:
       const ghostRef = useRef(null);
       const jobsRef  = useRef(jobs);
       useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+      const roleCardsRef = useRef(roleCards);
+      useEffect(() => { roleCardsRef.current = roleCards; }, [roleCards]);
+      const reserveCardsRef = useRef(reserveCards);
+      useEffect(() => { reserveCardsRef.current = reserveCards; }, [reserveCards]);
       const boardDateRef = useRef(boardDate);
       useEffect(() => { boardDateRef.current = boardDate; }, [boardDate]);
       const [ghost, setGhost] = useState(null);
@@ -1863,13 +1878,63 @@ react-dom/cjs/react-dom-client.production.js:
         };
         const onMouseUp = (e) => {
           if (reserveCardDragRef.current) {
+            const d = reserveCardDragRef.current;
             reserveCardDragRef.current = null;
             document.body.classList.remove("gantt-dragging");
+            // 移動/リサイズ後の重複チェック
+            const moved = reserveCardsRef.current.find(c => c.id === d.cardId);
+            if (moved) {
+              const cur = boardDateRef.current;
+              const overlapJob = jobsRef.current.some(j =>
+                !j.completed && j.workState !== "shelved" &&
+                (j.displayDate || j.date) === cur && j.stall === moved.stall &&
+                parseFloat(j.start) < moved.end && parseFloat(j.end) > moved.start
+              );
+              const overlapRole = roleCardsRef.current.some(c =>
+                c.stall === moved.stall && c.start != null &&
+                c.start < moved.end && c.end > moved.start
+              );
+              const overlapReserve = reserveCardsRef.current.some(c =>
+                c.id !== moved.id && c.stall === moved.stall &&
+                c.start < moved.end && c.end > moved.start
+              );
+              if (overlapJob || overlapRole || overlapReserve) {
+                // 元の位置に戻す
+                setReserveCards(p => p.map(c => c.id === d.cardId ? {...d.origCard} : c));
+                setDragOverlapMsg("⚠ すでに予定が入っているため貼れません");
+                setTimeout(() => setDragOverlapMsg(null), 2500);
+              }
+            }
             return;
           }
           if (roleCardDragRef.current) {
+            const d = roleCardDragRef.current;
             roleCardDragRef.current = null;
             document.body.classList.remove("gantt-dragging");
+            // 移動/リサイズ後の重複チェック
+            const moved = roleCardsRef.current.find(c => c.id === d.cardId);
+            if (moved) {
+              const cur = boardDateRef.current;
+              const overlapJob = jobsRef.current.some(j =>
+                !j.completed && j.workState !== "shelved" &&
+                (j.displayDate || j.date) === cur && j.stall === moved.stall &&
+                parseFloat(j.start) < moved.end && parseFloat(j.end) > moved.start
+              );
+              const overlapRole = roleCardsRef.current.some(c =>
+                c.id !== moved.id && c.stall === moved.stall && c.start != null &&
+                c.start < moved.end && c.end > moved.start
+              );
+              const overlapReserve = reserveCardsRef.current.some(c =>
+                c.stall === moved.stall &&
+                c.start < moved.end && c.end > moved.start
+              );
+              if (overlapJob || overlapRole || overlapReserve) {
+                // 元の位置に戻す
+                setRoleCards(p => p.map(c => c.id === d.cardId ? {...d.origCard} : c));
+                setDragOverlapMsg("⚠ すでに予定が入っているため貼れません");
+                setTimeout(() => setDragOverlapMsg(null), 2500);
+              }
+            }
             return;
           }
           // 仮押さえドラッグ
@@ -1878,7 +1943,27 @@ react-dom/cjs/react-dom-client.production.js:
             document.body.classList.remove("gantt-dragging");
             const g = roleGhostRef.current;
             if (g && g.stall) {
-              setReserveCards(p => [...p, { id:Date.now()+Math.random(), stall:g.stall, start:g.start, end:g.end, text:"" }]);
+              // ── コンフリクトチェック（ジョブ・ROLES札・フリー札） ──
+              const cur = boardDateRef.current;
+              const overlapJob = jobsRef.current.some(j =>
+                !j.completed && j.workState !== "shelved" &&
+                (j.displayDate || j.date) === cur && j.stall === g.stall &&
+                parseFloat(j.start) < g.end && parseFloat(j.end) > g.start
+              );
+              const overlapRole = roleCardsRef.current.some(c =>
+                c.stall === g.stall && c.start != null &&
+                c.start < g.end && c.end > g.start
+              );
+              const overlapReserve = reserveCardsRef.current.some(c =>
+                c.stall === g.stall &&
+                c.start < g.end && c.end > g.start
+              );
+              if (overlapJob || overlapRole || overlapReserve) {
+                setDragOverlapMsg("⚠ すでに予定が入っているため貼れません");
+                setTimeout(() => setDragOverlapMsg(null), 2500);
+              } else {
+                setReserveCards(p => [...p, { id:Date.now()+Math.random(), stall:g.stall, start:g.start, end:g.end, text:"" }]);
+              }
             }
             roleGhostRef.current = null;
             setRoleGhost(null);
@@ -1889,7 +1974,27 @@ react-dom/cjs/react-dom-client.production.js:
           document.body.classList.remove("gantt-dragging");
           const g = roleGhostRef.current;
           if (g && g.stall) {
-            setRoleCards(p => [...p, { id:Date.now()+Math.random(), type:g.type, stall:g.stall, start:g.start, end:g.end }]);
+            // ── コンフリクトチェック（ジョブ・ROLES札・フリー札） ──
+            const cur = boardDateRef.current;
+            const overlapJob = jobsRef.current.some(j =>
+              !j.completed && j.workState !== "shelved" &&
+              (j.displayDate || j.date) === cur && j.stall === g.stall &&
+              parseFloat(j.start) < g.end && parseFloat(j.end) > g.start
+            );
+            const overlapRole = roleCardsRef.current.some(c =>
+              c.stall === g.stall && c.start != null &&
+              c.start < g.end && c.end > g.start
+            );
+            const overlapReserve = reserveCardsRef.current.some(c =>
+              c.stall === g.stall &&
+              c.start < g.end && c.end > g.start
+            );
+            if (overlapJob || overlapRole || overlapReserve) {
+              setDragOverlapMsg("⚠ すでに予定が入っているため貼れません");
+              setTimeout(() => setDragOverlapMsg(null), 2500);
+            } else {
+              setRoleCards(p => [...p, { id:Date.now()+Math.random(), type:g.type, stall:g.stall, start:g.start, end:g.end }]);
+            }
           }
           roleGhostRef.current = null;
           setRoleGhost(null);
@@ -1897,7 +2002,7 @@ react-dom/cjs/react-dom-client.production.js:
         window.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
         return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
-      }, [stalls, setRoleCards, setReserveCards]);
+      }, [stalls, setRoleCards, setReserveCards, setDragOverlapMsg]);
       useEffect(() => { roleGhostRef.current = roleGhost; }, [roleGhost]);
 
       // マウント時に現在時刻を中央にスクロール
