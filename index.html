@@ -186,6 +186,10 @@
   修正: 全7箇所に0.01（約36秒）の許容誤差を追加
         j.start < g.end - 0.01 && j.end > g.start + 0.01 に変更
         対象：ジョブドラッグ移動・ROLES/フリー札配置&移動・addJob・confirmReAssign
+  根本対処: snap()関数を小数点4桁丸めに変更
+        旧: Math.round(v / SNAP) * SNAP  → 誤差が残る
+        新: Math.round(Math.round(v / SNAP) * SNAP * 10000) / 10000
+        これにより10.333333332のような誤差値が10.3333に正規化され再発を防ぐ
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
@@ -811,7 +815,7 @@ react-dom/cjs/react-dom-client.production.js:
     // ── ユーティリティ関数（純粋関数・副作用なし）──
     const fmtH   = h => { const hh=Math.floor(h); const mm=Math.round((h-hh)*60); return `${hh}:${String(mm).padStart(2,"0")}`; };
     const nowStr = () => new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
-    const snap   = v => Math.round(v / SNAP) * SNAP;
+    const snap   = v => Math.round(Math.round(v / SNAP) * SNAP * 10000) / 10000;
     const clamp  = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
     // ── アニメーション CSS（JS注入用）──
