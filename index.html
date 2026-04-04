@@ -177,6 +177,11 @@
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
+
+[FIX-09] 未対応ジョブの放置判定を2日→7日に変更（2026-04-04）
+  変更: 未対応アラートモーダルの「放置」判定閾値を diffDays >= 2 から diffDays >= 7 に変更
+        フィルター判定（isNeglected）とカード表示の色分け判定の2箇所を修正
+
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -10679,8 +10684,8 @@ React.createElement('select', {
               const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
               // ① 当日の未着手
               const isTodayUnhandled = d === TODAY_STR && (j.status === "当日来店/預かり" || (j.status === "作業待ち" && j.workState === "idle"));
-              // ② 2日以上放置
-              const isNeglected = diffDays >= 2;
+              // ② 7日以上放置（2026-04-04: 2日→7日に変更）
+              const isNeglected = diffDays >= 7;
               return isTodayUnhandled || isNeglected;
             }).sort((a,b) => (a.displayDate||a.date).localeCompare(b.displayDate||b.date));
 
@@ -10704,7 +10709,7 @@ React.createElement('select', {
                 , unhandledJobs.map(j => {
                   const d = j.displayDate || j.date;
                   const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
-                  const isNeglected = diffDays >= 2;
+                  const isNeglected = diffDays >= 7; // 2026-04-04: 2日→7日に変更
                   const jt = JT[j.type] || null;
                   const stall = stalls.find(s=>s.id===j.stall);
                   return React.createElement('div', { key:j.id,
