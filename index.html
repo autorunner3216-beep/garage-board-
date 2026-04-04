@@ -1784,6 +1784,7 @@ react-dom/cjs/react-dom-client.production.js:
           if (!dragRef.current) return;
           const g = ghostRef.current;
           if (g) {
+            console.log("[DRAG DROP] ghost=", JSON.stringify({stall:g.stall,start:g.start,end:g.end,id:g.id}), "date=", boardDateRef.current);
             const conflict = jobsRef.current.filter(j =>
               j.id !== g.id &&
               !j.completed &&
@@ -1794,6 +1795,7 @@ react-dom/cjs/react-dom-client.production.js:
               parseFloat(j.start) < parseFloat(g.end) && parseFloat(j.end) > parseFloat(g.start)
             );
             if (conflict.length > 0) {
+              console.warn("[CONFLICT]", JSON.stringify(conflict.map(j=>({id:j.id,owner:j.owner,stall:j.stall,start:j.start,end:j.end,status:j.status,workState:j.workState,date:j.date,displayDate:j.displayDate,completed:j.completed}))));
               setDragOverlapMsg("⚠ すでに予定が入っているため移動できません");
               setTimeout(() => setDragOverlapMsg(null), 2000);
             } else {
