@@ -9393,7 +9393,11 @@ React.createElement('select', {
                         React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }},
                           React.createElement('span', { style:{
                             fontSize:13, fontWeight:900, color:"#f1f5f9",
-                            flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, c.name),
+                            flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                            display:"flex", alignItems:"baseline", gap:3 }},
+                            c.name,
+                            React.createElement('span', { style:{ fontSize:11, fontWeight:400, color:"#94a3b8" }}, " 様")
+                          ),
                           c.job.plate && React.createElement('span', { style:{
                             fontSize:12, fontWeight:800, color:"#1d4ed8",
                             background:"#ffffff", border:"1px solid #93c5fd",
