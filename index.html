@@ -10360,6 +10360,8 @@ React.createElement('select', {
                     var _vrTimer = null;
                     var _vrRestarting = false;
                     var processTranscript = function(transcript) {
+                      // タイマーを必ずクリア（onend再起動・二重呼び出しを防ぐ）
+                      if (_vrTimer) { clearTimeout(_vrTimer); _vrTimer = null; }
                       _vrRestarting = false;
                       sr.stop();
                       setVjListening(false); setVjLoading(true);
