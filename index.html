@@ -11362,11 +11362,11 @@ React.createElement('select', {
                       });
                       // [FIX-08] 作業種別キーワードマッチング
                       var TYPE_MAP = [
-                        {keys:['ホリデー車検再入庫','ホリデー再入庫','再入庫'], val:'ホリデー車検/再入庫'},
-                        {keys:['はじめてくん','ホリデーはじめてくん'], val:'ホリデーはじめてくん'},
-                        {keys:['楽天車検','楽天','ホリデー楽天'], val:'ホリデー/楽天車検'},
+                        {keys:['ホリデー車検再入庫','ホリデー再入庫','ホリデー車検 再入庫','ホリデー 再入庫','再入庫'], val:'ホリデー車検/再入庫'},
+                        {keys:['はじめてくん','ホリデーはじめてくん','ホリデー はじめてくん'], val:'ホリデーはじめてくん'},
+                        {keys:['楽天車検','楽天','ホリデー楽天','ホリデー 楽天'], val:'ホリデー/楽天車検'},
+                        {keys:['車検後日整備','後日整備','ホリデー後日','車検後日'], val:'車検後日整備'},
                         {keys:['ホリデー車検','ホリデー'], val:'ホリデー車検'},
-                        {keys:['車検後日整備','後日整備'], val:'車検後日整備'},
                         {keys:['一般車検','いっぱん車検'], val:'一般車検'},
                         {keys:['中古新規','ちゅうこしんき'], val:'中古新規'},
                         {keys:['中古12検','中古12ヶ月','ちゅうこ12'], val:'中古12検'},
@@ -11394,14 +11394,19 @@ React.createElement('select', {
                         {keys:['もちふゆ','もちこみふゆ','持冬'], val:'持冬'},
                         {keys:['BP見積り','BP見積','ビーピー見積','ぴーぴー見積','板金見積','ビーピー','ぴーぴー'], val:'BP見積り'},
                       ];
+                      // キーの長い順にソートして優先マッチング（「ホリデー車検再入庫」が「ホリデー車検」より先にヒットするように）
                       var matchedType = '';
-                      for(var ti=0; ti<TYPE_MAP.length; ti++){
-                        for(var ki=0; ki<TYPE_MAP[ti].keys.length; ki++){
-                          if(transcript.indexOf(TYPE_MAP[ti].keys[ki]) >= 0){
-                            matchedType = TYPE_MAP[ti].val; break;
+                      var allCandidates = [];
+                      TYPE_MAP.forEach(function(entry){
+                        entry.keys.forEach(function(k){
+                          if(transcript.indexOf(k) >= 0){
+                            allCandidates.push({len: k.length, val: entry.val});
                           }
-                        }
-                        if(matchedType) break;
+                        });
+                      });
+                      if(allCandidates.length > 0){
+                        allCandidates.sort(function(a,b){ return b.len - a.len; });
+                        matchedType = allCandidates[0].val;
                       }
                       var apiKey = localStorage.getItem('openai_api_key') || '';
                       if (!apiKey) {
@@ -11415,7 +11420,7 @@ React.createElement('select', {
                       try { _mechStaff  = JSON.parse(localStorage.getItem('garage_mech')   || '[]'); } catch(e){}
                       var _receptNames = _receptStaff.map(function(s){ return typeof s==='string'?s:(s.name||''); }).filter(Boolean).join('/');
                       var _mechNames   = _mechStaff.map(function(s){ return typeof s==='string'?s:(s.name||''); }).filter(Boolean).join('/');
-                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\n\n【ナンバープレート（plate）の規則】\n・半角英数字・ひらがなのみで出力。例：品川330あ1234\n・漢数字は半角数字に変換。一→1、二→2等。\n・下4桁だけ言った場合はそのまま数字で出力（例：「1234番」→"1234"）\n・NやRなどアルファベットの車種名略称（NX・RX・CR-V・GR・AMG等）はplateに入れずmodelへ。\n・「〇〇ナンバー」「〇〇番」という表現はナンバーとして扱う。\n\n【車種（model）の規則】\n・メーカー名＋車種名をカタカナ正式名称で出力。例：トヨタ プリウス、ホンダ N-BOX\n・発話にアルファベットの車種名（NX・RX・CR-V・GR・AMG等）が含まれる場合はmodelへ。\n・軽自動車は「（軽）」を末尾に付けない。そのまま車種名のみ出力。\n\n【スタッフ名の規則】\n・receptionist=受付担当者。「受付は〇〇」「フロントは〇〇」ならreceptionist。\n・mechanic=担当メカ。「メカは〇〇」「担当は〇〇」ならmechanic。\n・登録済み受付スタッフリスト:' + (_receptNames||'未登録') + '\n・登録済みメカスタッフリスト:' + (_mechNames||'未登録') + '\n・音が最も近いリスト内の名前を選択。リスト外の名前は絶対に空文字にすること（推測で入れない）。\n・難読名ヒント：剱持＝ケンモツ、武藤（専）＝むとう\n\n【作業種別（type）の規則】\n以下のリストから最も近いものを選択。リスト外なら空文字。\nリスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/預夏/預冬/持夏/持冬/BP見積り\nタイヤ履き替えの読み仮名はmemoに入れないこと。\n\n【isNew（顧客区分）の規則】\n「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n発話:「' + transcript + '」\n\n{"owner":"","plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
+                      var pt = '自動車整備の入庫受付です。発話から入庫情報を抽出しJSONのみ返してください。前置き不要。\n今日:' + today + '\n相対日付はYYYY-MM-DD形式に変換。不明は空文字。\n\n【ナンバープレート（plate）の規則】\n・半角英数字・ひらがなのみで出力。例：品川330あ1234\n・漢数字は半角数字に変換。一→1、二→2等。\n・下4桁だけ言った場合はそのまま数字で出力（例：「1234番」→"1234"）\n・NやRなどアルファベットの車種名略称（NX・RX・CR-V・GR・AMG等）はplateに入れずmodelへ。\n・「〇〇ナンバー」「〇〇番」という表現はナンバーとして扱う。\n\n【車種（model）の規則】\n・メーカー名＋車種名をカタカナ正式名称で出力。例：トヨタ プリウス、ホンダ N-BOX\n・発話にアルファベットの車種名（NX・RX・CR-V・GR・AMG等）が含まれる場合はmodelへ。\n・軽自動車は「（軽）」を末尾に付けない。そのまま車種名のみ出力。\n\n【スタッフ名の規則】\n・receptionist=受付担当者。「受付は〇〇」「フロントは〇〇」ならreceptionist。\n・mechanic=担当メカ。「メカは〇〇」「担当は〇〇」ならmechanic。\n・登録済み受付スタッフリスト:' + (_receptNames||'未登録') + '\n・登録済みメカスタッフリスト:' + (_mechNames||'未登録') + '\n・音が最も近いリスト内の名前を選択。リスト外の名前は絶対に空文字にすること（推測で入れない）。\n・難読名ヒント：剱持＝ケンモツ、武藤（専）＝むとう\n\n【作業種別（type）の規則】\n以下のリストから最も近いものを選択。リスト外なら空文字。\nリスト:ホリデー車検/ホリデー車検/再入庫/ホリデーはじめてくん/ホリデー/楽天車検/車検後日整備/一般車検/中古新規/中古12検/12ヶ月点検/6ヶ月点検/3ヶ月点検/ジョイカル30/ジョイカル24/ジョイカル18/ジョイカル12/ジョイカル6/新車6/新車1/10ポイント点検/オイル交換/一般整備/故障診断/用品取付/一般整備B/納車前洗車/預夏/預冬/持夏/持冬/BP見積り\nタイヤ履き替えの読み仮名はmemoに入れないこと。\n\n【isNew（顧客区分）の規則】\n「新規」→"new"、「車両新規」「車両のみ新規」→"newcar"、「既存」「既存客」→"existing"、不明は空文字。\n\n【owner_candidates（お客様名の候補）の規則】\n・ownerの読みに対して同音異字が複数考えられる場合のみ、最大3候補を配列で返す。\n・例：「さわだ」→["沢田","澤田","佐和田"]、「たなか」→[]（一意なので空）\n・owner自体は最も一般的な漢字で出力し、owner_candidatesに選択肢を並べる。\n・候補が1つしかない場合（田中・鈴木など一意な苗字）は空配列[]を返す。\n\n発話:「' + transcript + '」\n\n{"owner":"","owner_candidates":[],"plate":"","model":"","type":"","date":"","checkinTime":"","deliveryDate":"","deliveryTime":"","receptionist":"","mechanic":"","isNew":"","memo":""}';
                       fetch('https://api.openai.com/v1/chat/completions', {
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
@@ -11428,6 +11433,10 @@ React.createElement('select', {
                           var parsed=JSON.parse(m[0]); var filled={};
                           VJ_FIELDS.forEach(function(f){ if(parsed[f.key]&&parsed[f.key].trim()) filled[f.key]=parsed[f.key].trim(); });
                           if(matchedType) filled['type'] = matchedType;
+                          // owner_candidates（最大3件）を保存
+                          if(Array.isArray(parsed.owner_candidates) && parsed.owner_candidates.length > 1){
+                            filled['_ownerCandidates'] = parsed.owner_candidates.slice(0,3);
+                          }
                           if(Object.keys(filled).length>0) setVjPreview(filled);
                         }catch(e3){}
                       }).catch(function(){setVjLoading(false);});
@@ -11540,23 +11549,55 @@ React.createElement('select', {
                     ),
                     vjPreview && React.createElement('div',{style:{background:'#0a1e14',border:'1px solid #22c55e',borderRadius:10,padding:'12px 16px',marginBottom:14}},
                       React.createElement('div',{style:{fontSize:11,color:'#22c55e',fontWeight:700,letterSpacing:1,marginBottom:8}},'✅ AI解析結果 — 確認してから反映'),
-                      Object.keys(vjPreview).map(function(k){
+                      Object.keys(vjPreview).filter(function(k){ return k !== '_ownerCandidates'; }).map(function(k){
                         var label=(VJ_FIELDS.find(function(f){return f.key===k;})||{label:k}).label;
-                        return React.createElement('div',{key:k,style:{display:'flex',alignItems:'center',gap:8,marginBottom:5}},
-                          React.createElement('div',{style:{fontSize:11,color:'#64748b',width:80,flexShrink:0}},label),
-                          React.createElement('div',{style:{fontSize:13,color:'#f1f5f9',flex:1,background:'#071810',borderRadius:5,padding:'3px 8px'}},k==='isNew'?({'existing':'既存客','new':'新規客','newcar':'車両のみ新規'}[vjPreview[k]]||vjPreview[k]):vjPreview[k]),
-                          React.createElement('button',{onClick:function(){
-                            var patch={}; patch[k]=vjPreview[k];
-                            updateNj(function(p){return Object.assign({},p,patch);});
-                            setVjPreview(function(prev){if(!prev)return null;var next=Object.assign({},prev);delete next[k];return Object.keys(next).length>0?next:null;});
-                          },style:{fontSize:11,background:'#0e2444',border:'1px solid #3b82f6',color:'#3b82f6',borderRadius:5,padding:'2px 8px',cursor:'pointer'}},'反映'),
-                          React.createElement('button',{onClick:function(){
-                            setVjPreview(function(prev){if(!prev)return null;var next=Object.assign({},prev);delete next[k];return Object.keys(next).length>0?next:null;});
-                          },style:{fontSize:11,background:'none',border:'1px solid #475569',color:'#475569',borderRadius:5,padding:'2px 6px',cursor:'pointer'}},'✕')
+                        var isOwner = k === 'owner';
+                        var candidates = isOwner && vjPreview._ownerCandidates;
+                        return React.createElement('div',{key:k,style:{marginBottom: candidates ? 8 : 5}},
+                          // 候補ありのオーナー行
+                          candidates ? React.createElement('div',null,
+                            React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:5}},
+                              React.createElement('div',{style:{fontSize:11,color:'#64748b',width:80,flexShrink:0}},label),
+                              React.createElement('div',{style:{fontSize:11,color:'#f59e0b',flex:1}}, '候補を選択してください'),
+                              React.createElement('button',{onClick:function(){
+                                setVjPreview(function(prev){if(!prev)return null;var next=Object.assign({},prev);delete next[k];delete next['_ownerCandidates'];return Object.keys(next).filter(function(x){return x!=='_ownerCandidates';}).length>0?next:null;});
+                              },style:{fontSize:11,background:'none',border:'1px solid #475569',color:'#475569',borderRadius:5,padding:'2px 6px',cursor:'pointer'}},'✕')
+                            ),
+                            React.createElement('div',{style:{display:'flex',gap:6,paddingLeft:88}},
+                              candidates.map(function(c){
+                                return React.createElement('button',{key:c, onClick:function(){
+                                  updateNj(function(p){return Object.assign({},p,{owner:c});});
+                                  setVjPreview(function(prev){if(!prev)return null;var next=Object.assign({},prev);delete next[k];delete next['_ownerCandidates'];return Object.keys(next).filter(function(x){return x!=='_ownerCandidates';}).length>0?next:null;});
+                                }, style:{
+                                  fontSize:13,fontWeight:700,padding:'4px 14px',borderRadius:6,cursor:'pointer',
+                                  background:'#0e2444',border:'1px solid #3b82f6',color:'#93c5fd',
+                                  transition:'all .15s'
+                                }}, c);
+                              })
+                            )
+                          )
+                          // 通常行（候補なし）
+                          : React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},
+                            React.createElement('div',{style:{fontSize:11,color:'#64748b',width:80,flexShrink:0}},label),
+                            React.createElement('div',{style:{fontSize:13,color:'#f1f5f9',flex:1,background:'#071810',borderRadius:5,padding:'3px 8px'}},k==='isNew'?({'existing':'既存客','new':'新規客','newcar':'車両のみ新規'}[vjPreview[k]]||vjPreview[k]):vjPreview[k]),
+                            React.createElement('button',{onClick:function(){
+                              var patch={}; patch[k]=vjPreview[k];
+                              updateNj(function(p){return Object.assign({},p,patch);});
+                              setVjPreview(function(prev){if(!prev)return null;var next=Object.assign({},prev);delete next[k];return Object.keys(next).filter(function(x){return x!=='_ownerCandidates';}).length>0?next:null;});
+                            },style:{fontSize:11,background:'#0e2444',border:'1px solid #3b82f6',color:'#3b82f6',borderRadius:5,padding:'2px 8px',cursor:'pointer'}},'反映'),
+                            React.createElement('button',{onClick:function(){
+                              setVjPreview(function(prev){if(!prev)return null;var next=Object.assign({},prev);delete next[k];return Object.keys(next).filter(function(x){return x!=='_ownerCandidates';}).length>0?next:null;});
+                            },style:{fontSize:11,background:'none',border:'1px solid #475569',color:'#475569',borderRadius:5,padding:'2px 6px',cursor:'pointer'}},'✕')
+                          )
                         );
                       }),
                       React.createElement('div',{style:{display:'flex',gap:8,marginTop:8}},
-                        React.createElement('button',{onClick:function(){updateNj(function(p){return Object.assign({},p,vjPreview);});setVjPreview(null);},
+                        React.createElement('button',{onClick:function(){
+                          var patch = Object.assign({},vjPreview);
+                          delete patch['_ownerCandidates'];
+                          updateNj(function(p){return Object.assign({},p,patch);});
+                          setVjPreview(null);
+                        },
                           style:{flex:1,padding:'7px',borderRadius:7,background:'#0e2444',border:'1px solid #3b82f6',color:'#3b82f6',fontSize:12,fontWeight:700,cursor:'pointer'}},'✅ すべて反映'),
                         React.createElement('button',{onClick:function(){setVjPreview(null);},
                           style:{padding:'7px 14px',borderRadius:7,background:'none',border:'1px solid #334155',color:'#475569',fontSize:12,cursor:'pointer'}},'キャンセル')
