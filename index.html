@@ -188,14 +188,17 @@
         workState===shelvedも除外
 
 [BUG-18] 当日入庫パネルに別日入庫のジョブが表示される（2026-04-05）
-  原因: 当日入庫フィルタの条件が
-        (j.date===TODAY || j.displayDate===TODAY || j.checkinDate===TODAY) だったため、
-        受付日(date)が今日でも入庫日(checkinDate)が別日のジョブが混入していた
-        例：受付日=今日、入庫日=4/11 のBP見積りが今日の入庫として表示される
-  修正: フィルタ条件を checkinDate優先 に変更
-        checkinDateがある場合 → checkinDate===TODAY のみ
-        checkinDateがない場合 → displayDate||date===TODAY にフォールバック
-        対象：テーブルボタンのカウント・当日入庫パネル本体の両方
+  原因①: 当日入庫フィルタの条件に j.date===TODAY が含まれていたため、
+          受付日(date)が今日・入庫日(checkinDate)が別日のジョブが混入
+  原因②: EditModalの「入庫日（変更）」フィールドが draft.date のみ更新し
+          checkinDate を更新していなかったため、編集保存後も古い checkinDate が残る
+          （例：受付日=今日で登録→checkinDate=今日、後から入庫日を4/11に変更しても
+           checkinDate=今日のまま→当日入庫に表示され続ける）
+  修正①: フィルタ条件を checkinDate優先に変更
+          checkinDateがある場合 → checkinDate===TODAY のみ
+          checkinDateがない場合 → displayDate||date===TODAY にフォールバック
+  修正②: EditModalの draft初期値に checkinDate を追加
+          入庫日変更の onChange で date と checkinDate を同時に更新するよう修正
 
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
@@ -2844,6 +2847,7 @@ react-dom/cjs/react-dom-client.production.js:
         memo:          job.memo||"",
         isNew:         job.isNew||"existing",
         date:          job.displayDate||job.date||"",
+        checkinDate:   job.checkinDate||job.date||"",
         stall:         job.stall||"",
         start:         job.start||8,
         end:           job.end||9,
@@ -2930,7 +2934,7 @@ react-dom/cjs/react-dom-client.production.js:
               , React.createElement('div', { style: { gridColumn:"1/-1" }}
                   , React.createElement('div', { style: { fontSize:10, color:"#06b6d4", marginBottom:4, letterSpacing:1, fontWeight:700 }}, "📅 入庫日（変更）")
                   , React.createElement('div', { style:{ display:"flex", gap:6 }}
-                    , React.createElement('input', { type:"date", value: draft.date, onChange: e=>setDraft(p=>({...p,date:e.target.value})),
+                    , React.createElement('input', { type:"date", value: draft.date, onChange: e=>setDraft(p=>({...p,date:e.target.value,checkinDate:e.target.value})),
                       style: { flex:1, background:"#070c14", border:"1px solid #06b6d444", borderRadius:8,
                         padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                     , React.createElement('select', { value:draft.checkinTime||"", onChange:e=>setDraft(p=>({...p,checkinTime:e.target.value})),
