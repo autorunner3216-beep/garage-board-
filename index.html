@@ -212,6 +212,33 @@
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
 
+[BUG-19] 当日入庫パネルに翌日入庫のジョブが表示される（BUG-18再発・2026-04-05）
+  原因: モーダルで入庫日を変更・保存しても checkinDate が古い日付のまま残っていた
+        draft初期値: date=displayDate||date（作業日）、checkinDate=checkinDate||date（元の入庫日）
+        入庫日フィールドはdraft.dateを表示しているのに、checkinDateは別管理で保存時に同期されていなかった
+        例：4/5入庫予定→4/6に変更保存→date=4/6になるがcheckinDate=4/5のまま→当日入庫に表示され続ける
+  修正: saveEditJob内でcheckinDateをpatch.date（モーダルで確定した入庫日）で必ず上書き
+        draft初期値はそのまま（持ち越しジョブのcheckinDateを勝手に書き換えないよう）
+        モーダルで保存した時点の入庫日=draft.dateが正として checkinDate を同期する
+  備考: 持ち越しケースとの区別は不要。モーダルで明示的に保存した時点の日付が正とみなす
+
+
+  ・ownerフィールドに同音異字が複数ある場合、最大3候補をボタンで選択できるUI
+  ・AIが owner_candidates:["沢田","澤田","佐和田"] を返す→候補ボタン表示
+  ・候補が1つ以下（田中・鈴木等）の場合は空配列→通常の反映ボタン表示
+  ・_ownerCandidatesはvjPreviewの内部キー。すべて反映ボタンから除外済み
+  ・候補選択後は owner と _ownerCandidates を同時にvjPreviewから削除
+
+[NOTE] 音声入力 TYPE_MAPマッチング改善について（2026-04-05）
+  ・マッチングを「配列順」→「ヒットしたキーの文字数が長い方優先」に変更
+  ・「ホリデー車検再入庫」が「ホリデー車検」より先にヒットするようになった
+  ・音声が分割されるパターン（スペースあり）のキーも追加済み
+
+[NOTE] 音声入力 バグ修正について（2026-04-05）
+  ・反映後にAI解析が繰り返されるバグ修正
+    原因：processTranscript呼び出し時に_vrTimerをnullにしていなかった
+    修正：processTranscript冒頭で clearTimeout + _vrTimer=null を追加
+
 [NOTE] 音声入力 STAFF_YOMI_MAP について（2026-04-05）
   ・processTranscript内にSTAFF_YOMI_MAP（苗字よみがな→漢字変換）がある
   ・668苗字・671エントリーを収録済み（あ行〜わ行）
@@ -7980,13 +8007,17 @@ React.createElement('select', {
           const newDate = patch.date || j.date;
           const currentDisplayDate = j.displayDate || j.date;
           const dateChanged = newDate !== currentDisplayDate;
+          // 入庫日フィールド(draft.date)で保存する際、checkinDateを必ず同期する
+          // （持ち越しで displayDate が変わっているケースでも、モーダルで明示的に
+          //   保存した時点の入庫日 = draft.date が正とみなす）
+          const syncedCheckinDate = patch.date || j.checkinDate || j.date;
           if (isAsWaiting) {
-            return { ...j, ...patch, date:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null };
+            return { ...j, ...patch, date:newDate, checkinDate:syncedCheckinDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null };
           }
           if (dateChanged) {
-            return { ...j, ...patch, date:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null, status:"作業待ち" };
+            return { ...j, ...patch, date:newDate, checkinDate:syncedCheckinDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null, status:"作業待ち" };
           }
-          return { ...j, ...patch };
+          return { ...j, ...patch, checkinDate:syncedCheckinDate };
         }));
         setSel(p => _optionalChain([p, 'optionalAccess', _25 => _25.id])===id ? {...p,...patch} : p);
         setEditJob(null);
