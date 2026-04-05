@@ -187,6 +187,16 @@
         isNeglectedを作業待ち・当日来店/預かりのみに限定
         workState===shelvedも除外
 
+[BUG-18] 当日入庫パネルに別日入庫のジョブが表示される（2026-04-05）
+  原因: 当日入庫フィルタの条件が
+        (j.date===TODAY || j.displayDate===TODAY || j.checkinDate===TODAY) だったため、
+        受付日(date)が今日でも入庫日(checkinDate)が別日のジョブが混入していた
+        例：受付日=今日、入庫日=4/11 のBP見積りが今日の入庫として表示される
+  修正: フィルタ条件を checkinDate優先 に変更
+        checkinDateがある場合 → checkinDate===TODAY のみ
+        checkinDateがない場合 → displayDate||date===TODAY にフォールバック
+        対象：テーブルボタンのカウント・当日入庫パネル本体の両方
+
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
@@ -8828,7 +8838,7 @@ React.createElement('select', {
                     bpRaw = window.loadFromDb('bp_jobs', []);
                     const SHELVE_SET_TM = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
                     const cnt = jobs.filter(j=>
-                      (j.date===TODAY_STR||j.displayDate===TODAY_STR||j.checkinDate===TODAY_STR)
+                      (j.checkinDate===TODAY_STR || (!j.checkinDate && (j.displayDate||j.date)===TODAY_STR))
                       && !j.completed
                       && !SHELVE_SET_TM.has(j.status)
                     ).length
@@ -9333,7 +9343,7 @@ React.createElement('select', {
             bpWkRaw2 = window.loadFromDb('bp_workers', []);
 
             var todayCards = jobs.filter(function(j){
-              return (j.date===TODAY_STR||j.displayDate===TODAY_STR||j.checkinDate===TODAY_STR)
+              return (j.checkinDate===TODAY_STR || (!j.checkinDate && (j.displayDate||j.date)===TODAY_STR))
                 && !j.completed && !SHELVE_SET_TI.has(j.status);
             });
             var bpCards = bpRaw2.filter(function(j){ return j.inDate===TODAY_STR && !j.confirmed; });
