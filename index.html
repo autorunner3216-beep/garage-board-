@@ -226,7 +226,7 @@
 [NOTE] 音声入力の認識精度改善履歴（2026-04-05）
   ・interimResults: true（リアルタイム認識ON）
   ・maxAlternatives: 3（複数候補から最良を使用）
-  ・タイムアウト: 2秒→3.5秒（途中停止対策）
+  ・タイムアウト: 2秒→1.8秒
   ・onend時に自動再起動ロジック追加（_vrRestartingフラグで制御）
   ・AIモデル: gpt-4o-mini→gpt-4o（解析精度向上）
   ・プロンプト: ナンバー・車種・スタッフ名・顧客区分をセクション分けして明確化
@@ -11446,11 +11446,11 @@ React.createElement('select', {
                       _vrInterim = interimText;
                       // リアルタイム表示用にボタンテキストを更新（setVjGuideを流用しない→別stateが必要なため暫定的にコンソール）
                       if (_vrTimer) clearTimeout(_vrTimer);
-                      // 3.5秒間無音で終了（途中停止を防ぐため延長）
+                      // 1.8秒間無音で終了
                       _vrTimer = setTimeout(function(){
                         var combined = (_vrTranscript + ' ' + _vrInterim).trim();
                         if (combined) processTranscript(combined);
-                      }, 3500);
+                      }, 1800);
                     };
                     sr.onerror=function(ev){
                       // network/audio-capture以外のエラーは無視して継続
@@ -11483,7 +11483,7 @@ React.createElement('select', {
                           transition:'all .2s'}
                       },
                         React.createElement('span',{style:{fontSize:16,lineHeight:1}}, vjListening?'🔴':vjLoading?'⏳':'🎤'),
-                        React.createElement('span',{style:{fontSize:9,fontWeight:700,letterSpacing:0.5}}, vjListening?'話してください…(3.5秒で自動終了)':vjLoading?'AI解析中…':'まとめて音声入力')
+                        React.createElement('span',{style:{fontSize:9,fontWeight:700,letterSpacing:0.5}}, vjListening?'話してください…(1.8秒で自動終了)':vjLoading?'AI解析中…':'まとめて音声入力')
                       ),
                       React.createElement('button',{
                         onClick:function(){setVjGuide(function(v){return !v;});},
