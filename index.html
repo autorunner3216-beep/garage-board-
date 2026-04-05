@@ -9390,7 +9390,8 @@ React.createElement('select', {
                         React.createElement('div', { style:{
                           background:"#ffffff", border:"1px solid "+c.color,
                           borderRadius:4, padding:"2px 8px",
-                          fontSize:10, fontWeight:800, color:c.color,
+                          fontSize:10, fontWeight:800,
+                          color:(c.type==="持夏"||c.type==="持冬")?"#1e3a8a":c.color,
                           maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }},
                           c._type==="bp" ? "🔧 BP" : c.type),
                         c.timeLabel
