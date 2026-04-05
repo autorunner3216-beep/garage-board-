@@ -11192,23 +11192,25 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
   }
   #msg-notify-text {
-    background: rgba(0,10,2,0.92);
-    border: 1px solid #00ff4155;
-    color: #4ade80;
-    font-size: 11px;
+    background: rgba(0,20,4,0.97);
+    border: 1.5px solid #00ff41aa;
+    color: #00ff41;
+    font-size: 12px;
     font-family: 'Courier New', monospace;
     letter-spacing: 1px;
-    padding: 5px 10px;
-    border-radius: 4px;
+    padding: 8px 14px;
+    border-radius: 6px;
     white-space: normal;
     display: none;
-    max-width: 160px;
-    line-height: 1.8;
-    animation: msgNotifyPulse 2.5s ease-in-out infinite;
+    max-width: 180px;
+    line-height: 1.9;
+    font-weight: bold;
+    animation: msgNotifyPulse 1.8s ease-in-out infinite;
+    box-shadow: 0 0 16px #00ff4133, inset 0 0 12px #00ff4108;
   }
   @keyframes msgNotifyPulse {
-    0%,100% { box-shadow: 0 0 4px #00ff4122; }
-    50%      { box-shadow: 0 0 10px #00ff4144; }
+    0%,100% { box-shadow: 0 0 8px #00ff4144, inset 0 0 8px #00ff4108; border-color: #00ff4188; }
+    50%      { box-shadow: 0 0 20px #00ff4177, inset 0 0 16px #00ff4115; border-color: #00ff41; }
   }
   #msg-fab {
     width: 52px; height: 52px;
@@ -11222,6 +11224,14 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     transition: border-color .2s, box-shadow .2s;
   }
   #msg-fab:hover { border-color: #00ff41; box-shadow: 0 0 16px #00ff4133; }
+  #msg-fab.has-unread {
+    border-color: #00ff41;
+    animation: msgFabPulse 2s ease-in-out infinite;
+  }
+  @keyframes msgFabPulse {
+    0%,100% { box-shadow: 0 0 8px #00ff4144; }
+    50%      { box-shadow: 0 0 24px #00ff4199; }
+  }
   #msg-fab-badge {
     position: absolute; top: -4px; right: -4px;
     background: #ef4444; color: #fff;
@@ -11323,25 +11333,27 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     gap: 6px; flex-wrap: wrap;
   }
   .msg-readby {
-    color: #00ff4166; font-size: 10px; flex: 1;
+    color: #00ff4188; font-size: 10px; flex: 1;
     font-family: 'Courier New', monospace;
   }
   .msg-read-btn {
-    background: transparent; border: 1px solid #00ff4144;
-    color: #00ff4199; font-size: 10px; padding: 2px 8px;
-    cursor: pointer; border-radius: 3px;
+    background: #00ff4112; border: 1.5px solid #00ff4166;
+    color: #00ff41cc; font-size: 11px; padding: 4px 12px;
+    cursor: pointer; border-radius: 4px;
     font-family: 'Courier New', monospace; letter-spacing: 1px;
+    font-weight: bold;
     transition: all .15s;
   }
-  .msg-read-btn:hover { border-color: #00ff41; color: #00ff41; background: #00ff4108; }
+  .msg-read-btn:hover { border-color: #00ff41; color: #00ff41; background: #00ff4122; box-shadow: 0 0 8px #00ff4133; }
   .msg-del-btn {
-    background: transparent; border: 1px solid #ef444433;
-    color: #ef444466; font-size: 10px; padding: 2px 7px;
-    cursor: pointer; border-radius: 3px;
+    background: #ef444412; border: 1.5px solid #ef444466;
+    color: #ef4444bb; font-size: 11px; padding: 4px 10px;
+    cursor: pointer; border-radius: 4px;
     font-family: 'Courier New', monospace;
+    font-weight: bold;
     transition: all .15s;
   }
-  .msg-del-btn:hover { border-color: #ef4444; color: #ef4444; background: #ef444408; }
+  .msg-del-btn:hover { border-color: #ef4444; color: #ef4444; background: #ef444422; box-shadow: 0 0 8px #ef444433; }
 
   /* 入力エリア */
   #msg-input-area {
@@ -11541,14 +11553,17 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     var notify = document.getElementById('msg-notify-text');
     if (!badge || !notify) return;
 
+    var fab = document.getElementById('msg-fab');
     if (unreadNames.length === 0) {
       badge.style.display = 'none';
       notify.style.display = 'none';
+      if (fab) fab.classList.remove('has-unread');
     } else {
       badge.style.display = 'flex';
       badge.textContent = unreadNames.length;
       notify.style.display = 'block';
-      notify.innerHTML = unreadNames.map(function(n){ return n + 'さん宛'; }).join('<br>') + '<br>に新着あり';
+      notify.innerHTML = unreadNames.map(function(n){ return '🔔 ' + n + 'さん宛'; }).join('<br>') + '<br>に新着メッセージ';
+      if (fab) fab.classList.add('has-unread');
     }
   }
 
