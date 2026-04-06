@@ -9346,7 +9346,7 @@ React.createElement('select', {
               if (j.checkinTime) { var pts=j.checkinTime.split(':'); sortKey=parseInt(pts[0])+(parseInt(pts[1]||0)/60); }
               allCards.push({ _type:"board", _id:j.id, sortKey:sortKey, job:j,
                 color:jt.badge, name:j.owner||"(名前なし)",
-                sub:(j.plate||"")+(j.model?" / "+j.model:"")+("[d:"+j.date+" cd:"+j.checkinDate+" dd:"+j.displayDate+"]"),
+                sub:(j.plate||"")+(j.model?" / "+j.model:""),
                 timeLabel:j.checkinTime||(j.start!=null?(String(Math.floor(j.start)).padStart(2,"0")+":"+String(Math.round((j.start%1)*60)).padStart(2,"0")):""),
                 type:j.type, mechanic:j.mechanic||"",
                 stall:(stalls.find(function(s){return s.id===j.stall;})||{}).name||j.stall||"",
