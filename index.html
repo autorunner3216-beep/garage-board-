@@ -7941,10 +7941,10 @@ React.createElement('select', {
           const currentDisplayDate = j.displayDate || j.date;
           const dateChanged = newDate !== currentDisplayDate;
           if (isAsWaiting) {
-            return { ...j, ...patch, date:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null };
+            return { ...j, ...patch, date:newDate, checkinDate:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null };
           }
           if (dateChanged) {
-            return { ...j, ...patch, date:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null, status:"作業待ち" };
+            return { ...j, ...patch, date:newDate, checkinDate:newDate, displayDate:null, workState:"idle", startedAt:null, endedAt:null, status:"作業待ち" };
           }
           return { ...j, ...patch };
         }));
