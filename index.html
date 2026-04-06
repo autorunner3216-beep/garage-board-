@@ -2834,6 +2834,7 @@ react-dom/cjs/react-dom-client.production.js:
         memo:          job.memo||"",
         isNew:         job.isNew||"existing",
         date:          job.displayDate||job.date||"",
+        checkinDate:   job.checkinDate||job.date||"",
         stall:         job.stall||"",
         start:         job.start||8,
         end:           job.end||9,
@@ -2920,7 +2921,7 @@ react-dom/cjs/react-dom-client.production.js:
               , React.createElement('div', { style: { gridColumn:"1/-1" }}
                   , React.createElement('div', { style: { fontSize:10, color:"#06b6d4", marginBottom:4, letterSpacing:1, fontWeight:700 }}, "📅 入庫日（変更）")
                   , React.createElement('div', { style:{ display:"flex", gap:6 }}
-                    , React.createElement('input', { type:"date", value: draft.date, onChange: e=>setDraft(p=>({...p,date:e.target.value})),
+                    , React.createElement('input', { type:"date", value: draft.date, onChange: e=>setDraft(p=>({...p,date:e.target.value,checkinDate:e.target.value})),
                       style: { flex:1, background:"#070c14", border:"1px solid #06b6d444", borderRadius:8,
                         padding:"8px 10px", color:"#e2e8f0", fontSize:12, outline:"none", boxSizing:"border-box", colorScheme:"dark" }})
                     , React.createElement('select', { value:draft.checkinTime||"", onChange:e=>setDraft(p=>({...p,checkinTime:e.target.value})),
