@@ -11409,29 +11409,49 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     word-break: break-all;
   }
   .msg-footer {
-    margin-top: 7px; display: flex; align-items: center;
-    gap: 6px; flex-wrap: wrap;
+    margin-top: 10px; display: flex; align-items: center;
+    gap: 8px; flex-wrap: wrap;
   }
   .msg-readby {
     color: #00ff4166; font-size: 10px; flex: 1;
     font-family: 'Courier New', monospace;
   }
   .msg-read-btn {
-    background: transparent; border: 1px solid #00ff4144;
-    color: #00ff4199; font-size: 10px; padding: 2px 8px;
-    cursor: pointer; border-radius: 3px;
-    font-family: 'Courier New', monospace; letter-spacing: 1px;
+    background: #00ff410d;
+    border: 1px solid #00ff4166;
+    color: #00ff41bb;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: 'Noto Sans JP', sans-serif;
     transition: all .15s;
   }
-  .msg-read-btn:hover { border-color: #00ff41; color: #00ff41; background: #00ff4108; }
+  .msg-read-btn:hover {
+    background: #00ff4120;
+    border-color: #00ff41;
+    color: #00ff41;
+    box-shadow: 0 0 6px #00ff4122;
+  }
   .msg-del-btn {
-    background: transparent; border: 1px solid #ef444433;
-    color: #ef444466; font-size: 10px; padding: 2px 7px;
-    cursor: pointer; border-radius: 3px;
-    font-family: 'Courier New', monospace;
+    background: #ef44440a;
+    border: 1px solid #ef444450;
+    color: #ef444490;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: 'Noto Sans JP', sans-serif;
     transition: all .15s;
   }
-  .msg-del-btn:hover { border-color: #ef4444; color: #ef4444; background: #ef444408; }
+  .msg-del-btn:hover {
+    background: #ef444418;
+    border-color: #ef4444;
+    color: #ef4444;
+    box-shadow: 0 0 6px #ef444422;
+  }
 
   /* 入力エリア */
   #msg-input-area {
@@ -11678,8 +11698,8 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
         '<div class="msg-text">' + esc(m.text || '') + '</div>' +
         '<div class="msg-footer">' +
           '<span class="msg-readby">' + readLabel + '</span>' +
-          '<button class="msg-read-btn" data-id="' + m.id + '">既読</button>' +
-          '<button class="msg-del-btn" data-id="' + m.id + '">削除</button>' +
+          '<button class="msg-read-btn" data-id="' + m.id + '">✔ 既読</button>' +
+          '<button class="msg-del-btn" data-id="' + m.id + '">🗑 削除</button>' +
         '</div>';
 
       div.querySelector('.msg-read-btn').onclick = (function(id){
