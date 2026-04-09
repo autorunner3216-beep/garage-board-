@@ -187,6 +187,23 @@
         isNeglectedを作業待ち・当日来店/預かりのみに限定
         workState===shelvedも除外
 
+[BUG-18] Firebase初回受信前の誤上書きによるデータ消失（2026-04-09）
+  原因: アプリ起動時にlocalStorageが空の場合、Firebase受信（fbOn）より先に
+        空のstateがfbSetでFirebaseへ書き込まれてしまう競合状態が発生した
+        複数PCが深夜0時に一斉リロードすることで競合リスクが増大していた
+  修正1: 全7データに_firebaseReadyフラグを追加
+         garage_jobs/stalls/bp_jobs/role_cards/reserve_cards/loancar_cars/loans
+         fbOnコールバック内でtrueに設定し、書き込みuseEffect内でガード追加
+         null受信時も「受信完了」とみなしてtrueに設定（Gemini指摘対応）
+  修正2: scheduleMidnightReloadに0〜5分のランダム遅延を追加
+         全PCが同時リロードする競合を防ぐ
+  修正3: saveToDbにQuotaExceededError検知を追加
+         localStorage容量超過を明示的にconsole.errorに出力
+
+[NOTE] 作業上の注意（2026-04-09）
+  ・Edge スリープタブ機能はオフにすること（edge://settings/system）
+  ・修正ファイルは /mnt/user-data/outputs/index.html を使うこと
+
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
@@ -470,7 +487,12 @@
       try {
         localStorage.setItem(key, JSON.stringify(value));
       } catch(e) {
-        console.warn('[saveToDb] localStorage 書き込み失敗:', key, e);
+        // [修正6] localStorage容量超過を明示的に検知して警告
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+          console.error('🚨 [saveToDb] localStorage容量超過！:', key, e);
+        } else {
+          console.warn('[saveToDb] localStorage 書き込み失敗:', key, e);
+        }
       }
       if (typeof window.fbSet === 'function') {
         window.fbSet(key, value);
@@ -4105,10 +4127,13 @@ React.createElement('select', {
 
       // _lcFbIncoming は下の useEffect より先に宣言する必要がある
       const _lcFbIncoming = React.useRef(false);
+      const _lcCarsFirebaseReady = React.useRef(false);  // [修正5]
+      const _lcLoansFirebaseReady = React.useRef(false); // [修正5]
 
       const _lcInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcInitialized.current) { _lcInitialized.current = true; return; }
+        if (!_lcCarsFirebaseReady.current) return; // [修正5] 初回受信前は書かない
         if (_lcFbIncoming.current) return;
         _lcFbIncoming.current = true;
         window.saveToDb('loancar_cars', lcCars);
@@ -4117,6 +4142,7 @@ React.createElement('select', {
       const _lcLoansInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcLoansInitialized.current) { _lcLoansInitialized.current = true; return; }
+        if (!_lcLoansFirebaseReady.current) return; // [修正5] 初回受信前は書かない
         if (_lcFbIncoming.current) return;
         // Firebase に書き込んだ直後に自分の fbOn が反応するのを防ぐ
         // fbSet は 300ms 遅延があるため、それより長くフラグを立てておく
@@ -4129,22 +4155,24 @@ React.createElement('select', {
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('loancar_cars', function(val) {
+          _lcCarsFirebaseReady.current = true; // [修正5]
           if (Array.isArray(val)) {
             _lcFbIncoming.current = true;
             setLcCars(val);
             // Firebase受信時もlocalStorageを更新して出庫パネルの車両名表示に反映させる
             try { localStorage.setItem('loancar_cars', JSON.stringify(val)); } catch(e) {}
             setTimeout(() => { _lcFbIncoming.current = false; }, 50);
-          }
+          } else { setLcCars([]); }
         });
         window.fbOn('loancar_loans', function(val) {
+          _lcLoansFirebaseReady.current = true; // [修正5]
           if (Array.isArray(val)) {
             _lcFbIncoming.current = true;
             setLcLoans(val);
             // Firebase受信時もlocalStorageを更新して出庫ボタンのカウントに反映させる
             try { localStorage.setItem('loancar_loans', JSON.stringify(val)); } catch(e) {}
             setTimeout(() => { _lcFbIncoming.current = false; }, 50);
-          }
+          } else { setLcLoans([]); }
         });
         return () => { ['loancar_cars','loancar_loans'].forEach(window.fbOff); };
       }, []);
@@ -5251,7 +5279,9 @@ React.createElement('select', {
       const boardRef = useRef(null);
 
       const _bpFbIncoming = React.useRef(false);
+      const _bpFirebaseReady = React.useRef(false); // [修正2]
       const saveBpJobs = jobs => {
+        if (!_bpFirebaseReady.current) return; // [修正2] 初回受信前は書かない
         if (!_bpFbIncoming.current) { setBpJobs(jobs); window.__bpJobs = jobs; window.saveToDb('bp_jobs', jobs); }
       };
       const saveBpStalls = stalls => {
@@ -5263,7 +5293,9 @@ React.createElement('select', {
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('bp_jobs', function(val) {
+          _bpFirebaseReady.current = true; // [修正2] nullでも受信完了とみなす
           if (Array.isArray(val)) { _bpFbIncoming.current = true; setBpJobs(val); window.__bpJobs = val; try { localStorage.setItem('bp_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */ setTimeout(() => { _bpFbIncoming.current = false; }, 200); }
+          else { setBpJobs([]); window.__bpJobs = []; }
         });
         window.fbOn('bp_stalls', function(val) { if (Array.isArray(val)) setBpStalls(val); });
         window.fbOn('bp_workers', function(val) { if (Array.isArray(val)) setBpWorkers(val); });
@@ -7426,6 +7458,10 @@ React.createElement('select', {
           next.setHours(0, 0, 10, 0); // 深夜0時00分10秒
           if (next <= now) next.setDate(next.getDate() + 1);
           var ms = next - now;
+          // [修正8] 複数PC同時リロードによる競合を防ぐため0〜5分のランダム遅延を追加
+          var randomDelay = Math.floor(Math.random() * 5 * 60 * 1000);
+          ms = ms + randomDelay;
+          console.log('[midnight reload] ' + Math.round(ms/60000) + '分後にリロード予定');
           return setTimeout(function() {
             window.location.reload();
           }, ms);
@@ -7526,13 +7562,17 @@ React.createElement('select', {
       // ── Firebase リアルタイム同期 ──
       // ── §C Firebase リアルタイム同期 ──
       const _fbIncoming = React.useRef(false);
+      // [修正1] Firebase初回受信完了フラグ（受信前の誤上書き防止）
+      const _jobsFirebaseReady = React.useRef(false);
+      const _stallsFirebaseReady = React.useRef(false);
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_jobs', function(val) {
-          if (val && Array.isArray(val)) {
-            _fbIncoming.current = true; setJobs(val);
-            try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
-            setTimeout(() => { _fbIncoming.current = false; }, 500); }
+          _jobsFirebaseReady.current = true; // [修正1] nullでも受信完了とみなす
+          _fbIncoming.current = true;
+          if (val && Array.isArray(val)) { setJobs(val); try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} }
+          else { setJobs([]); }
+          setTimeout(() => { _fbIncoming.current = false; }, 500);
         });
         window.fbOn('garage_front_staffs', function(val) {
           if (val && Array.isArray(val)) {
@@ -7541,12 +7581,13 @@ React.createElement('select', {
           }
         });
         window.fbOn('garage_stalls', function(val) {
+          _stallsFirebaseReady.current = true; // [修正1]
+          _fbIncoming.current = true;
           if (val && Array.isArray(val)) {
-            _fbIncoming.current = true;
             try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
             setStalls(val);
-            setTimeout(() => { _fbIncoming.current = false; }, 500);
           }
+          setTimeout(() => { _fbIncoming.current = false; }, 500);
         });
         window.fbOn('garage_blockdays', function(val) {
           if (val !== null && val !== undefined) { const list = Array.isArray(val) ? val : []; setBlockDays(list.map(b => b.period==="am" && b.end===13 ? {...b, end:12} : b)); }
@@ -7585,12 +7626,14 @@ React.createElement('select', {
       const _jobsInitialized = React.useRef(false);
       React.useEffect(() => {
         if (!_jobsInitialized.current) { _jobsInitialized.current = true; return; }
+        if (!_jobsFirebaseReady.current) return; // [修正1] 初回受信前は書かない
         if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
         window.fbSet('garage_jobs', jobs, 400);
       }, [jobs]);
       const _stallsInitialized = React.useRef(false);
       React.useEffect(() => {
         if (!_stallsInitialized.current) { _stallsInitialized.current = true; return; }
+        if (!_stallsFirebaseReady.current) return; // [修正1] 初回受信前は書かない
         if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
         window.fbSet('garage_stalls', stalls, 400);
       }, [stalls]);
@@ -7606,6 +7649,7 @@ React.createElement('select', {
       const [roleCards, setRoleCards] = useState([]);
       const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
       const _fbIncomingRole = React.useRef(false);
+      const _roleFirebaseReady = React.useRef(false); // [修正3]
       const _boardDateRef = React.useRef(TODAY_STR);
       const _allRoleCards = React.useRef({});
       const _roleCleanupWriting = React.useRef(false);
@@ -7641,6 +7685,7 @@ React.createElement('select', {
             _allRoleCards.current = cleaned;
             var targetDate = _boardDateRef.current;
             var cards = cleaned[targetDate];
+            _roleFirebaseReady.current = true; // [修正3]
             _fbIncomingRole.current = true;
             setRoleCardsDate(targetDate);
             setRoleCards(Array.isArray(cards) ? cards : []);
@@ -7654,6 +7699,7 @@ React.createElement('select', {
       const _pendingRoleSave = React.useRef(null);
       React.useEffect(function() {
         if (!_roleInitialized.current) { _roleInitialized.current = true; return; }
+        if (!_roleFirebaseReady.current) return; // [修正3] 初回受信前は書かない
         if (_fbIncomingRole.current || typeof window.fbSet !== 'function') return;
         // 日付切り替え直後の誤書き込みを防ぐため、次のTickで実行
         if (_pendingRoleSave.current) clearTimeout(_pendingRoleSave.current);
@@ -7671,6 +7717,7 @@ React.createElement('select', {
       const [reserveCardsDate, setReserveCardsDate] = useState(TODAY_STR);
       const _allReserveCards = React.useRef({});
       const _fbIncomingReserve = React.useRef(false);
+      const _reserveFirebaseReady = React.useRef(false); // [修正4]
       const _reserveBoardDateRef = React.useRef(TODAY_STR);
       const _reserveCleanupWriting = React.useRef(false);
       // boardDate切り替え時にその日のフリー札を表示
@@ -7703,6 +7750,7 @@ React.createElement('select', {
             _allReserveCards.current = cleaned;
             var targetDate = _reserveBoardDateRef.current;
             var cards = cleaned[targetDate];
+            _reserveFirebaseReady.current = true; // [修正4]
             _fbIncomingReserve.current = true;
             setReserveCardsDate(targetDate);
             setReserveCards(Array.isArray(cards) ? cards : []);
@@ -7716,6 +7764,7 @@ React.createElement('select', {
       const _pendingReserveSave = React.useRef(null);
       React.useEffect(function() {
         if (!_reserveInitialized.current) { _reserveInitialized.current = true; return; }
+        if (!_reserveFirebaseReady.current) return; // [修正4] 初回受信前は書かない
         if (_fbIncomingReserve.current || typeof window.fbSet !== 'function') return;
         if (_pendingReserveSave.current) clearTimeout(_pendingReserveSave.current);
         _pendingReserveSave.current = setTimeout(function() {
