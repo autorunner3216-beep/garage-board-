@@ -192,22 +192,66 @@
         空のstateがfbSetでFirebaseへ書き込まれてしまう競合状態が発生した
         複数PCが深夜0時に一斉リロードすることで競合リスクが増大していた
   修正1: 全7データに_firebaseReadyフラグを追加
-         garage_jobs/stalls/bp_jobs/role_cards/reserve_cards/loancar_cars/loans
-         fbOnコールバック内でtrueに設定し、書き込みuseEffect内でガード追加
-         null受信時も「受信完了」とみなしてtrueに設定（Gemini指摘対応）
   修正2: scheduleMidnightReloadに0〜5分のランダム遅延を追加
-         全PCが同時リロードする競合を防ぐ
   修正3: saveToDbにQuotaExceededError検知を追加
-         localStorage容量超過を明示的にconsole.errorに出力
-
-[NOTE] 作業上の注意（2026-04-09）
-  ・Edge スリープタブ機能はオフにすること（edge://settings/system）
-  ・修正ファイルは /mnt/user-data/outputs/index.html を使うこと
 
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
     作業すると発光CSS・当日入庫パネルの変更がすべて失われる
+
+==============================================================
+  ⚠️  重要：次回以降の修正作業者へ（2026-04-09）
+  以下の修正は「予約データ消失事故（BUG-18）」の再発防止のために
+  追加されたものです。コード変更時に絶対に削除しないでください。
+==============================================================
+
+[CRITICAL-01] _firebaseReady フラグ（修正1〜5）
+  ★ 削除・変更禁止 ★
+  対象: garage_jobs / garage_stalls / bp_jobs /
+        garage_role_cards / garage_reserve_cards /
+        loancar_cars / loancar_loans
+  内容: 各データの fbOn コールバック内で
+          _xxxFirebaseReady.current = true;
+        を設定し、書き込み useEffect 内で
+          if (!_xxxFirebaseReady.current) return;
+        をガードとして入れている。
+  理由: Firebase 初回受信前に空の state が fbSet で
+        Firebaseへ上書きされるのを防ぐ。
+        削除すると「起動直後に全データが消える」事故が再発する。
+  注意: fbOn コールバック内では val が null のときも
+        _xxxFirebaseReady.current = true にすること。
+        null チェック前に設定しないと新規データが保存できなくなる。
+
+[CRITICAL-02] scheduleMidnightReload のランダム遅延（修正8）
+  ★ 削除・変更禁止 ★
+  内容: 深夜0時の自動リロードに 0〜5分のランダム遅延を追加している。
+          var randomDelay = Math.floor(Math.random() * 5 * 60 * 1000);
+          ms = ms + randomDelay;
+  理由: 全PCが0時ちょうどに一斉リロードすると、
+        Firebase書き込み競合（Last Writer Wins）が発生し
+        データが消える可能性がある。
+        削除すると一斉競合のリスクが戻る。
+
+[CRITICAL-03] saveToDb の QuotaExceededError 検知（修正6）
+  内容: localStorage 書き込み失敗時に容量超過を明示的に検知する。
+          if (e.name === 'QuotaExceededError' || e.code === 22) {
+            console.error('🚨 [saveToDb] localStorage容量超過！:', key, e);
+          }
+  理由: 容量超過が起きても従来コードはサイレントに失敗し、
+        次回起動時に空データが読み込まれる原因になっていた。
+
+[CRITICAL-04] Edgeスリープタブの設定
+  ★ 全PCで設定済みか定期確認すること ★
+  内容: Windows EdgeのスリープタブをOFFにする
+  手順: edge://settings/system →「スリープ状態のタブ」→ オフ
+  理由: スリープからの復帰タイミングによって
+        Firebase受信前にローカル状態が書き込まれる可能性がある。
+
+==============================================================
+  再発防止確認手順書: recheck_procedure.md を参照のこと
+  事故発生時のバックアップ復元手順も同ファイルに記載済み
+==============================================================
 // [ADD-01] BPボード俯瞰ビュー（🔭）追加（2026-03-28）
 //          ・期間：今日〜N ヶ月後の同日（1/2/3ヶ月切替）
 //          ・案件1件＝1行、行高さ自動計算（上限48px・下限28px）、全画面表示
@@ -487,7 +531,7 @@
       try {
         localStorage.setItem(key, JSON.stringify(value));
       } catch(e) {
-        // [修正6] localStorage容量超過を明示的に検知して警告
+        // ⚠️ [CRITICAL-03 / BUG-18対策] localStorage容量超過を検知して警告
         if (e.name === 'QuotaExceededError' || e.code === 22) {
           console.error('🚨 [saveToDb] localStorage容量超過！:', key, e);
         } else {
@@ -4127,13 +4171,13 @@ React.createElement('select', {
 
       // _lcFbIncoming は下の useEffect より先に宣言する必要がある
       const _lcFbIncoming = React.useRef(false);
-      const _lcCarsFirebaseReady = React.useRef(false);  // [修正5]
-      const _lcLoansFirebaseReady = React.useRef(false); // [修正5]
+      const _lcCarsFirebaseReady = React.useRef(false);  // ⚠️ [CRITICAL-01 / BUG-18対策] 削除禁止
+      const _lcLoansFirebaseReady = React.useRef(false); // ⚠️ [CRITICAL-01 / BUG-18対策] 削除禁止
 
       const _lcInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcInitialized.current) { _lcInitialized.current = true; return; }
-        if (!_lcCarsFirebaseReady.current) return; // [修正5] 初回受信前は書かない
+        if (!_lcCarsFirebaseReady.current) return; // [修正5]
         if (_lcFbIncoming.current) return;
         _lcFbIncoming.current = true;
         window.saveToDb('loancar_cars', lcCars);
@@ -4142,7 +4186,7 @@ React.createElement('select', {
       const _lcLoansInitialized = React.useRef(false);
       useEffect(() => {
         if (!_lcLoansInitialized.current) { _lcLoansInitialized.current = true; return; }
-        if (!_lcLoansFirebaseReady.current) return; // [修正5] 初回受信前は書かない
+        if (!_lcLoansFirebaseReady.current) return; // [修正5]
         if (_lcFbIncoming.current) return;
         // Firebase に書き込んだ直後に自分の fbOn が反応するのを防ぐ
         // fbSet は 300ms 遅延があるため、それより長くフラグを立てておく
@@ -5279,7 +5323,7 @@ React.createElement('select', {
       const boardRef = useRef(null);
 
       const _bpFbIncoming = React.useRef(false);
-      const _bpFirebaseReady = React.useRef(false); // [修正2]
+      const _bpFirebaseReady = React.useRef(false); // ⚠️ [CRITICAL-01 / BUG-18対策] 削除禁止
       const saveBpJobs = jobs => {
         if (!_bpFirebaseReady.current) return; // [修正2] 初回受信前は書かない
         if (!_bpFbIncoming.current) { setBpJobs(jobs); window.__bpJobs = jobs; window.saveToDb('bp_jobs', jobs); }
@@ -5293,7 +5337,7 @@ React.createElement('select', {
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('bp_jobs', function(val) {
-          _bpFirebaseReady.current = true; // [修正2] nullでも受信完了とみなす
+          _bpFirebaseReady.current = true; // [修正2]
           if (Array.isArray(val)) { _bpFbIncoming.current = true; setBpJobs(val); window.__bpJobs = val; try { localStorage.setItem('bp_jobs', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */ setTimeout(() => { _bpFbIncoming.current = false; }, 200); }
           else { setBpJobs([]); window.__bpJobs = []; }
         });
@@ -7458,7 +7502,7 @@ React.createElement('select', {
           next.setHours(0, 0, 10, 0); // 深夜0時00分10秒
           if (next <= now) next.setDate(next.getDate() + 1);
           var ms = next - now;
-          // [修正8] 複数PC同時リロードによる競合を防ぐため0〜5分のランダム遅延を追加
+          // ⚠️ [CRITICAL-02 / BUG-18対策] 複数PC同時リロードの競合防止 削除禁止
           var randomDelay = Math.floor(Math.random() * 5 * 60 * 1000);
           ms = ms + randomDelay;
           console.log('[midnight reload] ' + Math.round(ms/60000) + '分後にリロード予定');
@@ -7562,7 +7606,8 @@ React.createElement('select', {
       // ── Firebase リアルタイム同期 ──
       // ── §C Firebase リアルタイム同期 ──
       const _fbIncoming = React.useRef(false);
-      // [修正1] Firebase初回受信完了フラグ（受信前の誤上書き防止）
+      // ⚠️ [CRITICAL-01 / BUG-18対策] Firebase初回受信完了フラグ
+      // 削除禁止：受信前に空データがFirebaseへ上書きされる事故の再発防止
       const _jobsFirebaseReady = React.useRef(false);
       const _stallsFirebaseReady = React.useRef(false);
       React.useEffect(() => {
@@ -7649,7 +7694,7 @@ React.createElement('select', {
       const [roleCards, setRoleCards] = useState([]);
       const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
       const _fbIncomingRole = React.useRef(false);
-      const _roleFirebaseReady = React.useRef(false); // [修正3]
+      const _roleFirebaseReady = React.useRef(false); // ⚠️ [CRITICAL-01 / BUG-18対策] 削除禁止
       const _boardDateRef = React.useRef(TODAY_STR);
       const _allRoleCards = React.useRef({});
       const _roleCleanupWriting = React.useRef(false);
@@ -7717,7 +7762,7 @@ React.createElement('select', {
       const [reserveCardsDate, setReserveCardsDate] = useState(TODAY_STR);
       const _allReserveCards = React.useRef({});
       const _fbIncomingReserve = React.useRef(false);
-      const _reserveFirebaseReady = React.useRef(false); // [修正4]
+      const _reserveFirebaseReady = React.useRef(false); // ⚠️ [CRITICAL-01 / BUG-18対策] 削除禁止
       const _reserveBoardDateRef = React.useRef(TODAY_STR);
       const _reserveCleanupWriting = React.useRef(false);
       // boardDate切り替え時にその日のフリー札を表示
@@ -11228,23 +11273,24 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
   }
   #msg-notify-text {
-    background: rgba(0,10,2,0.92);
-    border: 1px solid #00ff4155;
-    color: #4ade80;
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-    letter-spacing: 1px;
-    padding: 5px 10px;
-    border-radius: 4px;
+    background: rgba(0,10,2,0.96);
+    border: 2px solid #00ff41aa;
+    color: #86efac;
+    font-size: 14px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 8px 14px;
+    border-radius: 6px;
     white-space: normal;
     display: none;
-    max-width: 160px;
-    line-height: 1.8;
-    animation: msgNotifyPulse 2.5s ease-in-out infinite;
+    max-width: 180px;
+    line-height: 2.0;
+    animation: msgNotifyPulse 2s ease-in-out infinite;
   }
   @keyframes msgNotifyPulse {
-    0%,100% { box-shadow: 0 0 4px #00ff4122; }
-    50%      { box-shadow: 0 0 10px #00ff4144; }
+    0%,100% { box-shadow: 0 0 6px #00ff4144; border-color: #00ff4199; }
+    50%      { box-shadow: 0 0 18px #00ff4188; border-color: #00ff41ee; }
   }
   #msg-fab {
     width: 52px; height: 52px;
@@ -11258,6 +11304,14 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     transition: border-color .2s, box-shadow .2s;
   }
   #msg-fab:hover { border-color: #00ff41; box-shadow: 0 0 16px #00ff4133; }
+  #msg-fab.has-unread {
+    border: 2px solid #00ff41cc;
+    animation: msgFabPulse 2s ease-in-out infinite;
+  }
+  @keyframes msgFabPulse {
+    0%,100% { box-shadow: 0 0 6px #00ff4144; border-color: #00ff4199; }
+    50%      { box-shadow: 0 0 20px #00ff4199; border-color: #00ff41ff; }
+  }
   #msg-fab-badge {
     position: absolute; top: -4px; right: -4px;
     background: #ef4444; color: #fff;
@@ -11577,14 +11631,17 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
     var notify = document.getElementById('msg-notify-text');
     if (!badge || !notify) return;
 
+    var fab = document.getElementById('msg-fab');
     if (unreadNames.length === 0) {
       badge.style.display = 'none';
       notify.style.display = 'none';
+      if (fab) fab.classList.remove('has-unread');
     } else {
       badge.style.display = 'flex';
       badge.textContent = unreadNames.length;
       notify.style.display = 'block';
       notify.innerHTML = unreadNames.map(function(n){ return n + 'さん宛'; }).join('<br>') + '<br>に新着あり';
+      if (fab) fab.classList.add('has-unread');
     }
   }
 
