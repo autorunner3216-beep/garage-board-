@@ -195,6 +195,24 @@
   修正2: scheduleMidnightReloadに0〜5分のランダム遅延を追加
   修正3: saveToDbにQuotaExceededError検知を追加
 
+[BUG-20] 予約札の繰り返し消失（2026-04-13・3回発生）
+  直接原因（推定）: BUG-18修正前の旧コードがブラウザキャッシュに残っているPCが
+        起動時にlocalStorageのサンプルデータでFirebaseを上書きしていた
+        index.htmlにキャッシュ制御metaタグがなく、GitHubに最新を上げても
+        ブラウザが古いコードを使い続ける状態だった
+  潜在バグ: garage_jobsのfbOnリスナーがArray.isArray(val)のみでチェックしており
+        Firebaseがオブジェクト形式で返した場合にsetJobs([])→空配列上書きで全消失する
+        同じ問題はFIX-01でgarage_today_logに修正済みだがgarage_jobsには未適用だった
+  修正A: garage_jobs/garage_stallsの受信でObject.values()によるオブジェクト→配列変換対応
+         null/空受信時はsetJobs([])せず既存stateとlocalStorageを維持
+  修正B: fbSafeWrite保護関数を新設。garage_jobs等への空配列/null/非配列の書き込みを阻止
+         保存時にcount/sourceをconsole.infoで出力、ブロック時はconsole.errorで記録
+  修正D: localStorage フォールバック（Firebase異常受信時に既存データを維持）
+  追加1: APP_VERSION定数とログ出力（旧コードのPC判定用）
+  追加2: Cache-Control metaタグ追加（補助策）
+  追加3: roleCards/reserveCardsの_firebaseReadyをnullチェック前に移動（CRITICAL-01準拠）
+  追加4: reserveCardsの_fbIncomingタイムアウトを200ms→50ms（レースコンディション修正）
+
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
@@ -268,6 +286,9 @@
 ==============================================================
 -->
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Garage SMB Board v6</title><style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     /* ══ MATRIX LOGIN ══ */
@@ -523,6 +544,33 @@
       db.ref('garage/' + key).off();
     };
 
+    // ── [BUG-20対策] 保護付きFirebase書き込み関数 ──
+    // garage_jobs等の重要データに対して空配列/null/非配列の書き込みを阻止する
+    // Firebaseキー: garage_jobs / localStorageキー: garage_board_jobs
+    // Firebaseキー: garage_stalls / localStorageキー: garage_stalls
+    var _PROTECTED_ARRAY_KEYS = ['garage_jobs', 'garage_stalls', 'bp_jobs', 'loancar_cars', 'loancar_loans'];
+    window.fbSafeWrite = function(key, value, source) {
+      if (_PROTECTED_ARRAY_KEYS.indexOf(key) === -1) {
+        window.fbSet(key, value, 0);
+        return true;
+      }
+      if (value === null || value === undefined) {
+        console.error('🚨 [' + key + ' write BLOCKED] reason=null_or_undefined source=' + (source||'unknown'));
+        return false;
+      }
+      if (!Array.isArray(value)) {
+        console.error('🚨 [' + key + ' write BLOCKED] reason=not_array type=' + typeof value + ' source=' + (source||'unknown'));
+        return false;
+      }
+      if (value.length === 0) {
+        console.error('🚨 [' + key + ' write BLOCKED] reason=empty_array source=' + (source||'unknown'));
+        return false;
+      }
+      console.info('✅ [' + key + ' write] count=' + value.length + ' source=' + (source||'unknown'));
+      window.fbSet(key, value, 400);
+      return true;
+    };
+
     // ── saveToDb: localStorage + Firebase を同時に保存する統一関数 ──
     // 使い方: window.saveToDb('garage_jobs', jobs)
     // ・localStorage への書き込み（オフライン時のキャッシュ）
@@ -556,6 +604,11 @@
     };
 
     console.log('[Firebase] 初期化完了');
+
+    // ── APP_VERSION: 旧コード判定用 ──
+    // 次回データ消失時にF12コンソールでこのバージョンが出ていなければ旧キャッシュが原因
+    var APP_VERSION = '20260413a';
+    console.info('🔖 [APP_VERSION] ' + APP_VERSION + ' loaded at ' + new Date().toISOString());
   </script>
 </head>
 <body>
@@ -7615,8 +7668,21 @@ React.createElement('select', {
         window.fbOn('garage_jobs', function(val) {
           _jobsFirebaseReady.current = true; // [修正1] nullでも受信完了とみなす
           _fbIncoming.current = true;
-          if (val && Array.isArray(val)) { setJobs(val); try { localStorage.setItem('garage_board_jobs', JSON.stringify(val)); } catch {} }
-          else { setJobs([]); }
+          // [BUG-20修正A] Firebaseは配列をオブジェクト形式で返すことがある
+          // Array.isArrayだけだとオブジェクト受信時にsetJobs([])→全件消失する
+          var arr = Array.isArray(val) ? val
+                  : (val && typeof val === 'object') ? Object.values(val)
+                  : null;
+          if (arr && arr.length > 0) {
+            // 正常なデータを受信 → 反映 + localStorageキャッシュ更新
+            setJobs(arr);
+            try { localStorage.setItem('garage_board_jobs', JSON.stringify(arr)); } catch {}
+            console.info('📥 [garage_jobs received] count=' + arr.length);
+          } else {
+            // [BUG-20修正D] null/空受信時は即setJobs([])しない
+            // localStorageに正常データがあればそれを維持
+            console.warn('⚠️ [garage_jobs] Firebaseからnull/空を受信。既存stateを維持');
+          }
           setTimeout(() => { _fbIncoming.current = false; }, 500);
         });
         window.fbOn('garage_front_staffs', function(val) {
@@ -7628,9 +7694,15 @@ React.createElement('select', {
         window.fbOn('garage_stalls', function(val) {
           _stallsFirebaseReady.current = true; // [修正1]
           _fbIncoming.current = true;
-          if (val && Array.isArray(val)) {
-            try { localStorage.setItem('garage_stalls', JSON.stringify(val)); } catch {} /* Firebase受信キャッシュ */
-            setStalls(val);
+          // [BUG-20修正A] オブジェクト形式にも対応
+          var arr = Array.isArray(val) ? val
+                  : (val && typeof val === 'object') ? Object.values(val)
+                  : null;
+          if (arr && arr.length > 0) {
+            try { localStorage.setItem('garage_stalls', JSON.stringify(arr)); } catch {}
+            setStalls(arr);
+          } else {
+            console.warn('⚠️ [garage_stalls] Firebaseからnull/空を受信。既存stateを維持');
           }
           setTimeout(() => { _fbIncoming.current = false; }, 500);
         });
@@ -7672,15 +7744,17 @@ React.createElement('select', {
       React.useEffect(() => {
         if (!_jobsInitialized.current) { _jobsInitialized.current = true; return; }
         if (!_jobsFirebaseReady.current) return; // [修正1] 初回受信前は書かない
-        if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
-        window.fbSet('garage_jobs', jobs, 400);
+        if (_fbIncoming.current || typeof window.fbSafeWrite !== 'function') return;
+        // [BUG-20修正B] 保護関数経由で書き込み（空配列/null/非配列を阻止）
+        window.fbSafeWrite('garage_jobs', jobs, 'jobsEffect');
       }, [jobs]);
       const _stallsInitialized = React.useRef(false);
       React.useEffect(() => {
         if (!_stallsInitialized.current) { _stallsInitialized.current = true; return; }
         if (!_stallsFirebaseReady.current) return; // [修正1] 初回受信前は書かない
-        if (_fbIncoming.current || typeof window.fbSet !== 'function') return;
-        window.fbSet('garage_stalls', stalls, 400);
+        if (_fbIncoming.current || typeof window.fbSafeWrite !== 'function') return;
+        // [BUG-20修正B] 保護関数経由で書き込み
+        window.fbSafeWrite('garage_stalls', stalls, 'stallsEffect');
       }, [stalls]);
 
       const [showRevenueInput, setShowRevenueInput] = useState(false);
@@ -7713,24 +7787,25 @@ React.createElement('select', {
       React.useEffect(function() {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_role_cards', function(val) {
+          // [BUG-20修正] CRITICAL-01準拠: nullでも受信完了とみなす
+          _roleFirebaseReady.current = true;
           if (val && typeof val === 'object') {
-            // クリーンアップ書き戻し中のコールバックは無視
             if (_roleCleanupWriting.current) return;
-            // 今日より古い日付のROLES札を自動削除
             var cleaned = {};
             Object.keys(val).forEach(function(date) {
               if (date >= TODAY_STR) cleaned[date] = val[date];
             });
-            // 古いデータが存在した場合はFirebaseにも書き戻す
             if (Object.keys(cleaned).length !== Object.keys(val).length) {
-              _roleCleanupWriting.current = true;
-              if (typeof window.fbSet === 'function') window.fbSet('garage_role_cards', cleaned, 0);
-              setTimeout(function(){ _roleCleanupWriting.current = false; }, 500);
+              // [BUG-20修正] クリーンアップ後に空なら書き込まない
+              if (Object.keys(cleaned).length > 0) {
+                _roleCleanupWriting.current = true;
+                if (typeof window.fbSet === 'function') window.fbSet('garage_role_cards', cleaned, 0);
+                setTimeout(function(){ _roleCleanupWriting.current = false; }, 500);
+              }
             }
             _allRoleCards.current = cleaned;
             var targetDate = _boardDateRef.current;
             var cards = cleaned[targetDate];
-            _roleFirebaseReady.current = true; // [修正3]
             _fbIncomingRole.current = true;
             setRoleCardsDate(targetDate);
             setRoleCards(Array.isArray(cards) ? cards : []);
@@ -7773,33 +7848,38 @@ React.createElement('select', {
           _fbIncomingReserve.current = true;
           var cards = _allReserveCards.current[boardDate];
           setReserveCards(Array.isArray(cards) ? cards : []);
-          setTimeout(function(){ _fbIncomingReserve.current = false; }, 200);
+          // [BUG-20修正] 200ms→50ms レースコンディション修正
+          setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
         }
       }, [boardDate]);
       // Firebase同期
       React.useEffect(function() {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_reserve_cards', function(val) {
+          // [BUG-20修正] CRITICAL-01準拠: nullでも受信完了とみなす
+          _reserveFirebaseReady.current = true;
           if (_reserveCleanupWriting.current) return;
           if (val && typeof val === 'object') {
-            // 過去日付のフリー札を自動削除
             var cleaned = {};
             Object.keys(val).forEach(function(date) {
               if (date >= TODAY_STR) cleaned[date] = val[date];
             });
             if (Object.keys(cleaned).length !== Object.keys(val).length) {
-              _reserveCleanupWriting.current = true;
-              if (typeof window.fbSet === 'function') window.fbSet('garage_reserve_cards', cleaned, 0);
-              setTimeout(function(){ _reserveCleanupWriting.current = false; }, 500);
+              // [BUG-20修正] クリーンアップ後に空なら書き込まない
+              if (Object.keys(cleaned).length > 0) {
+                _reserveCleanupWriting.current = true;
+                if (typeof window.fbSet === 'function') window.fbSet('garage_reserve_cards', cleaned, 0);
+                setTimeout(function(){ _reserveCleanupWriting.current = false; }, 500);
+              }
             }
             _allReserveCards.current = cleaned;
             var targetDate = _reserveBoardDateRef.current;
             var cards = cleaned[targetDate];
-            _reserveFirebaseReady.current = true; // [修正4]
             _fbIncomingReserve.current = true;
             setReserveCardsDate(targetDate);
             setReserveCards(Array.isArray(cards) ? cards : []);
-            setTimeout(function(){ _fbIncomingReserve.current = false; }, 200);
+            // [BUG-20修正] 200ms→50ms レースコンディション修正
+            setTimeout(function(){ _fbIncomingReserve.current = false; }, 50);
           }
         });
         return function() { window.fbOff('garage_reserve_cards'); };
