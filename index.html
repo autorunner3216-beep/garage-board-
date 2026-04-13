@@ -213,6 +213,23 @@
   追加3: roleCards/reserveCardsの_firebaseReadyをnullチェック前に移動（CRITICAL-01準拠）
   追加4: reserveCardsの_fbIncomingタイムアウトを200ms→50ms（レースコンディション修正）
 
+[BUG-21] 当日入庫パネルの席番号・担当フロントが勝手に変わる（2026-04-13）
+  原因: seatNo/frontStaffがgarage_jobs配列の一部として保存されていたため、
+        他のPC/タブでガント操作・ステータス変更等を行うとgarage_jobs全体が
+        上書きされ、受信側のseatNo/frontStaffが古い値に巻き戻されていた
+        （last-write-wins競合状態）
+        また_frontOpenもjobs内に保存されており、ドロップダウン開閉のたびに
+        garage_jobsへの不要なFirebase書き込みが発生していた
+  修正: seatNo/frontStaffをgarage_jobsから分離し、専用Firebaseキー
+        「garage_seat_data」で管理するように変更
+        _frontOpenもjobsから分離し、ローカルstate（frontOpenId）で管理
+        これによりガント操作等がseatNo/frontStaffに干渉しなくなった
+  変更点:
+    ・seatData state追加（garage_seat_dataに保存）
+    ・frontOpenId state追加（ローカルのみ、Firebase書き込みなし）
+    ・allCards構築時にseatDataから優先的に読み取り（j.seatNoにフォールバック）
+    ・席番号クリック/担当選択をsetSeatData経由に変更（setJobsを呼ばない）
+
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
@@ -7518,6 +7535,10 @@ React.createElement('select', {
       const [frontStaffList, setFrontStaffList] = useState(() => window.loadFromDb('garage_front_staffs', []));
       const [showFrontStaffEdit, setShowFrontStaffEdit] = useState(false);
       const [frontStaffInput, setFrontStaffInput] = useState("");
+      // [BUG-21修正] seatNo/frontStaffをgarage_jobsから分離し専用Firebaseキーで管理
+      // これにより、ガント操作等でgarage_jobsが上書きされてもseatNo/frontStaffが消失しない
+      const [seatData, setSeatData] = useState(function(){ return window.loadFromDb('garage_seat_data', {}); });
+      const [frontOpenId, setFrontOpenId] = useState(null);
       const saveFrontStaffList = function(list) { setFrontStaffList(list); window.saveToDb('garage_front_staffs', list); };
       const [showTodayDelivery, setShowTodayDelivery] = useState(false);
       const [showLoanTomorrow, setShowLoanTomorrow] = useState(false);
@@ -7666,6 +7687,8 @@ React.createElement('select', {
       // 削除禁止：受信前に空データがFirebaseへ上書きされる事故の再発防止
       const _jobsFirebaseReady = React.useRef(false);
       const _stallsFirebaseReady = React.useRef(false);
+      const _seatFbIncoming = React.useRef(false);
+      const _seatFirebaseReady = React.useRef(false);
       React.useEffect(() => {
         if (typeof window.fbOn !== 'function') return;
         window.fbOn('garage_jobs', function(val) {
@@ -7693,6 +7716,16 @@ React.createElement('select', {
             try { localStorage.setItem('garage_front_staffs', JSON.stringify(val)); } catch {}
             setFrontStaffList(val);
           }
+        });
+        // [BUG-21] seatNo/frontStaff専用リスナー（garage_jobsとは独立）
+        window.fbOn('garage_seat_data', function(val) {
+          _seatFirebaseReady.current = true;
+          _seatFbIncoming.current = true;
+          if (val && typeof val === 'object' && !Array.isArray(val)) {
+            setSeatData(val);
+            try { localStorage.setItem('garage_seat_data', JSON.stringify(val)); } catch {}
+          }
+          setTimeout(function(){ _seatFbIncoming.current = false; }, 200);
         });
         window.fbOn('garage_stalls', function(val) {
           _stallsFirebaseReady.current = true; // [修正1]
@@ -7739,7 +7772,7 @@ React.createElement('select', {
         return () => {
           ['garage_jobs','garage_stalls','garage_blockdays','garage_recept','garage_mech',
            'garage_manuallog','garage_salesrecords','garage_targets','garage_current_revenue',
-           'garage_memo_'+TODAY_STR,'garage_reset_month_at'].forEach(window.fbOff);
+           'garage_memo_'+TODAY_STR,'garage_reset_month_at','garage_seat_data'].forEach(window.fbOff);
         };
       }, []);
 
@@ -7751,6 +7784,43 @@ React.createElement('select', {
         // [BUG-20修正B] 保護関数経由で書き込み（空配列/null/非配列を阻止）
         window.fbSafeWrite('garage_jobs', jobs, 'jobsEffect');
       }, [jobs]);
+      // [BUG-21] seatData専用の書き込みEffect
+      const _seatInitialized = React.useRef(false);
+      React.useEffect(function() {
+        if (!_seatInitialized.current) { _seatInitialized.current = true; return; }
+        if (!_seatFirebaseReady.current) return;
+        if (_seatFbIncoming.current) return;
+        if (Object.keys(seatData).length > 0) {
+          window.fbSet('garage_seat_data', seatData, 200);
+          try { localStorage.setItem('garage_seat_data', JSON.stringify(seatData)); } catch(e) {}
+        }
+      }, [seatData]);
+      // [BUG-21] 既存jobs内のseatNo/frontStaffをseatDataへ一度だけ移行
+      const _seatMigrated = React.useRef(false);
+      React.useEffect(function() {
+        if (_seatMigrated.current) return;
+        if (!_jobsFirebaseReady.current || !_seatFirebaseReady.current) return;
+        _seatMigrated.current = true;
+        var migrated = {};
+        var count = 0;
+        jobs.forEach(function(j) {
+          if (!j || !j.id) return;
+          var hasSeat = j.seatNo != null && j.seatNo !== 0;
+          var hasFront = j.frontStaff && j.frontStaff !== "";
+          if (!hasSeat && !hasFront) return;
+          // seatDataに既に値があればスキップ
+          if (seatData[j.id] && (seatData[j.id].seatNo != null || seatData[j.id].frontStaff)) return;
+          var entry = {};
+          if (hasSeat) entry.seatNo = j.seatNo;
+          if (hasFront) entry.frontStaff = j.frontStaff;
+          migrated[j.id] = entry;
+          count++;
+        });
+        if (count > 0) {
+          console.info('🔄 [BUG-21 migration] ' + count + ' jobs → seatData');
+          setSeatData(function(prev) { return Object.assign({}, prev, migrated); });
+        }
+      }, [jobs, seatData]);
       const _stallsInitialized = React.useRef(false);
       React.useEffect(() => {
         if (!_stallsInitialized.current) { _stallsInitialized.current = true; return; }
@@ -8509,6 +8579,7 @@ React.createElement('select', {
         showTomorrow, setShowTomorrow,
         frontStaffList, setFrontStaffList, showFrontStaffEdit, setShowFrontStaffEdit,
         frontStaffInput, setFrontStaffInput, saveFrontStaffList,
+        seatData, setSeatData, frontOpenId, setFrontOpenId,
         showTodayDelivery, setShowTodayDelivery,
         showLoanTomorrow, setShowLoanTomorrow,
         showDeadline, setShowDeadline,
@@ -8578,7 +8649,7 @@ React.createElement('select', {
         sel, setSel, selPos, setSelPos, filt, setFilt,
         boardDate, setBoardDate, showCal, setShowCal, calPos, setCalPos,
         showAdd, setShowAdd, addError, setAddError, dragOverlapMsg, setDragOverlapMsg,
-        showTomorrow, setShowTomorrow, frontStaffList, setFrontStaffList, showFrontStaffEdit, setShowFrontStaffEdit, frontStaffInput, setFrontStaffInput, saveFrontStaffList, showTodayDelivery, setShowTodayDelivery,
+        showTomorrow, setShowTomorrow, frontStaffList, setFrontStaffList, showFrontStaffEdit, setShowFrontStaffEdit, frontStaffInput, setFrontStaffInput, saveFrontStaffList, seatData, setSeatData, frontOpenId, setFrontOpenId, showTodayDelivery, setShowTodayDelivery,
         showLoanTomorrow, setShowLoanTomorrow, showDeadline, setShowDeadline,
         showMemo, setShowMemo, showTodayLog, setShowTodayLog,
         showUnhandledAlert, setShowUnhandledAlert,
@@ -9527,7 +9598,8 @@ React.createElement('select', {
                 timeLabel:j.checkinTime||(j.start!=null?(String(Math.floor(j.start)).padStart(2,"0")+":"+String(Math.round((j.start%1)*60)).padStart(2,"0")):""),
                 type:j.type, mechanic:j.mechanic||"",
                 stall:(stalls.find(function(s){return s.id===j.stall;})||{}).name||j.stall||"",
-                seatNo:j.seatNo||null, frontStaff:j.frontStaff||"", memo:j.memo||"",
+                seatNo:(seatData[j.id]&&seatData[j.id].seatNo!=null)?seatData[j.id].seatNo:(j.seatNo||null),
+                frontStaff:(seatData[j.id]&&seatData[j.id].frontStaff)?seatData[j.id].frontStaff:(j.frontStaff||""), memo:j.memo||"",
                 loanCar:j.loanCar, transport:j.transport, isNew:j.isNew });
             });
             bpCards.forEach(function(j){
@@ -9641,24 +9713,30 @@ React.createElement('select', {
                     var isBoard = c._type === "board";
                     var j = c.job;
 
-                    // 席サイクル（1→2→…→7→null）
+                    // [BUG-21] 席サイクル（seatData経由で保存、garage_jobsに書かない）
                     var cycleSeat = function(){
                       if (!isBoard) return;
-                      var next = c.seatNo === null ? 1 : c.seatNo >= 7 ? null : c.seatNo + 1;
-                      setJobs(function(prev){
-                        return prev.map(function(jj){
-                          return jj.id===j.id ? Object.assign({},jj,{seatNo:next}) : jj;
-                        });
+                      var jobId = j.id;
+                      setSeatData(function(prev){
+                        var entry = prev[jobId] || {};
+                        var cur = entry.seatNo != null ? entry.seatNo : (j.seatNo||null);
+                        var next = cur === null ? 1 : cur >= 7 ? null : cur + 1;
+                        var updated = Object.assign({}, prev);
+                        updated[jobId] = Object.assign({}, entry, { seatNo: next });
+                        return updated;
                       });
                     };
 
-                    // 担当タブ切替
+                    // [BUG-21] 担当タブ切替（seatData経由で保存）
                     var setFront = function(name){
                       if (!isBoard) return;
-                      setJobs(function(prev){
-                        return prev.map(function(jj){
-                          return jj.id===j.id ? Object.assign({},jj,{frontStaff: c.frontStaff===name?"":name}) : jj;
-                        });
+                      var jobId = j.id;
+                      setSeatData(function(prev){
+                        var entry = prev[jobId] || {};
+                        var curFront = entry.frontStaff != null ? entry.frontStaff : (j.frontStaff||"");
+                        var updated = Object.assign({}, prev);
+                        updated[jobId] = Object.assign({}, entry, { frontStaff: curFront===name?"":name });
+                        return updated;
                       });
                     };
 
@@ -9772,12 +9850,16 @@ React.createElement('select', {
                                 display:"flex", alignItems:"center", justifyContent:"center",
                                 boxShadow:sc?("0 0 16px "+sc.glow):"none",
                                 transition:"all .15s" },
-                                onClick:function(){
-                                  var next = c.seatNo===null?1:c.seatNo>=7?null:c.seatNo+1;
-                                  setJobs(function(prev){
-                                    return prev.map(function(jj){
-                                      return jj.id===j.id?Object.assign({},jj,{seatNo:next}):jj;
-                                    });
+                                onClick:function(e){
+                                  e.stopPropagation();
+                                  var jobId = j.id;
+                                  setSeatData(function(prev){
+                                    var entry = prev[jobId] || {};
+                                    var cur = entry.seatNo != null ? entry.seatNo : (j.seatNo||null);
+                                    var next = cur === null ? 1 : cur >= 7 ? null : cur + 1;
+                                    var updated = Object.assign({}, prev);
+                                    updated[jobId] = Object.assign({}, entry, { seatNo: next });
+                                    return updated;
                                   });
                                 }},
                                 React.createElement('span', { style:{
@@ -9794,12 +9876,7 @@ React.createElement('select', {
                             React.createElement('button', {
                               onClick:function(e){
                                 e.stopPropagation();
-                                setJobs(function(prev){
-                                  return prev.map(function(jj){
-                                    if(jj.id===j.id) return Object.assign({},jj,{_frontOpen:!jj._frontOpen});
-                                    return Object.assign({},jj,{_frontOpen:false});
-                                  });
-                                });
+                                setFrontOpenId(function(prev){ return prev === j.id ? null : j.id; });
                               },
                               style:{
                                 width:"100%", height:44, minHeight:44,
@@ -9815,9 +9892,9 @@ React.createElement('select', {
                                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }},
                                 c.frontStaff || "－"),
                               React.createElement('span', { style:{ fontSize:9, color:"#334155", marginLeft:2 }},
-                                j._frontOpen ? "▲" : "▼")
+                                frontOpenId === j.id ? "▲" : "▼")
                             ),
-                            j._frontOpen && React.createElement('div', {
+                            frontOpenId === j.id && React.createElement('div', {
                               style:{
                                 position:"absolute", top:"100%", left:0, zIndex:9999,
                                 background:"#0a1628", border:"1px solid #38bdf8",
@@ -9827,11 +9904,14 @@ React.createElement('select', {
                               c.frontStaff && React.createElement('button', {
                                 onClick:function(e){
                                   e.stopPropagation();
-                                  setJobs(function(prev){
-                                    return prev.map(function(jj){
-                                      return jj.id===j.id ? Object.assign({},jj,{frontStaff:"",_frontOpen:false}) : jj;
-                                    });
+                                  var jobId = j.id;
+                                  setSeatData(function(prev){
+                                    var entry = prev[jobId] || {};
+                                    var updated = Object.assign({}, prev);
+                                    updated[jobId] = Object.assign({}, entry, { frontStaff: "" });
+                                    return updated;
                                   });
+                                  setFrontOpenId(null);
                                 },
                                 style:{
                                   width:"100%", textAlign:"left", padding:"7px 12px",
@@ -9842,11 +9922,14 @@ React.createElement('select', {
                                 return React.createElement('button', { key:name,
                                   onClick:function(e){
                                     e.stopPropagation();
-                                    setJobs(function(prev){
-                                      return prev.map(function(jj){
-                                        return jj.id===j.id ? Object.assign({},jj,{frontStaff:name,_frontOpen:false}) : jj;
-                                      });
+                                    var jobId = j.id;
+                                    setSeatData(function(prev){
+                                      var entry = prev[jobId] || {};
+                                      var updated = Object.assign({}, prev);
+                                      updated[jobId] = Object.assign({}, entry, { frontStaff: name });
+                                      return updated;
                                     });
+                                    setFrontOpenId(null);
                                   },
                                   style:{
                                     width:"100%", textAlign:"left", padding:"8px 12px",
