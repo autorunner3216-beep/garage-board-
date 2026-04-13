@@ -586,7 +586,10 @@
           console.warn('[saveToDb] localStorage 書き込み失敗:', key, e);
         }
       }
-      if (typeof window.fbSet === 'function') {
+      // [BUG-20修正] 保護対象キーはfbSafeWrite経由でFirebaseに書き込む
+      if (typeof window.fbSafeWrite === 'function' && _PROTECTED_ARRAY_KEYS.indexOf(key) !== -1) {
+        window.fbSafeWrite(key, value, 'saveToDb');
+      } else if (typeof window.fbSet === 'function') {
         window.fbSet(key, value);
       }
     };
