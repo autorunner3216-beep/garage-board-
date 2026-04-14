@@ -283,6 +283,11 @@
   理由: スリープからの復帰タイミングによって
         Firebase受信前にローカル状態が書き込まれる可能性がある。
 
+[FIX-09] 未対応アラートの放置判定を2日→7日に変更（2026-04-14）
+  変更: isNeglected の判定閾値を diffDays >= 2 → diffDays >= 7 に変更
+        フィルタ側・UI表示側の2箇所を統一変更
+  理由: 2日では棚上げ前の通常作業中ジョブも拾ってしまい過検知が多かった
+
 ==============================================================
   再発防止確認手順書: recheck_procedure.md を参照のこと
   事故発生時のバックアップ復元手順も同ファイルに記載済み
@@ -10948,8 +10953,8 @@ React.createElement('select', {
               const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
               // ① 当日の未着手
               const isTodayUnhandled = d === TODAY_STR && (j.status === "当日来店/預かり" || (j.status === "作業待ち" && j.workState === "idle"));
-              // ② 作業待ち・当日来店で2日以上放置
-              const isNeglected = diffDays >= 2 && (j.status === "作業待ち" || j.status === "当日来店/預かり");
+              // ② 作業待ち・当日来店で7日以上放置
+              const isNeglected = diffDays >= 7 && (j.status === "作業待ち" || j.status === "当日来店/預かり");
               return isTodayUnhandled || isNeglected;
             }).sort((a,b) => (a.displayDate||a.date).localeCompare(b.displayDate||b.date));
 
@@ -10973,7 +10978,7 @@ React.createElement('select', {
                 , unhandledJobs.map(j => {
                   const d = j.displayDate || j.date;
                   const diffDays = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(d+"T00:00:00")) / 86400000);
-                  const isNeglected = diffDays >= 2;
+                  const isNeglected = diffDays >= 7;
                   const jt = JT[j.type] || null;
                   const stall = stalls.find(s=>s.id===j.stall);
                   return React.createElement('div', { key:j.id,
