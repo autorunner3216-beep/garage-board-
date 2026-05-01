@@ -8269,6 +8269,8 @@ React.createElement('select', {
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 7);
         const monthCutoff = resetMonthAt ? new Date(resetMonthAt) : null;
+        // リセット月の初日（月単位比較用）：入庫日がこの月以降ならカウント対象
+        const resetMonthStart = monthCutoff ? new Date(monthCutoff.getFullYear(), monthCutoff.getMonth(), 1) : null;
 
         // 6カテゴリ × 月/週
         let mHolNew=0,wHolNew=0, mHolEx=0,wHolEx=0;
@@ -8280,8 +8282,8 @@ React.createElement('select', {
           const d = new Date(j.date + "T00:00:00");
           const isDone = DONE_STATUSES.includes(j.status) || j.completed;
           const thisWeek = d >= startOfWeek && d < endOfWeek;
-          const completedAt = isDone ? d : null; // 常に入庫日基準（月跨ぎは前月計上の業務仕様）
-          const afterMonthReset = !monthCutoff || (completedAt && completedAt >= monthCutoff);
+          // 入庫日がリセット月以降ならカウント（月跨ぎは前月計上の業務仕様）
+          const afterMonthReset = !resetMonthStart || d >= resetMonthStart;
           const isNew = isNewCust(j);
 
           if (isDone) {
