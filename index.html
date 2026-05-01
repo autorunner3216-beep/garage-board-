@@ -4464,8 +4464,15 @@ React.createElement('select', {
         setLcLoans(p => p.filter(l => l.id !== id));
         setLoanModal(null);
       }
+      // ── FIX 2026-05-01 ──────────────────────────────────────
+      // 修正② 代車遅延判定：startDate <= TODAY チェックを追加
+      //   旧: endDate < TODAY && !returnedDate のみで判定
+      //   問題: 貸出開始前や endDate < startDate の異常データも遅延扱いされる
+      //   例: 稲垣 start:5/7 end:4/30（重複ゴーストデータ）→ 誤遅延
+      //   修正: 貸出がすでに始まっている場合のみ遅延判定する
+      // ────────────────────────────────────────────────────────
       function isOverdue(loan) {
-        return loan.endDate < TODAY && !loan.returnedDate;
+        return loan.startDate <= TODAY && loan.endDate < TODAY && !loan.returnedDate;
       }
 
       const todayIdx = days.indexOf(TODAY);
@@ -8269,7 +8276,13 @@ React.createElement('select', {
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 7);
         const monthCutoff = resetMonthAt ? new Date(resetMonthAt) : null;
-        // リセット月の初日（月単位比較用）：入庫日がこの月以降ならカウント対象
+        // ── FIX 2026-05-01 ──────────────────────────────────────
+        // 修正① 車検カウンター：completedAt → 入庫日(date)基準に変更
+        //   旧: completedAt(完成確定押下時刻)がmonthCutoffより後かで判定
+        //   問題: 月リセット後に完成確定→前月入庫なのに今月計上されてしまう
+        //   修正: リセット月の初日と入庫日を月単位で比較する方式に変更
+        //   注意: yearlyLog(📊)は元から入庫日基準なので影響なし
+        // ────────────────────────────────────────────────────────
         const resetMonthStart = monthCutoff ? new Date(monthCutoff.getFullYear(), monthCutoff.getMonth(), 1) : null;
 
         // 6カテゴリ × 月/週
@@ -11425,6 +11438,22 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
   completedAt基準に変えてはいけない（月跨ぎは前月計上の業務仕様のため）。
 
 ■ 納品前に必ずチェックスクリプトを実行して全項目OKを確認すること。
+
+■ 変更履歴 ─────────────────────────────────────────────
+[2026-05-01] 修正① 車検カウンター月実績の判定基準変更
+  場所: statsCounters内 afterMonthReset の計算
+  旧: j.completedAt（完成確定時刻）とmonthCutoff（リセット時刻）を比較
+  新: 入庫日(j.date)の月とリセット月を月単位で比較（resetMonthStart）
+  理由: 月リセット後に完成確定すると前月入庫ジョブが今月計上されるバグ
+  影響: statsCountersのみ。yearlyLogは元から入庫日基準で変更なし。
+
+[2026-05-01] 修正② 代車遅延判定にstartDateチェック追加
+  場所: isOverdue関数（代車管理セクション）
+  旧: loan.endDate < TODAY && !loan.returnedDate
+  新: loan.startDate <= TODAY && loan.endDate < TODAY && !loan.returnedDate
+  理由: 貸出開始前やendDate<startDateの異常データが遅延誤表示されるバグ
+  影響: isOverdueを参照する表示のみ。データ書込み処理への影響なし。
+─────────────────────────────────────────────────────────
 ================================================================================
 -->
 
