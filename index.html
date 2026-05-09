@@ -7850,6 +7850,8 @@ React.createElement('select', {
       const [resetOffset, setResetOffset] = useState({ weekHoliday:0, weekIppan:0 });
       const [resetMonthAt, setResetMonthAt] = useState(() => window.loadFromDb('garage_reset_month_at', null)); // ISO文字列 or null
       const [endModal, setEndModal] = useState(null);
+      // 担当メカニック選択モーダル: { jobId, onProceed } 形式
+      const [mechRequiredModal, setMechRequiredModal] = useState(null);
       const [roleCards, setRoleCards] = useState([]);
       const [roleCardsDate, setRoleCardsDate] = useState(TODAY_STR);
       const _fbIncomingRole = React.useRef(false);
@@ -8053,10 +8055,23 @@ React.createElement('select', {
         });
       };
       const endWork = id => setEndModal({ jobId: id });
+      // ── 担当メカニック必須チェック（ボード→ステータス一覧への移動時に呼ぶ）──
+      // メカニック設定済みなら即onProceed()を実行。
+      // 未設定の場合はメカニック選択モーダルを開き、選択後にonProceed()を実行する。
+      const ensureMechanic = (jobId, onProceed) => {
+        const job = jobsRef.current.find(j => j.id === jobId);
+        if (!job) { onProceed(); return; }
+        if (job.mechanic && String(job.mechanic).trim()) { onProceed(); return; }
+        // 未設定の場合はモーダルを開いて選択を待つ
+        setMechRequiredModal({ jobId, onProceed });
+      };
       const confirmEndWork = (id, nextStatus) => {
-        const t = nowStr();
-        setJobs(p => p.map(j => j.id===id ? {...j, workState:"shelved", endedAt:t, status:nextStatus} : j));
-        setSel(null); setEndModal(null);
+        // ステータス一覧への移動時に担当メカニック必須
+        ensureMechanic(id, () => {
+          const t = nowStr();
+          setJobs(p => p.map(j => j.id===id ? {...j, workState:"shelved", endedAt:t, status:nextStatus} : j));
+          setSel(null); setEndModal(null);
+        });
       };
       const rolloverWork = (id) => {
         const orig = jobs.find(j => j.id === id);
@@ -8106,32 +8121,44 @@ React.createElement('select', {
         setSel(p => p && p.id===id ? {...p, pit: p.pit===pit ? null : pit} : p);
       }, []);
       const updStatus = useCallback((id, s, forceShelve) => {
-        const t = nowStr();
-        setJobs(p => p.map(j => {
-          if (j.id !== id) return j;
-          const goShelved = SHELVE_ON_STATUS.has(s) || forceShelve;
-          const goBoard   = !goShelved && j.workState === "shelved";
-          return {
-            ...j,
-            status: s,
-            statusChangedAt: t,
-            ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
-            ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
-          };
-        }));
-        setSel(p => {
-          if (_optionalChain([p, 'optionalAccess', _24 => _24.id]) !== id) return p;
-          const goShelved = SHELVE_ON_STATUS.has(s) || forceShelve;
-          const goBoard   = !goShelved && p.workState === "shelved";
-          return {
-            ...p,
-            status: s,
-            ...(goShelved ? { workState:"shelved", endedAt: p.endedAt || t } : {}),
-            ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
-          };
-        });
-        if (SHELVE_ON_STATUS.has(s)) {
-          setTimeout(() => setTab("shelved"), 100);
+        // ── 担当メカニック必須チェック ──
+        // ボード上のカードがステータス一覧へ移動する場合のみ
+        const goShelvedNew = SHELVE_ON_STATUS.has(s) || forceShelve;
+        const target = jobsRef.current.find(j => j.id === id);
+        const wasOnBoard = target && !SHELVE_ON_STATUS.has(target.status) && target.workState !== "shelved";
+        const proceed = () => {
+          const t = nowStr();
+          setJobs(p => p.map(j => {
+            if (j.id !== id) return j;
+            const goShelved = SHELVE_ON_STATUS.has(s) || forceShelve;
+            const goBoard   = !goShelved && j.workState === "shelved";
+            return {
+              ...j,
+              status: s,
+              statusChangedAt: t,
+              ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
+              ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
+            };
+          }));
+          setSel(p => {
+            if (_optionalChain([p, 'optionalAccess', _24 => _24.id]) !== id) return p;
+            const goShelved = SHELVE_ON_STATUS.has(s) || forceShelve;
+            const goBoard   = !goShelved && p.workState === "shelved";
+            return {
+              ...p,
+              status: s,
+              ...(goShelved ? { workState:"shelved", endedAt: p.endedAt || t } : {}),
+              ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
+            };
+          });
+          if (SHELVE_ON_STATUS.has(s)) {
+            setTimeout(() => setTab("shelved"), 100);
+          }
+        };
+        if (goShelvedNew && wasOnBoard) {
+          ensureMechanic(id, proceed);
+        } else {
+          proceed();
         }
       }, []);
       const addJob = (asWaiting=false) => {
@@ -8229,21 +8256,32 @@ React.createElement('select', {
         setReAssign(null);
       };
       const confirmStatusOnly = () => {
-        const t = nowStr();
-        setJobs(p => p.map(j => {
-          if (j.id !== reAssign.jobId) return j;
-          const goShelved = SHELVE_ON_STATUS.has(ra.status);
-          const goBoard   = !goShelved && j.workState === "shelved";
-          return {
-            ...j,
-            status: ra.status,
-            statusChangedAt: t,
-            ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
-            ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
-          };
-        }));
-        setSel(p => _optionalChain([p, 'optionalAccess', _26 => _26.id])===reAssign.jobId ? {...p, status:ra.status} : p);
-        setReAssign(null);
+        // ── 担当メカニック必須チェック（ボード→ステータス一覧への移動時のみ）──
+        const goShelvedNew = SHELVE_ON_STATUS.has(ra.status);
+        const target = jobsRef.current.find(j => j.id === reAssign.jobId);
+        const wasOnBoard = target && !SHELVE_ON_STATUS.has(target.status) && target.workState !== "shelved";
+        const proceed = () => {
+          const t = nowStr();
+          setJobs(p => p.map(j => {
+            if (j.id !== reAssign.jobId) return j;
+            const goShelved = SHELVE_ON_STATUS.has(ra.status);
+            const goBoard   = !goShelved && j.workState === "shelved";
+            return {
+              ...j,
+              status: ra.status,
+              statusChangedAt: t,
+              ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
+              ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
+            };
+          }));
+          setSel(p => _optionalChain([p, 'optionalAccess', _26 => _26.id])===reAssign.jobId ? {...p, status:ra.status} : p);
+          setReAssign(null);
+        };
+        if (goShelvedNew && wasOnBoard) {
+          ensureMechanic(reAssign.jobId, proceed);
+        } else {
+          proceed();
+        }
       };
       const removeJob = useCallback((id) => {
         const now = new Date().toISOString();
@@ -8619,6 +8657,7 @@ React.createElement('select', {
         resetOffset, setResetOffset,
         resetMonthAt, setResetMonthAt,
         endModal, setEndModal,
+        mechRequiredModal, setMechRequiredModal,
         roleCards, setRoleCards,
         roleCardsDate, setRoleCardsDate,
         reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard, editRoleCard, setEditRoleCard,
@@ -8681,6 +8720,7 @@ React.createElement('select', {
         revenueDraft, setRevenueDraft,
         resetOffset, setResetOffset, resetMonthAt, setResetMonthAt,
         endModal, setEndModal, roleCards, setRoleCards, roleCardsDate, setRoleCardsDate,
+        mechRequiredModal, setMechRequiredModal,
         reserveCards, setReserveCards, reserveCardsDate, setReserveCardsDate, editReserveCard, setEditReserveCard, editRoleCard, setEditRoleCard,
         reAssign, setReAssign, editJob, setEditJob, ra, setRa,
         nj, setNj, updateNj,
@@ -10408,6 +10448,59 @@ React.createElement('select', {
           , endModal && jobs.find(j => j.id===endModal.jobId) && (
             React.createElement(EndModal, { job: jobs.find(j => j.id===endModal.jobId), onConfirm: confirmEndWork, onRollover: rolloverWork, onCancel: () => setEndModal(null), onReEntry: onReEntry, mechList: mechList})
           )
+
+          /* 担当メカニック選択モーダル（ステータス一覧への移動時に未設定の場合に表示） */
+          , mechRequiredModal && (() => {
+            const targetJob = jobs.find(j => j.id === mechRequiredModal.jobId);
+            const pickMech = (name) => {
+              const jobId = mechRequiredModal.jobId;
+              const onProceed = mechRequiredModal.onProceed;
+              setJobs(p => p.map(j => j.id === jobId ? {...j, mechanic: name} : j));
+              setSel(p => (p && p.id === jobId) ? {...p, mechanic: name} : p);
+              setMechRequiredModal(null);
+              // ジョブ更新後に処理続行
+              setTimeout(onProceed, 0);
+            };
+            return React.createElement('div', { style: { position:"fixed", inset:0, background:"rgba(0,0,0,.85)",
+              display:"flex", alignItems:"center", justifyContent:"center", zIndex:350 }}
+              , React.createElement('div', { style: { background:"#0d1625", border:"1px solid #10b98144", borderRadius:18,
+                  padding:24, width:380, maxHeight:"80vh", boxShadow:"0 32px 80px rgba(0,0,0,.7)",
+                  display:"flex", flexDirection:"column" }}
+                /* ヘッダー */
+                , React.createElement('div', { style:{ marginBottom:16, textAlign:"center", flexShrink:0 }}
+                  , React.createElement('div', { style:{ fontSize:28, marginBottom:6 }}, "🔧")
+                  , React.createElement('div', { style:{ fontSize:14, fontWeight:700, color:"#10b981", marginBottom:6, letterSpacing:1 }}, "担当メカニックを選択")
+                  , React.createElement('div', { style:{ fontSize:11, color:"#94a3b8", lineHeight:1.5 }}, "ステータス一覧へ移動するには", React.createElement('br'), "担当メカニックの設定が必要です")
+                  , targetJob && React.createElement('div', { style:{ marginTop:10, padding:"6px 10px", background:"#0a1020", border:"1px solid #1e293b", borderRadius:6, fontSize:11, color:"#64748b" }}
+                    , React.createElement('span', { style:{ color:"#38bdf8", fontFamily:"monospace", fontWeight:700 }}, targetJob.plate)
+                    , " / ", targetJob.owner)
+                )
+                /* メカニックリスト */
+                , React.createElement('div', { style: { flex:1, overflowY:"auto", marginBottom:14 }}
+                  , (mechList && mechList.length > 0)
+                    ? React.createElement('div', { style: { display:"flex", flexDirection:"column", gap:6 }}
+                        , mechList.map(m => React.createElement('button', { key: m, onClick: () => pickMech(m),
+                            style: { background:"#0a1f14", border:"1px solid #10b98144",
+                              borderLeft:"3px solid #10b981", borderRadius:8,
+                              padding:"11px 14px", cursor:"pointer", color:"#34d399",
+                              fontSize:13, fontWeight:700, textAlign:"left", transition:"all .15s" },
+                            onMouseEnter: e => { e.currentTarget.style.background = "#10b98122"; e.currentTarget.style.boxShadow = "0 0 12px rgba(16,185,129,.3)"; },
+                            onMouseLeave: e => { e.currentTarget.style.background = "#0a1f14"; e.currentTarget.style.boxShadow = "none"; }
+                          }, m))
+                      )
+                    : React.createElement('div', { style: { padding:"20px 12px", textAlign:"center", color:"#ef4444",
+                        fontSize:12, lineHeight:1.6, background:"#1a0a0a", border:"1px solid #ef444444", borderRadius:8 }}
+                        , "メカニックスタッフが登録されていません。", React.createElement('br')
+                        , "設定画面からメカニックを登録してください。")
+                )
+                /* キャンセル */
+                , React.createElement('button', { onClick: () => setMechRequiredModal(null),
+                    style: { width:"100%", background:"#1e293b", border:"1px solid #334155",
+                      borderRadius:8, color:"#94a3b8", padding:"9px", fontSize:12, fontWeight:700, cursor:"pointer", flexShrink:0 }}
+                    , "キャンセル")
+              )
+            );
+          })()
 
           /* 詳細ポップオーバー */
           , sel && (() => {
