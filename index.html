@@ -4464,14 +4464,23 @@ React.createElement('select', {
         setLcLoans(p => p.filter(l => l.id !== id));
         setLoanModal(null);
       }
-      // ── FIX 2026-05-01 ──────────────────────────────────────
-      // 修正② 代車遅延判定：startDate <= TODAY チェックを追加
-      //   旧: endDate < TODAY && !returnedDate のみで判定
-      //   問題: 貸出開始前や endDate < startDate の異常データも遅延扱いされる
-      //   例: 稲垣 start:5/7 end:4/30（重複ゴーストデータ）→ 誤遅延
-      //   修正: 貸出がすでに始まっている場合のみ遅延判定する
+      // ── FIX 履歴 ───────────────────────────────────────────
+      // [2026-05-01] 修正② 代車遅延判定：startDate <= TODAY チェック追加
+      //   旧: endDate < TODAY && !returnedDate のみ
+      //   問題: 貸出開始前や endDate < startDate の異常データも遅延扱い
+      //   例: 稲垣 start:5/7 end:4/30（重複ゴースト）→ 誤遅延
+      //   ※ 当時のTODAY=5/1 → start(5/7)>TODAY で false 帰還により回避
+      //
+      // [2026-05-10] 修正③ endDate < startDate の異常データ除外を追加
+      //   再発: TODAY が startDate(5/7) を超えると ②の条件が通り誤遅延が復活
+      //         （例: エグゼのゴーストが TODAY=5/10 で再び遅延扱い）
+      //   真因: endDate < startDate（返却予定日 < 貸出開始日）はデータ不整合
+      //   修正: 不整合データを最初に false で弾く
+      //   影響: isOverdue を参照する表示のみ。データ書込み処理への影響なし。
       // ────────────────────────────────────────────────────────
       function isOverdue(loan) {
+        if (!loan.startDate || !loan.endDate) return false;
+        if (loan.endDate < loan.startDate) return false; // 異常データ（end<start）を除外
         return loan.startDate <= TODAY && loan.endDate < TODAY && !loan.returnedDate;
       }
 
@@ -11546,6 +11555,17 @@ print(f'\n{len(checks)}項目 {"全部OK!" if all_ok else "❌ 抜けあり"}')
   新: loan.startDate <= TODAY && loan.endDate < TODAY && !loan.returnedDate
   理由: 貸出開始前やendDate<startDateの異常データが遅延誤表示されるバグ
   影響: isOverdueを参照する表示のみ。データ書込み処理への影響なし。
+
+[2026-05-10] 修正③ 代車遅延判定に endDate < startDate 異常データ除外を追加
+  場所: isOverdue関数（代車管理セクション）
+  追加: if (loan.endDate < loan.startDate) return false;
+  理由: 修正②は「TODAY < startDate」で異常データを回避していたため、
+        TODAYが進んでstartDateを超えると条件をすり抜けて誤遅延が再発する。
+        例: エグゼのゴースト loan(start:5/7, end:4/30) は
+            5/1時点では start(5/7)>TODAY(5/1) で除外されていたが、
+            5/10時点では start(5/7)<=TODAY(5/10) を通過し誤遅延。
+  対策: 真の異常パターン（end<start）を直接弾く。時間経過に依存しない恒久対策。
+  注意: 修正②のstartDateチェックは残す（未来貸出を遅延と誤表示しないため）。
 ─────────────────────────────────────────────────────────
 ================================================================================
 -->
