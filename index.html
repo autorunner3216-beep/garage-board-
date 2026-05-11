@@ -8779,20 +8779,27 @@ React.createElement('select', {
                       setSearchQuery(q);
                       if (q.trim().length === 0) { setSearchResults([]); setShowSearchResults(false); return; }
                       const kw = q.trim().toLowerCase();
+                      // ── FIX [2026-05-10] 完了確定済み（j.completed=true）の札を検索結果から除外 ──
+                      //   旧: 完了後も検索ヒットしてしまい、画面上消えた札が検索バーに表示されるバグ
+                      //   修正: ボード/BP両側で !j.completed を最初にチェック
                       const boardHits = jobs.filter(j =>
-                        j.plate.toLowerCase().includes(kw) ||
-                        j.owner.toLowerCase().includes(kw) ||
-                        j.model.toLowerCase().includes(kw) ||
-                        (j.memo||"").toLowerCase().includes(kw)
+                        !j.completed && (
+                          j.plate.toLowerCase().includes(kw) ||
+                          j.owner.toLowerCase().includes(kw) ||
+                          j.model.toLowerCase().includes(kw) ||
+                          (j.memo||"").toLowerCase().includes(kw)
+                        )
                       ).slice(0, 5).map(j => ({...j, _source:"board"}));
                       var rawBp = [];
                       rawBp = window.loadFromDb('bp_jobs', []);
                       const bpHits = rawBp.filter(j =>
-                        (j.plate||"").toLowerCase().includes(kw) ||
-                        (j.owner||"").toLowerCase().includes(kw) ||
-                        (j.carModel||"").toLowerCase().includes(kw) ||
-                        (j.memo||"").toLowerCase().includes(kw) ||
-                        (j.staffName||"").toLowerCase().includes(kw)
+                        !j.completed && (
+                          (j.plate||"").toLowerCase().includes(kw) ||
+                          (j.owner||"").toLowerCase().includes(kw) ||
+                          (j.carModel||"").toLowerCase().includes(kw) ||
+                          (j.memo||"").toLowerCase().includes(kw) ||
+                          (j.staffName||"").toLowerCase().includes(kw)
+                        )
                       ).slice(0, 5).map(j => ({...j, _source:"bp"}));
                       const hits = boardHits.concat(bpHits).slice(0, 10);
                       setSearchResults(hits);
@@ -8807,12 +8814,21 @@ React.createElement('select', {
                       style: { fontSize:12, color:"#475569", cursor:"pointer" }}, "✕")
                   )
                 )
-                , showSearchResults && searchResults.length > 0 && (
-                  React.createElement('div', { style: { position:"absolute", top:"calc(100% + 6px)", left:0, width:300, zIndex:600,
+                , showSearchResults && searchResults.length > 0 && (() => {
+                  // ── FIX [2026-05-10] レンダー時にも完了確定済みを除外 ──
+                  //   既に検索結果ドロップダウンが開いている状態で完了確定された場合、
+                  //   searchResults state は古いままなのでここで最新 jobs を参照して弾く
+                  const liveResults = searchResults.filter(job => {
+                    if (job._source === "bp") return !job.completed;
+                    const cur = jobs.find(j => j.id === job.id);
+                    return cur && !cur.completed;
+                  });
+                  if (liveResults.length === 0) return null;
+                  return React.createElement('div', { style: { position:"absolute", top:"calc(100% + 6px)", left:0, width:300, zIndex:600,
                     background:"#0a0f1a", border:"1px solid #2a4a7a", borderRadius:10,
                     boxShadow:"0 8px 32px rgba(0,0,0,.8)", overflow:"hidden" }}
-                    , React.createElement('div', { style: { fontSize:9, color:"#334155", padding:"6px 12px 4px", letterSpacing:1 }}, searchResults.length, "件ヒット")
-                    , searchResults.map(job => {
+                    , React.createElement('div', { style: { fontSize:9, color:"#334155", padding:"6px 12px 4px", letterSpacing:1 }}, liveResults.length, "件ヒット")
+                    , liveResults.map(job => {
                       if (job._source === "bp") {
                         var bpsc = BP_STATUS_COLOR[job.status] || BP_STATUS_COLOR["入庫待ち"];
                         return React.createElement('div', { key:"bp-"+job.id,
@@ -8882,8 +8898,8 @@ React.createElement('select', {
                         )
                       );
                     })
-                  )
-                )
+                  );
+                })()
                 , showSearchResults && searchResults.length === 0 && searchQuery.trim().length > 0 && (
                   React.createElement('div', { style: { position:"absolute", top:"calc(100% + 6px)", left:0, width:220, zIndex:600,
                     background:"#0a0f1a", border:"1px solid #2a3a52", borderRadius:10,
