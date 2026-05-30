@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BP 工程ボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#f1f5f9; --surface:#ffffff; --line:#e2e8f0; --line2:#cbd5e1;
+    --ink:#0f172a; --ink2:#475569; --ink3:#94a3b8;
+    --shadow:0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.05);
+    --shadow-lg:0 12px 32px rgba(15,23,42,.16);
+    /* 文字サイズ（既定=大） */
+    --fs-owner:19px; --fs-em:13px; --fs-sub:14px; --fs-tag:12.5px; --fs-date:13.5px;
+    --fs-prog:12.5px; --fs-staff:13.5px; --fs-memo:13px; --fs-btn:14px;
+    --fs-colname:16px; --fs-colnum:13px; --col-w:300px; --card-pad:13px 14px 12px;
+  }
+  body.sc-m{ --fs-owner:16px; --fs-em:12px; --fs-sub:12.5px; --fs-tag:11.5px; --fs-date:12.5px; --fs-prog:11.5px; --fs-staff:12.5px; --fs-memo:12px; --fs-btn:13px; --fs-colname:14px; --fs-colnum:12px; --col-w:270px; --card-pad:11px 12px 10px; }
+  body.sc-xl{ --fs-owner:23px; --fs-em:15px; --fs-sub:16.5px; --fs-tag:14px; --fs-date:15.5px; --fs-prog:14px; --fs-staff:15.5px; --fs-memo:15px; --fs-btn:16px; --fs-colname:18.5px; --fs-colnum:15px; --col-w:345px; --card-pad:15px 16px 14px; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{background:var(--bg); color:var(--ink); font-family:'Zen Kaku Gothic New',sans-serif; display:flex; flex-direction:column; min-height:100vh; -webkit-font-smoothing:antialiased;}
+  .mono{font-family:'Roboto Mono',monospace;}
+
+  header{background:var(--surface); border-bottom:1px solid var(--line); padding:14px 22px; flex:0 0 auto;}
+  .head-row{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  .logo{display:flex; align-items:baseline; gap:10px;}
+  .logo b{font-size:21px; font-weight:900; letter-spacing:.5px;}
+  .logo .mark{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; font-family:'Roboto Mono',monospace; font-weight:700; font-size:14px;}
+  .logo span{font-size:11px; color:var(--ink3); letter-spacing:1px;}
+  .conn{display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--ink2);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ink3);}
+  .dot.on{background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+  .dot.err{background:#ef4444;}
+  .spacer{flex:1;}
+  .search{width:240px; max-width:46vw; background:var(--bg); border:1px solid var(--line2); border-radius:10px; padding:9px 13px; font-size:13px; font-family:inherit; color:var(--ink);}
+  .search:focus{outline:none; border-color:#6366f1; background:#fff;}
+  .stat{font-size:12px; color:var(--ink2); white-space:nowrap;}
+  .stat b{font-size:18px; color:var(--ink); font-family:'Roboto Mono',monospace;}
+  .fontseg{display:inline-flex; gap:2px; background:var(--bg); border:1px solid var(--line2); border-radius:9px; padding:2px;}
+  .fontseg button{border:none; background:transparent; color:var(--ink2); font-family:inherit; font-size:12px; font-weight:700; padding:6px 11px; border-radius:7px; cursor:pointer; transition:all .12s;}
+  .fontseg button:hover{color:var(--ink);}
+  .fontseg button.on{background:#fff; color:#4338ca; box-shadow:var(--shadow);}
+  .hint{font-size:11px; color:var(--ink3); margin-top:6px;}
+  .hint b{color:var(--ink2); font-weight:700;}
+
+  .board{flex:1 1 auto; display:flex; gap:13px; padding:16px 22px 24px; overflow-x:auto; overflow-y:hidden;}
+  .board::-webkit-scrollbar{height:12px;} .board::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px;border:3px solid var(--bg);}
+  .col{flex:0 0 var(--col-w); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:14px; max-height:100%; box-shadow:var(--shadow);}
+  .col-head{padding:12px 14px 11px; border-bottom:1px solid var(--line);}
+  .col-head .top{display:flex; align-items:center; gap:8px;}
+  .col-bar{width:10px; height:10px; border-radius:50%;}
+  .col-name{font-size:var(--fs-colname); font-weight:700; flex:1; letter-spacing:.2px;}
+  .col-num{font-family:'Roboto Mono',monospace; font-size:var(--fs-colnum); font-weight:700; color:var(--ink2); background:var(--bg); padding:2px 9px; border-radius:20px;}
+  .col-progress{height:3px; border-radius:3px; margin-top:9px; opacity:.85;}
+  .col-body{padding:10px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px; transition:background .12s;}
+  .col-body::-webkit-scrollbar{width:8px;} .col-body::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px;}
+  .col-body.drop{background:rgba(99,102,241,.07); box-shadow:inset 0 0 0 2px rgba(99,102,241,.35);}
+  .empty{color:var(--ink3); font-size:12px; text-align:center; padding:18px 8px; border:1px dashed var(--line2); border-radius:11px;}
+
+  .card{position:relative; background:var(--surface); border:1px solid var(--line); border-left:5px solid var(--line2); border-radius:12px; padding:var(--card-pad); cursor:grab; box-shadow:var(--shadow); transition:transform .12s, box-shadow .12s;}
+  .card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lg);}
+  .card.dragging{opacity:.4;}
+  .c-owner{font-size:var(--fs-owner); font-weight:700; line-height:1.25;}
+  .c-owner em{font-style:normal; font-size:var(--fs-em); color:var(--ink3); font-weight:400; margin-left:2px;}
+  .c-head{display:flex; align-items:flex-start; gap:8px;}
+  .c-head .c-owner{flex:1; min-width:0;}
+  .c-assignee{display:inline-flex; align-items:center; gap:6px; padding:3px 11px 3px 3px; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; flex:0 0 auto; max-width:58%;}
+  .c-assignee .av{width:26px; height:26px; border-radius:50%; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .c-assignee .nm{font-size:var(--fs-staff); font-weight:700; color:#3730a3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .c-assignee.none{background:var(--bg); border:1px dashed var(--line2); padding:3px 10px 3px 3px;}
+  .c-assignee.none .av{background:var(--line2);}
+  .c-assignee.none .nm{color:var(--ink3); font-weight:500;}
+  .c-sub{display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:3px; font-size:var(--fs-sub); color:var(--ink2);}
+  .c-plate{font-family:'Roboto Mono',monospace; letter-spacing:.3px;}
+  .c-badges{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;}
+  .tag{font-size:var(--fs-tag); font-weight:700; padding:3px 9px; border-radius:7px; letter-spacing:.3px;}
+  .tag-type{background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe;}
+  .tag-stall{background:#f1f5f9; color:#475569; border:1px solid var(--line2);}
+  .c-dates{display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:9px; font-size:var(--fs-date);}
+  .c-dates .k{color:var(--ink3); margin-right:4px;}
+  .c-dates .v{font-family:'Roboto Mono',monospace; color:var(--ink); font-weight:500;}
+  .c-dates .v.warn{color:#d97706; font-weight:700;}
+  .c-dates .v.over{color:#dc2626; font-weight:700;}
+  .c-prog{display:flex; align-items:center; gap:8px; margin-top:9px;}
+  .c-prog .bar{flex:1; height:6px; border-radius:6px; background:var(--bg); overflow:hidden;}
+  .c-prog .bar i{display:block; height:100%; border-radius:6px; background:linear-gradient(90deg,#0ea5e9,#22c55e);}
+  .c-prog .lab{font-family:'Roboto Mono',monospace; font-size:var(--fs-prog); color:var(--ink2); font-weight:700;}
+  .c-staff{display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-size:var(--fs-staff); color:var(--ink2);}
+  .c-staff .av{width:18px; height:18px; border-radius:50%; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:700;}
+  .c-memo{margin-top:9px; font-size:var(--fs-memo); color:var(--ink2); background:var(--bg); border-radius:8px; padding:6px 9px; line-height:1.5; white-space:pre-wrap; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .c-move{display:flex; gap:7px; margin-top:10px;}
+  .c-move button{flex:1; padding:7px 0; font-size:var(--fs-btn); line-height:1; border-radius:8px; border:1px solid var(--line2); background:var(--surface); color:var(--ink2); cursor:pointer; transition:all .12s; font-weight:700;}
+  .c-move button:hover:not(:disabled){border-color:#6366f1; color:#6366f1; background:#eef2ff;}
+  .c-move button:disabled{opacity:.3; cursor:default;}
+
+  /* モーダル */
+  .overlay{position:fixed; inset:0; background:rgba(15,23,42,.45); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:18px; z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{width:100%; max-width:560px; background:var(--surface); border-radius:18px; max-height:92vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); overflow:hidden;}
+  .m-head{padding:20px 22px 14px; border-bottom:1px solid var(--line);}
+  .m-name{font-size:20px; font-weight:900;}
+  .m-name em{font-style:normal; font-size:13px; color:var(--ink3); font-weight:400;}
+  .m-meta{display:flex; flex-wrap:wrap; gap:5px 14px; margin-top:6px; font-size:12.5px; color:var(--ink2);}
+  .m-meta .mono{color:var(--ink);}
+  .m-cur{display:flex; align-items:center; gap:9px; margin-top:13px;}
+  .m-cur label{margin:0; white-space:nowrap;}
+  .m-cur select{flex:1; background:var(--bg); border:1px solid var(--line2); border-radius:9px; padding:9px 11px; font-size:14px; font-family:inherit; color:var(--ink); font-weight:700;}
+  .m-body{padding:8px 22px 4px; overflow-y:auto; flex:1;}
+  label{display:block; font-size:12px; font-weight:700; color:var(--ink2); margin-bottom:7px;}
+  .stage-row{border:1px solid var(--line); border-radius:11px; padding:10px 12px; margin:9px 0; transition:border-color .12s, background .12s;}
+  .stage-row.cur{border-color:#6366f1; background:#f5f3ff;}
+  .stage-row.done{background:#f0fdf4; border-color:#bbf7d0;}
+  .sr-top{display:flex; align-items:center; gap:8px; margin-bottom:9px;}
+  .sr-dot{width:11px; height:11px; border-radius:50%; flex:0 0 auto;}
+  .sr-name{font-size:13.5px; font-weight:700; flex:1;}
+  .sr-chip{font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px;}
+  .sr-chip.cur{background:#6366f1; color:#fff;} .sr-chip.done{background:#16a34a; color:#fff;}
+  .sr-grid{display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:8px;}
+  .sr-grid .fld label{font-size:10.5px; color:var(--ink3); margin-bottom:4px;}
+  .sr-grid input{width:100%; background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:8px 9px; font-size:13px; font-family:inherit; color:var(--ink);}
+  .sr-grid input:focus{outline:none; border-color:#6366f1; background:#fff;}
+  .m-memo{margin:12px 0 4px;}
+  .m-memo textarea{width:100%; background:var(--bg); border:1px solid var(--line2); border-radius:9px; padding:10px 12px; font-size:14px; font-family:inherit; color:var(--ink); resize:vertical; min-height:56px;}
+  .m-memo textarea:focus{outline:none; border-color:#6366f1; background:#fff;}
+  .reg-memo{font-size:12px; color:var(--ink2); background:#fffbeb; border:1px solid #fde68a; border-radius:9px; padding:8px 11px; margin-top:10px; line-height:1.5;}
+  .reg-memo b{color:#b45309;}
+  .m-foot{padding:14px 22px; border-top:1px solid var(--line); display:flex; gap:9px;}
+  .btn{padding:11px 18px; border-radius:10px; border:none; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; transition:all .12s;}
+  .btn-primary{flex:1; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff;}
+  .btn-primary:hover{filter:brightness(1.05);}
+  .btn-ghost{background:var(--bg); color:var(--ink2); border:1px solid var(--line2);}
+  .btn-ghost:hover{background:#e2e8f0;}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(16px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:11px; font-size:13px; font-weight:500; opacity:0; transition:all .22s; z-index:60; pointer-events:none; box-shadow:var(--shadow-lg);}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.err{background:#dc2626;}
+
+  /* 担当クイック変更ポップ */
+  .c-assignee{cursor:pointer;}
+  .c-assignee:hover{box-shadow:0 0 0 2px rgba(99,102,241,.22);}
+  .pop{position:fixed; z-index:80; display:none; width:236px; max-height:62vh; overflow-y:auto; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-lg); padding:12px;}
+  .pop-title{font-size:12px; font-weight:700; color:var(--ink3); margin-bottom:9px; letter-spacing:.5px;}
+  .pop-list{display:flex; flex-direction:column; gap:5px; margin-bottom:10px;}
+  .pop-item{display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:1px solid var(--line); background:var(--surface); border-radius:9px; padding:7px 9px; font-family:inherit; font-size:14px; font-weight:700; color:var(--ink); cursor:pointer; transition:all .12s;}
+  .pop-item:hover{border-color:#6366f1; background:#eef2ff;}
+  .pop-item.cur{border-color:#6366f1; background:#eef2ff;}
+  .pop-item .av{width:24px;height:24px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .pop-empty{font-size:12px; color:var(--ink3); padding:4px 2px 10px;}
+  .pop-add{display:flex; gap:6px; margin-bottom:8px;}
+  .pop-add input{flex:1; background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit; color:var(--ink); min-width:0;}
+  .pop-add input:focus{outline:none;border-color:#6366f1;background:#fff;}
+  .pop-add button{border:none; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; border-radius:8px; padding:8px 12px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;}
+  .pop-clear{width:100%; border:1px solid var(--line2); background:var(--bg); color:var(--ink2); border-radius:8px; padding:8px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;}
+  .pop-clear:hover{background:#fef2f2; border-color:#fecaca; color:#dc2626;}
+
+  @media(max-width:640px){ header{padding:12px 14px;} .board{padding:12px 14px; gap:10px;} .search{width:100%; max-width:none;} .col{flex-basis:82vw;} .sr-grid{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <div class="logo">
+      <span class="mark">BP</span>
+      <div><b>工程ボード</b> <span>BODY &amp; PAINT WORKFLOW</span></div>
+    </div>
+    <span class="conn"><span class="dot" id="dot"></span><span id="connTxt">接続中…</span></span>
+    <div class="spacer"></div>
+    <input class="search" id="search" type="text" placeholder="🔍 お客様名・ナンバー・車種で検索" oninput="render()">
+    <div class="stat">進行中 <b id="cnt">0</b> 台</div>
+    <div class="fontseg" id="fontseg" title="文字サイズ">
+      <button type="button" data-sc="sc-m">中</button>
+      <button type="button" data-sc="">大</button>
+      <button type="button" data-sc="sc-xl">特大</button>
+    </div>
+  </div>
+  <div class="hint">入庫登録は <b>index</b> で。このボードは登録車両を自動表示し、<b>工程の進捗・各工程の日程と担当</b>を管理します（カードはタップで詳細／ドラッグ・◀▶ で工程移動）。</div>
+</header>
+
+<div class="board" id="board"></div>
+
+<datalist id="staffList"></datalist>
+
+<!-- 工程詳細モーダル -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="m-head">
+      <div class="m-name" id="mName">—</div>
+      <div class="m-meta" id="mMeta"></div>
+      <div class="m-cur"><label>現在の工程</label><select id="mStage" onchange="onStageSelect()"></select></div>
+    </div>
+    <div class="m-body">
+      <div id="mStages"></div>
+      <div class="m-memo"><label>工程メモ</label><textarea id="mMemo" placeholder="連絡事項・申し送りなど"></textarea></div>
+      <div id="mRegMemo"></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">閉じる</button>
+      <button class="btn btn-primary" onclick="saveModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="pop" id="staffPop">
+  <div class="pop-title" id="popTitle">担当を選択</div>
+  <div class="pop-list" id="popList"></div>
+  <div class="pop-add">
+    <input id="popInput" type="text" list="staffList" placeholder="名前を入力" onkeydown="if(event.key==='Enter')popSet(this.value.trim())">
+    <button type="button" onclick="popSet(document.getElementById('popInput').value.trim())">設定</button>
+  </div>
+  <button type="button" class="pop-clear" onclick="popSet('')">担当を外す</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   ・車両リスト : indexと共有の garage/bp_jobs を【読み取り専用】
+   ・工程データ : このボード専用の bp_workflow/{車両ID} に保存
+   → indexのデータには一切書き込みません（index非干渉）。
+   ══════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:"AIzaSyDAyqKSD4oxh3PqZW1UIjuqL73Ejp33_E0",
+  authDomain:"garage-armb-board.firebaseapp.com",
+  databaseURL:"https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"garage-armb-board",
+  storageBucket:"garage-armb-board.firebasestorage.app",
+  messagingSenderId:"430667841584",
+  appId:"1:430667841584:web:81c17b57d4c6493875edf5"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const JOBS_REF   = db.ref('garage/bp_jobs');     // 読み取りのみ（indexの入庫データ）
+const STALL_REF  = db.ref('garage/bp_stalls');   // 読み取りのみ（ブース名）
+const WORKER_REF = db.ref('garage/bp_workers');  // 読み取りのみ（担当候補）
+const WF_REF     = db.ref('bp_workflow');         // ★ このボード専用（工程データ）
+
+/* ── 12工程 ── */
+const STAGES = [
+  {name:'入庫待ち',      color:'#64748b'},
+  {name:'入庫・受付',    color:'#0ea5e9'},
+  {name:'分解・見積',    color:'#14b8a6'},
+  {name:'部品発注・手配',color:'#f59e0b'},
+  {name:'板金',          color:'#ef4444'},
+  {name:'下地・パテ',    color:'#f97316'},
+  {name:'足付け・マスキング',color:'#ec4899'},
+  {name:'塗装',          color:'#8b5cf6'},
+  {name:'組付け',        color:'#06b6d4'},
+  {name:'磨き・仕上げ',  color:'#3b82f6'},
+  {name:'検査',          color:'#6366f1'},
+  {name:'洗車・納車準備',color:'#10b981'},
+  {name:'納車済み',      color:'#22c55e'},
+];
+const idxOf = n => { const i=STAGES.findIndex(s=>s.name===n); return i<0?0:i; };
+const colorOf = n => STAGES[idxOf(n)].color;
+
+let JOBS=[], STALLS={}, WF={}, WORKERS=[];
+const wkey = j => String(j.id || j.key).replace(/[.#$\[\]\/\s]/g,'_');
+
+/* ── 接続状態 ── */
+db.ref('.info/connected').on('value', s=>{
+  const d=document.getElementById('dot'), t=document.getElementById('connTxt');
+  if(s.val()){ d.className='dot on'; t.textContent='同期中'; } else { d.className='dot'; t.textContent='接続中…'; }
+});
+
+/* ── マスタ読み込み ── */
+STALL_REF.on('value', s=>{ STALLS={}; s.forEach(c=>{const v=c.val(); if(v&&v.id) STALLS[v.id]=v.name||v.label||v.id;}); render(); });
+WORKER_REF.on('value', s=>{
+  WORKERS=[]; s.forEach(c=>{ const v=c.val(); if(!v) return; WORKERS.push(typeof v==='string'?v:(v.name||v.label||v.id||'')); });
+  WORKERS=WORKERS.filter(Boolean);
+  document.getElementById('staffList').innerHTML=WORKERS.map(w=>'<option value="'+esc(w)+'">').join('');
+});
+
+/* ── 工程データ購読（このボード専用）── */
+WF_REF.on('value', s=>{ WF=s.val()||{}; render(); });
+
+/* ── 入庫データ購読（読み取りのみ）── */
+JOBS_REF.on('value', s=>{
+  const arr=[]; s.forEach(c=>{ const v=c.val(); if(v&&typeof v==='object') arr.push({key:c.key, ...v}); });
+  JOBS=arr; render();
+}, err=>{ document.getElementById('dot').className='dot err'; document.getElementById('connTxt').textContent='接続エラー'; toast('接続エラー: '+err.message,'err'); });
+
+/* ── 描画 ── */
+function render(){
+  const q=(document.getElementById('search').value||'').trim().toLowerCase();
+  const board=document.getElementById('board'); board.innerHTML='';
+  const visible=JOBS.filter(j=>!j.completed).filter(j=>{
+    if(!q) return true;
+    return [j.owner,j.plate,j.carModel,j.type].some(v=>(v||'').toLowerCase().includes(q));
+  });
+
+  let active=0;
+  STAGES.forEach(st=>{
+    const items=visible.filter(j=>curStage(j)===st.name)
+      .sort((a,b)=>(a.inDate||'9999').localeCompare(b.inDate||'9999'));
+    if(st.name!=='納車済み') active+=items.length;
+
+    const col=document.createElement('div'); col.className='col';
+    col.innerHTML='<div class="col-head"><div class="top">'
+      +'<span class="col-bar" style="background:'+st.color+'"></span>'
+      +'<span class="col-name">'+st.name+'</span><span class="col-num">'+items.length+'</span>'
+      +'</div><div class="col-progress" style="background:'+st.color+'"></div></div>';
+    const body=document.createElement('div'); body.className='col-body'; body.dataset.stage=st.name;
+    body.addEventListener('dragover',e=>{e.preventDefault(); body.classList.add('drop');});
+    body.addEventListener('dragleave',()=>body.classList.remove('drop'));
+    body.addEventListener('drop',e=>{e.preventDefault(); body.classList.remove('drop'); const k=e.dataTransfer.getData('wk'); if(k) setStage(k, st.name);});
+
+    if(items.length===0) body.innerHTML='<div class="empty">なし</div>';
+    else items.forEach(j=>body.appendChild(card(j)));
+    col.appendChild(body); board.appendChild(col);
+  });
+  document.getElementById('cnt').textContent=active;
+}
+
+const curStage = j => (WF[wkey(j)]&&WF[wkey(j)].stage) || '入庫待ち';
+const wfOf = j => WF[wkey(j)] || {stage:'入庫待ち', s:{}, memo:''};
+
+/* 担当者ごとの色（名前から一定の色を割り当て）*/
+function staffColor(name){
+  const palette=['#ef4444','#f97316','#f59e0b','#16a34a','#0ea5e9','#6366f1','#8b5cf6','#ec4899','#14b8a6','#0891b2'];
+  let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0;
+  return palette[h%palette.length];
+}
+
+function card(j){
+  const wf=wfOf(j), stage=wf.stage||'入庫待ち', i=idxOf(stage);
+  const sdata=(wf.s&&wf.s[stage])||{};
+  const doneCount=STAGES.filter(s=>wf.s&&wf.s[s.name]&&wf.s[s.name].done).length;
+  const pct=Math.round(doneCount/STAGES.length*100);
+
+  const el=document.createElement('div');
+  el.className='card'; el.style.borderLeftColor=colorOf(stage); el.draggable=true;
+  el.dataset.wk=wkey(j);
+  el.addEventListener('dragstart',e=>{e.dataTransfer.setData('wk',wkey(j)); el.classList.add('dragging');});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+  el.onclick=e=>{ if(!e.target.closest('.c-move') && !e.target.closest('.c-assignee')) openModal(wkey(j)); };
+
+  let outCls='';
+  if(j.outDate && stage!=='納車済み'){
+    const today=new Date(); today.setHours(0,0,0,0);
+    const d=new Date(j.outDate+'T00:00:00'); const diff=Math.round((d-today)/86400000);
+    if(diff<0) outCls='over'; else if(diff<=1) outCls='warn';
+  }
+  let planCls='';
+  if(sdata.plan && !sdata.done){
+    const today=new Date(); today.setHours(0,0,0,0);
+    const d=new Date(sdata.plan+'T00:00:00'); const diff=Math.round((d-today)/86400000);
+    if(diff<0) planCls='over'; else if(diff<=1) planCls='warn';
+  }
+  const stall=j.stall&&STALLS[j.stall]?'<span class="tag tag-stall">🏠 '+esc(STALLS[j.stall])+'</span>':'';
+  const staff=sdata.staff||'';
+  const chip = staff
+    ? '<div class="c-assignee" title="タップで担当を変更"><span class="av" style="background:'+staffColor(staff)+'">'+esc(staff.slice(0,1))+'</span><span class="nm">'+esc(staff)+'</span></div>'
+    : '<div class="c-assignee none" title="タップで担当を設定"><span class="av">＋</span><span class="nm">未割当</span></div>';
+
+  el.innerHTML=
+    '<div class="c-head"><div class="c-owner">'+esc(j.owner||j.plate||'—')+'<em>様</em></div>'+chip+'</div>'
+    +'<div class="c-sub">'+(j.plate?'<span class="c-plate">'+esc(j.plate)+'</span>':'')+(j.carModel?'<span>'+esc(j.carModel)+'</span>':'')+'</div>'
+    +'<div class="c-badges">'+(j.type?'<span class="tag tag-type">'+esc(j.type)+'</span>':'')+stall+'</div>'
+    +'<div class="c-dates">'
+      +(j.inDate?'<span><span class="k">入庫</span><span class="v">'+fmtD(j.inDate)+'</span></span>':'')
+      +(j.outDate?'<span><span class="k">完成予定</span><span class="v '+outCls+'">'+fmtD(j.outDate)+'</span></span>':'')
+      +(sdata.plan?'<span><span class="k">'+esc(stage)+'予定</span><span class="v '+planCls+'">'+fmtD(sdata.plan)+'</span></span>':'')
+    +'</div>'
+    +'<div class="c-prog"><div class="bar"><i style="width:'+pct+'%"></i></div><span class="lab">'+doneCount+'/'+STAGES.length+'</span></div>'
+    +(wf.memo?'<div class="c-memo">'+esc(wf.memo)+'</div>':'')
+    +'<div class="c-move">'
+      +'<button '+(i<=0?'disabled':'')+' onclick="event.stopPropagation();step(\''+wkey(j)+'\',-1)">◀ 戻す</button>'
+      +'<button '+(i>=STAGES.length-1?'disabled':'')+' onclick="event.stopPropagation();step(\''+wkey(j)+'\',1)">進める ▶</button>'
+    +'</div>';
+
+  const aEl=el.querySelector('.c-assignee');
+  if(aEl) aEl.onclick=function(e){ e.stopPropagation(); openStaffPop(e, wkey(j), stage); };
+  return el;
+}
+
+/* ── 工程移動（bp_workflow のみ更新）── */
+function step(wk, dir){
+  const cur=(WF[wk]&&WF[wk].stage)||'入庫待ち';
+  const ni=idxOf(cur)+dir; if(ni<0||ni>=STAGES.length) return;
+  setStage(wk, STAGES[ni].name);
+}
+function setStage(wk, stage){
+  WF_REF.child(wk).update({ stage, updatedAt:Date.now() })
+    .then(()=>toast('「'+stage+'」へ移動しました'))
+    .catch(e=>toast('更新失敗: '+e.message,'err'));
+}
+
+/* ── 担当クイック変更（ボードから直接）── */
+let popCtx=null;
+function staffCandidates(){
+  const set=new Set(WORKERS);
+  Object.keys(WF).forEach(function(k){ const w=WF[k]; if(w&&w.s) Object.keys(w.s).forEach(function(sn){ const st=w.s[sn]; if(st&&st.staff) set.add(st.staff); }); });
+  return Array.from(set).filter(Boolean);
+}
+function openStaffPop(ev, wk, stage){
+  popCtx={wk:wk, stage:stage};
+  const j=findJobByWk(wk);
+  const cur=(WF[wk]&&WF[wk].s&&WF[wk].s[stage]&&WF[wk].s[stage].staff)||'';
+  document.getElementById('popTitle').textContent=(j?(j.owner||j.plate||''):'')+'　/　'+stage+' の担当';
+  const list=document.getElementById('popList');
+  const cands=staffCandidates();
+  list.innerHTML = cands.length
+    ? cands.map(function(n){ return '<button type="button" class="pop-item '+(n===cur?'cur':'')+'" data-name="'+esc(n)+'"><span class="av" style="background:'+staffColor(n)+'">'+esc(n.slice(0,1))+'</span>'+esc(n)+(n===cur?' ✓':'')+'</button>'; }).join('')
+    : '<div class="pop-empty">候補がありません。下に名前を入力して設定してください。</div>';
+  list.querySelectorAll('.pop-item').forEach(function(b){ b.onclick=function(){ popSet(b.dataset.name); }; });
+  document.getElementById('popInput').value='';
+
+  const pop=document.getElementById('staffPop');
+  pop.style.display='block';
+  const r=ev.currentTarget.getBoundingClientRect();
+  const pw=pop.offsetWidth, ph=pop.offsetHeight;
+  let left=r.left, top=r.bottom+6;
+  if(left+pw>window.innerWidth-10) left=window.innerWidth-pw-10;
+  if(left<10) left=10;
+  if(top+ph>window.innerHeight-10) top=Math.max(10, r.top-ph-6);
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+}
+function popSet(name){
+  if(!popCtx) return;
+  const {wk, stage}=popCtx;
+  WF_REF.child(wk).child('s').child(stage).child('staff').set(name||null)
+    .then(()=>toast(name?('担当 → '+name):'担当を外しました'))
+    .catch(e=>toast('更新失敗: '+e.message,'err'));
+  closePop();
+}
+function closePop(){ document.getElementById('staffPop').style.display='none'; popCtx=null; }
+document.addEventListener('click', function(e){ const pop=document.getElementById('staffPop'); if(pop.style.display==='block' && !pop.contains(e.target)) closePop(); });
+
+/* ── モーダル ── */
+let modalWk=null;
+function findJobByWk(wk){ return JOBS.find(j=>wkey(j)===wk); }
+function openModal(wk){
+  const j=findJobByWk(wk); if(!j) return;
+  modalWk=wk;
+  const wf=WF[wk]||{stage:'入庫待ち', s:{}, memo:''};
+  document.getElementById('mName').innerHTML=esc(j.owner||j.plate||'—')+'<em> 様</em>';
+  const meta=[];
+  if(j.plate) meta.push('<span class="mono">'+esc(j.plate)+'</span>');
+  if(j.carModel) meta.push(esc(j.carModel));
+  if(j.type) meta.push(esc(j.type));
+  if(j.inDate) meta.push('入庫 '+fmtD(j.inDate));
+  if(j.outDate) meta.push('完成予定 '+fmtD(j.outDate));
+  document.getElementById('mMeta').innerHTML=meta.join('<span style="color:#cbd5e1">・</span>');
+
+  const cur=wf.stage||'入庫待ち';
+  document.getElementById('mStage').innerHTML=STAGES.map(s=>'<option value="'+esc(s.name)+'" '+(s.name===cur?'selected':'')+'>'+esc(s.name)+'</option>').join('');
+
+  const sd=wf.s||{};
+  document.getElementById('mStages').innerHTML=STAGES.map(function(s,i){
+    const d=sd[s.name]||{}; const isCur=s.name===cur; const isDone=!!d.done;
+    return '<div class="stage-row '+(isCur?'cur':'')+' '+(isDone?'done':'')+'" data-stage="'+esc(s.name)+'">'
+      +'<div class="sr-top">'
+        +'<span class="sr-dot" style="background:'+s.color+'"></span>'
+        +'<span class="sr-name">'+(i+1)+'. '+esc(s.name)+'</span>'
+        +(isCur?'<span class="sr-chip cur">現在</span>':'')+(isDone?'<span class="sr-chip done">✓ 完了</span>':'')
+      +'</div>'
+      +'<div class="sr-grid">'
+        +'<div class="fld"><label>着手予定日</label><input type="date" id="plan_'+i+'" value="'+esc(d.plan||'')+'"></div>'
+        +'<div class="fld"><label>完了日</label><input type="date" id="done_'+i+'" value="'+esc(d.done||'')+'"></div>'
+        +'<div class="fld"><label>担当スタッフ</label><input type="text" list="staffList" id="staff_'+i+'" value="'+esc(d.staff||'')+'" placeholder="担当"></div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+
+  document.getElementById('mMemo').value=wf.memo||'';
+  document.getElementById('mRegMemo').innerHTML = j.memo ? '<div class="reg-memo"><b>登録メモ（index）:</b> '+esc(j.memo)+'</div>' : '';
+  document.getElementById('overlay').classList.add('show');
+}
+function onStageSelect(){
+  const cur=document.getElementById('mStage').value;
+  document.querySelectorAll('#mStages .stage-row').forEach(function(r){
+    const old=r.querySelector('.sr-chip.cur'); if(old) old.remove();
+    r.classList.toggle('cur', r.dataset.stage===cur);
+    if(r.dataset.stage===cur){ const sp=document.createElement('span'); sp.className='sr-chip cur'; sp.textContent='現在'; r.querySelector('.sr-top').appendChild(sp); }
+  });
+}
+function saveModal(){
+  if(!modalWk) return;
+  const stage=document.getElementById('mStage').value;
+  const s={};
+  STAGES.forEach(function(st,i){
+    const plan=document.getElementById('plan_'+i).value;
+    const done=document.getElementById('done_'+i).value;
+    const staff=document.getElementById('staff_'+i).value.trim();
+    if(plan||done||staff) s[st.name]={plan:plan,done:done,staff:staff};
+  });
+  const data={ stage:stage, s:s, memo:document.getElementById('mMemo').value.trim(), updatedAt:Date.now() };
+  WF_REF.child(modalWk).set(data)
+    .then(()=>{ closeModal(); toast('保存しました'); })
+    .catch(e=>toast('保存失敗: '+e.message,'err'));
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('show'); modalWk=null; }
+
+/* ── ユーティリティ ── */
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});}
+function fmtD(d){ if(!d) return ''; const x=new Date(d+'T00:00:00'); if(isNaN(x)) return esc(d); const w=['日','月','火','水','木','金','土']; return (x.getMonth()+1)+'/'+x.getDate()+'('+w[x.getDay()]+')'; }
+function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+(type||''); clearTimeout(t._t); t._t=setTimeout(function(){t.className='toast';},2000); }
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
+
+/* ── 文字サイズ切替（中／大／特大）── */
+(function(){
+  var saved=''; try{ saved=localStorage.getItem('bp_scale')||''; }catch(e){}
+  function applyScale(sc){
+    document.body.className = sc || '';
+    try{ localStorage.setItem('bp_scale', sc||''); }catch(e){}
+    document.querySelectorAll('#fontseg button').forEach(function(b){ b.classList.toggle('on',(b.dataset.sc||'')===(sc||'')); });
+  }
+  document.querySelectorAll('#fontseg button').forEach(function(b){ b.onclick=function(){ applyScale(b.dataset.sc); }; });
+  applyScale(saved);
+})();
+</script>
+</body>
+</html>
