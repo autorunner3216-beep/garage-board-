@@ -38,6 +38,16 @@
   .spacer{flex:1;}
   .search{width:240px; max-width:46vw; background:var(--bg); border:1px solid var(--line2); border-radius:10px; padding:9px 13px; font-size:13px; font-family:inherit; color:var(--ink);}
   .search:focus{outline:none; border-color:#6366f1; background:#fff;}
+  .monthsel{background:var(--bg); border:1px solid var(--line2); border-radius:10px; padding:9px 12px; font-size:13px; font-family:inherit; font-weight:700; color:var(--ink); cursor:pointer;}
+  .monthsel:focus{outline:none; border-color:#6366f1; background:#fff;}
+  .filter-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px;}
+  .fsel{background:var(--bg); border:1px solid var(--line2); border-radius:10px; padding:9px 12px; font-size:13px; font-family:inherit; font-weight:700; color:var(--ink); cursor:pointer; max-width:210px;}
+  .fsel:focus{outline:none; border-color:#6366f1; background:#fff;}
+  .clrbtn{background:none; border:none; color:var(--ink3); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; padding:8px 6px; text-decoration:underline;}
+  .clrbtn:hover{color:#dc2626;}
+  .hidbtn{background:var(--bg); border:1px solid var(--line2); border-radius:10px; padding:9px 12px; font-size:12px; font-weight:700; color:var(--ink2); cursor:pointer; font-family:inherit; white-space:nowrap;}
+  .hidbtn:hover{color:var(--ink);}
+  .hidbtn.on{background:#eef2ff; border-color:#6366f1; color:#4338ca;}
   .stat{font-size:12px; color:var(--ink2); white-space:nowrap;}
   .stat b{font-size:18px; color:var(--ink); font-family:'Roboto Mono',monospace;}
   .fontseg{display:inline-flex; gap:2px; background:var(--bg); border:1px solid var(--line2); border-radius:9px; padding:2px;}
@@ -74,12 +84,24 @@
   .c-assignee.none{background:var(--bg); border:1px dashed var(--line2); padding:3px 10px 3px 3px;}
   .c-assignee.none .av{background:var(--line2);}
   .c-assignee.none .nm{color:var(--ink3); font-weight:500;}
+  /* 事前チェック欄 */
+  .c-checks{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;}
+  .chk{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line2); background:var(--surface); color:var(--ink2); border-radius:8px; padding:5px 9px; font-family:inherit; font-size:var(--fs-tag); font-weight:700; cursor:pointer; transition:all .12s; line-height:1.25;}
+  .chk:hover{border-color:#6366f1;}
+  .chk .box{width:16px; height:16px; border-radius:5px; border:2px solid var(--line2); display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:#fff; flex:0 0 auto;}
+  .chk .st{font-size:.82em; padding:1px 7px; border-radius:10px; background:var(--bg); color:var(--ink3);}
+  .chk.done{background:#f0fdf4; border-color:#86efac; color:#15803d;}
+  .chk.done .box{background:#16a34a; border-color:#16a34a;}
+  .chk.done .st{background:#16a34a; color:#fff;}
+  .m-checks{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 14px;}
   .c-sub{display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:3px; font-size:var(--fs-sub); color:var(--ink2);}
   .c-plate{font-family:'Roboto Mono',monospace; letter-spacing:.3px;}
   .c-badges{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;}
   .tag{font-size:var(--fs-tag); font-weight:700; padding:3px 9px; border-radius:7px; letter-spacing:.3px;}
   .tag-type{background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe;}
   .tag-stall{background:#f1f5f9; color:#475569; border:1px solid var(--line2);}
+  .tag-hidden{background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;}
+  .card.is-hidden{opacity:.5;}
   .c-dates{display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:9px; font-size:var(--fs-date);}
   .c-dates .k{color:var(--ink3); margin-right:4px;}
   .c-dates .v{font-family:'Roboto Mono',monospace; color:var(--ink); font-weight:500;}
@@ -134,6 +156,8 @@
   .btn-primary:hover{filter:brightness(1.05);}
   .btn-ghost{background:var(--bg); color:var(--ink2); border:1px solid var(--line2);}
   .btn-ghost:hover{background:#e2e8f0;}
+  .btn-danger{background:#fff; border:1px solid #fecaca; color:#dc2626;}
+  .btn-danger:hover{background:#fef2f2;}
   .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(16px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:11px; font-size:13px; font-weight:500; opacity:0; transition:all .22s; z-index:60; pointer-events:none; box-shadow:var(--shadow-lg);}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   .toast.err{background:#dc2626;}
@@ -169,13 +193,21 @@
     </div>
     <span class="conn"><span class="dot" id="dot"></span><span id="connTxt">接続中…</span></span>
     <div class="spacer"></div>
-    <input class="search" id="search" type="text" placeholder="🔍 お客様名・ナンバー・車種で検索" oninput="render()">
     <div class="stat">進行中 <b id="cnt">0</b> 台</div>
+    <button class="hidbtn" id="hidBtn" type="button" onclick="toggleHidden()" title="消去したカードの表示／復元">🗑 非表示 0</button>
     <div class="fontseg" id="fontseg" title="文字サイズ">
       <button type="button" data-sc="sc-m">中</button>
       <button type="button" data-sc="">大</button>
       <button type="button" data-sc="sc-xl">特大</button>
     </div>
+  </div>
+  <div class="filter-row">
+    <input class="search" id="search" type="text" placeholder="🔍 お客様名・ナンバー・車種で検索" oninput="render()">
+    <select class="fsel" id="monthsel" onchange="onFilterChange()" title="入庫月でしぼり込み"></select>
+    <select class="fsel" id="outsel" onchange="onFilterChange()" title="完成予定月でしぼり込み"></select>
+    <select class="fsel" id="typesel" onchange="onFilterChange()" title="作業内容でしぼり込み"></select>
+    <select class="fsel" id="staffsel" onchange="onFilterChange()" title="現在の担当者でしぼり込み"></select>
+    <button class="clrbtn" type="button" onclick="clearFilters()">絞り込みをクリア</button>
   </div>
   <div class="hint">入庫登録は <b>index</b> で。このボードは登録車両を自動表示し、<b>工程の進捗・各工程の日程と担当</b>を管理します（カードはタップで詳細／ドラッグ・◀▶ で工程移動）。</div>
 </header>
@@ -193,11 +225,13 @@
       <div class="m-cur"><label>現在の工程</label><select id="mStage" onchange="onStageSelect()"></select></div>
     </div>
     <div class="m-body">
+      <div class="m-checks" id="mChecks"></div>
       <div id="mStages"></div>
       <div class="m-memo"><label>工程メモ</label><textarea id="mMemo" placeholder="連絡事項・申し送りなど"></textarea></div>
       <div id="mRegMemo"></div>
     </div>
     <div class="m-foot">
+      <button class="btn btn-danger" id="mDel" type="button" onclick="deleteCard()">🗑 このボードから消去</button>
       <button class="btn btn-ghost" onclick="closeModal()">閉じる</button>
       <button class="btn btn-primary" onclick="saveModal()">保存</button>
     </div>
@@ -257,7 +291,11 @@ const STAGES = [
 const idxOf = n => { const i=STAGES.findIndex(s=>s.name===n); return i<0?0:i; };
 const colorOf = n => STAGES[idxOf(n)].color;
 
+/* 事前チェック項目（ここに追加すれば項目を増やせます）*/
+const CHECKS = ['入庫前部品在庫確認'];
+
 let JOBS=[], STALLS={}, WF={}, WORKERS=[];
+let monthFilter='', outMonthFilter='', typeFilter='', staffFilter='', showHidden=false;
 const wkey = j => String(j.id || j.key).replace(/[.#$\[\]\/\s]/g,'_');
 
 /* ── 接続状態 ── */
@@ -283,13 +321,71 @@ JOBS_REF.on('value', s=>{
   JOBS=arr; render();
 }, err=>{ document.getElementById('dot').className='dot err'; document.getElementById('connTxt').textContent='接続エラー'; toast('接続エラー: '+err.message,'err'); });
 
+/* ── しぼり込み（入庫月／完成予定月／作業内容／担当者）── */
+function monthLabel(ym){ const p=ym.split('-'); return p[0]+'年'+parseInt(p[1],10)+'月'; }
+function curStaff(j){ const wf=WF[wkey(j)]; if(!wf||!wf.s) return ''; const st=wf.s[(wf.stage||'入庫待ち')]; return (st&&st.staff)||''; }
+const _selKeys={};
+function fillSelect(id, allLabel, entries, current){
+  const sel=document.getElementById(id); if(!sel) return current;
+  let total=0; entries.forEach(function(e){ total+=e.count; });
+  const key=total+'|'+entries.map(function(e){ return e.value+':'+e.count; }).join(',');
+  if(_selKeys[id]!==key){
+    _selKeys[id]=key;
+    sel.innerHTML='<option value="">'+allLabel+'（'+total+'）</option>'
+      +entries.map(function(e){ return '<option value="'+esc(e.value)+'">'+esc(e.label)+'（'+e.count+'）</option>'; }).join('');
+  }
+  if(current && !entries.some(function(e){ return e.value===current; })) current='';
+  sel.value=current;
+  return current;
+}
+function buildFilters(){
+  const all=JOBS.filter(j=>!j.completed);
+  const inM={}, outM={}, ty={}, stf={};
+  all.forEach(function(j){
+    if(WF[wkey(j)]&&WF[wkey(j)].hidden) return; // 非表示は集計から除く
+    const im=(j.inDate||'').slice(0,7);  if(/^\d{4}-\d{2}$/.test(im)) inM[im]=(inM[im]||0)+1;
+    const om=(j.outDate||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(om)) outM[om]=(outM[om]||0)+1;
+    const t=(j.type||'').trim();  if(t) ty[t]=(ty[t]||0)+1;
+    const s=curStaff(j);          if(s) stf[s]=(stf[s]||0)+1;
+  });
+  const monthEntries=function(map){ return Object.keys(map).sort().reverse().map(function(m){ return {value:m,label:monthLabel(m),count:map[m]}; }); };
+  const plainEntries=function(map){ return Object.keys(map).sort().map(function(k){ return {value:k,label:k,count:map[k]}; }); };
+  monthFilter    = fillSelect('monthsel','すべての入庫月',     monthEntries(inM),  monthFilter);
+  outMonthFilter = fillSelect('outsel',  'すべての完成予定月', monthEntries(outM), outMonthFilter);
+  typeFilter     = fillSelect('typesel', 'すべての作業内容',   plainEntries(ty),   typeFilter);
+  staffFilter    = fillSelect('staffsel','すべての担当者',     plainEntries(stf),  staffFilter);
+}
+function onFilterChange(){
+  monthFilter=document.getElementById('monthsel').value;
+  outMonthFilter=document.getElementById('outsel').value;
+  typeFilter=document.getElementById('typesel').value;
+  staffFilter=document.getElementById('staffsel').value;
+  render();
+}
+function clearFilters(){
+  monthFilter=outMonthFilter=typeFilter=staffFilter='';
+  document.getElementById('search').value='';
+  render();
+}
+
 /* ── 描画 ── */
 function render(){
   const q=(document.getElementById('search').value||'').trim().toLowerCase();
+  buildFilters();
   const board=document.getElementById('board'); board.innerHTML='';
-  const visible=JOBS.filter(j=>!j.completed).filter(j=>{
+  const all=JOBS.filter(j=>!j.completed);
+  let hiddenCount=0;
+  all.forEach(function(j){ if(WF[wkey(j)]&&WF[wkey(j)].hidden) hiddenCount++; });
+  const hb=document.getElementById('hidBtn'); if(hb){ hb.textContent='🗑 非表示 '+hiddenCount; hb.classList.toggle('on', showHidden); }
+  const visible=all.filter(function(j){
+    const hid=!!(WF[wkey(j)]&&WF[wkey(j)].hidden);
+    if(hid && !showHidden) return false;
+    if(monthFilter && (j.inDate||'').slice(0,7)!==monthFilter) return false;
+    if(outMonthFilter && (j.outDate||'').slice(0,7)!==outMonthFilter) return false;
+    if(typeFilter && (j.type||'').trim()!==typeFilter) return false;
+    if(staffFilter && curStaff(j)!==staffFilter) return false;
     if(!q) return true;
-    return [j.owner,j.plate,j.carModel,j.type].some(v=>(v||'').toLowerCase().includes(q));
+    return [j.owner,j.plate,j.carModel,j.type].some(function(v){ return (v||'').toLowerCase().includes(q); });
   });
 
   let active=0;
@@ -332,11 +428,11 @@ function card(j){
   const pct=Math.round(doneCount/STAGES.length*100);
 
   const el=document.createElement('div');
-  el.className='card'; el.style.borderLeftColor=colorOf(stage); el.draggable=true;
+  el.className='card'+(wf.hidden?' is-hidden':''); el.style.borderLeftColor=colorOf(stage); el.draggable=true;
   el.dataset.wk=wkey(j);
   el.addEventListener('dragstart',e=>{e.dataTransfer.setData('wk',wkey(j)); el.classList.add('dragging');});
   el.addEventListener('dragend',()=>el.classList.remove('dragging'));
-  el.onclick=e=>{ if(!e.target.closest('.c-move') && !e.target.closest('.c-assignee')) openModal(wkey(j)); };
+  el.onclick=e=>{ if(!e.target.closest('.c-move') && !e.target.closest('.c-assignee') && !e.target.closest('.c-checks')) openModal(wkey(j)); };
 
   let outCls='';
   if(j.outDate && stage!=='納車済み'){
@@ -355,11 +451,16 @@ function card(j){
   const chip = staff
     ? '<div class="c-assignee" title="タップで担当を変更"><span class="av" style="background:'+staffColor(staff)+'">'+esc(staff.slice(0,1))+'</span><span class="nm">'+esc(staff)+'</span></div>'
     : '<div class="c-assignee none" title="タップで担当を設定"><span class="av">＋</span><span class="nm">未割当</span></div>';
+  const checksHtml = CHECKS.map(function(item){
+    const done=!!(wf.checks&&wf.checks[item]);
+    return '<button class="chk '+(done?'done':'')+'" data-item="'+esc(item)+'"><span class="box">'+(done?'✓':'')+'</span>'+esc(item)+'<span class="st">'+(done?'済み':'未')+'</span></button>';
+  }).join('');
 
   el.innerHTML=
     '<div class="c-head"><div class="c-owner">'+esc(j.owner||j.plate||'—')+'<em>様</em></div>'+chip+'</div>'
     +'<div class="c-sub">'+(j.plate?'<span class="c-plate">'+esc(j.plate)+'</span>':'')+(j.carModel?'<span>'+esc(j.carModel)+'</span>':'')+'</div>'
-    +'<div class="c-badges">'+(j.type?'<span class="tag tag-type">'+esc(j.type)+'</span>':'')+stall+'</div>'
+    +'<div class="c-badges">'+(wf.hidden?'<span class="tag tag-hidden">非表示</span>':'')+(j.type?'<span class="tag tag-type">'+esc(j.type)+'</span>':'')+stall+'</div>'
+    +'<div class="c-checks">'+checksHtml+'</div>'
     +'<div class="c-dates">'
       +(j.inDate?'<span><span class="k">入庫</span><span class="v">'+fmtD(j.inDate)+'</span></span>':'')
       +(j.outDate?'<span><span class="k">完成予定</span><span class="v '+outCls+'">'+fmtD(j.outDate)+'</span></span>':'')
@@ -374,6 +475,7 @@ function card(j){
 
   const aEl=el.querySelector('.c-assignee');
   if(aEl) aEl.onclick=function(e){ e.stopPropagation(); openStaffPop(e, wkey(j), stage); };
+  el.querySelectorAll('.chk').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); toggleCheck(wkey(j), b.dataset.item); }; });
   return el;
 }
 
@@ -387,6 +489,31 @@ function setStage(wk, stage){
   WF_REF.child(wk).update({ stage, updatedAt:Date.now() })
     .then(()=>toast('「'+stage+'」へ移動しました'))
     .catch(e=>toast('更新失敗: '+e.message,'err'));
+}
+
+/* ── 事前チェックの切替（ボード／詳細 共通）── */
+function toggleCheck(wk, item){
+  const cur=!!(WF[wk]&&WF[wk].checks&&WF[wk].checks[item]);
+  WF_REF.child(wk).child('checks').child(item).set(!cur)
+    .then(()=>toast(item+(!cur?'：済み ✓':'：未に戻しました')))
+    .catch(e=>toast('更新失敗: '+e.message,'err'));
+}
+
+/* ── カード消去（このボードの表示からのみ。indexは残す）── */
+function toggleHidden(){ showHidden=!showHidden; render(); }
+function deleteCard(){
+  if(!modalWk) return;
+  const isHidden=!!(WF[modalWk]&&WF[modalWk].hidden);
+  if(isHidden){
+    WF_REF.child(modalWk).child('hidden').remove()
+      .then(()=>{ closeModal(); toast('ボードに戻しました'); })
+      .catch(e=>toast('失敗: '+e.message,'err'));
+    return;
+  }
+  if(!confirm('このカードをボードから消去しますか？\n（index側の登録データはそのまま残ります。「🗑 非表示」から復元できます）')) return;
+  WF_REF.child(modalWk).child('hidden').set(true)
+    .then(()=>{ closeModal(); toast('カードを消去しました'); })
+    .catch(e=>toast('失敗: '+e.message,'err'));
 }
 
 /* ── 担当クイック変更（ボードから直接）── */
@@ -449,6 +576,12 @@ function openModal(wk){
   const cur=wf.stage||'入庫待ち';
   document.getElementById('mStage').innerHTML=STAGES.map(s=>'<option value="'+esc(s.name)+'" '+(s.name===cur?'selected':'')+'>'+esc(s.name)+'</option>').join('');
 
+  document.getElementById('mChecks').innerHTML=CHECKS.map(function(item){
+    const done=!!(wf.checks&&wf.checks[item]);
+    return '<button type="button" class="chk '+(done?'done':'')+'" data-item="'+esc(item)+'"><span class="box">'+(done?'✓':'')+'</span>'+esc(item)+'<span class="st">'+(done?'済み':'未')+'</span></button>';
+  }).join('');
+  document.querySelectorAll('#mChecks .chk').forEach(function(b){ b.onclick=function(){ mToggleCheck(b, b.dataset.item); }; });
+
   const sd=wf.s||{};
   document.getElementById('mStages').innerHTML=STAGES.map(function(s,i){
     const d=sd[s.name]||{}; const isCur=s.name===cur; const isDone=!!d.done;
@@ -468,6 +601,9 @@ function openModal(wk){
 
   document.getElementById('mMemo').value=wf.memo||'';
   document.getElementById('mRegMemo').innerHTML = j.memo ? '<div class="reg-memo"><b>登録メモ（index）:</b> '+esc(j.memo)+'</div>' : '';
+  var del=document.getElementById('mDel');
+  if(wf.hidden){ del.textContent='▲ ボードに戻す'; del.className='btn btn-ghost'; }
+  else { del.textContent='🗑 このボードから消去'; del.className='btn btn-danger'; }
   document.getElementById('overlay').classList.add('show');
 }
 function onStageSelect(){
@@ -489,11 +625,21 @@ function saveModal(){
     if(plan||done||staff) s[st.name]={plan:plan,done:done,staff:staff};
   });
   const data={ stage:stage, s:s, memo:document.getElementById('mMemo').value.trim(), updatedAt:Date.now() };
-  WF_REF.child(modalWk).set(data)
+  WF_REF.child(modalWk).update(data)
     .then(()=>{ closeModal(); toast('保存しました'); })
     .catch(e=>toast('保存失敗: '+e.message,'err'));
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('show'); modalWk=null; }
+
+/* 詳細画面でのチェック切替（その場で反映）*/
+function mToggleCheck(btn, item){
+  if(!modalWk) return;
+  const willDone = !btn.classList.contains('done');
+  btn.classList.toggle('done', willDone);
+  const bx=btn.querySelector('.box'); if(bx) bx.textContent=willDone?'✓':'';
+  const st=btn.querySelector('.st'); if(st) st.textContent=willDone?'済み':'未';
+  WF_REF.child(modalWk).child('checks').child(item).set(willDone).catch(e=>toast('更新失敗: '+e.message,'err'));
+}
 
 /* ── ユーティリティ ── */
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});}
