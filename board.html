@@ -165,7 +165,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
   /* 不要なUI非表示 */
   .top-bar,.status-bar,.tab-group,.btn-print,.type-filter,.stabs,.btn-diag,.mchips,
-  #sv-item,#sv-staff,#sv-detail,.cards,.sec-hdr{display:none!important;}
+  #sv-item,#sv-staff,#sv-detail,#sv-prize,.cards,.sec-hdr{display:none!important;}
 
   /* ページ切替 */
   body.print-shaken #page-sales{display:none!important;}
@@ -263,6 +263,45 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   .trow,.trow-total{grid-template-columns:1fr}
   .ibar{display:none}
 }
+
+/* 賞金計算 */
+.prize-note{font-size:11px;color:var(--muted);line-height:1.9;background:rgba(7,14,26,.6);border:1px solid var(--dim);border-radius:8px;padding:11px 14px;margin-bottom:14px}
+.prize-note b{color:var(--gold)}
+.prize-bulk{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.prize-bulk-lbl{font-size:10px;font-family:'Orbitron',monospace;color:var(--muted);letter-spacing:2px}
+.yen-pre{color:var(--gold);font-weight:700;font-size:14px}
+.prize-input{width:110px;background:#070e1a;border:1px solid var(--border);color:var(--gold);font-family:'Orbitron',monospace;font-size:14px;font-weight:700;padding:6px 9px;border-radius:7px;outline:none}
+.prize-input:focus{border-color:var(--gold)}
+.prize-unit{font-size:10px;color:var(--muted)}
+.prize-sub{font-family:'Orbitron',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin:16px 0 8px}
+.prize-sub.dim{color:var(--muted)}
+.prize-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:9px;margin-bottom:4px}
+.prize-item{background:var(--panel);border:1px solid rgba(74,222,128,.3);border-radius:9px;padding:11px 13px}
+.prize-item-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:9px}
+.prize-item-name{font-size:13px;font-weight:700;color:var(--text)}
+.prize-item-set{display:flex;align-items:center;gap:5px}
+.prize-excluded{display:flex;flex-wrap:wrap;gap:6px}
+.exq{display:flex;flex-direction:column;background:rgba(7,14,26,.5);border:1px solid var(--dim);border-radius:7px;padding:6px 10px}
+.exq-name{font-size:12px;color:var(--muted);text-decoration:line-through}
+.exq-reason{font-size:9px;color:var(--red);font-family:monospace}
+.prize-empty{color:var(--dim);font-size:12px;padding:22px;text-align:center;background:rgba(7,14,26,.4);border:1px dashed var(--dim);border-radius:9px;line-height:1.8}
+.prize-total-card{background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(251,191,36,.03));border:1px solid rgba(251,191,36,.4);border-radius:12px;padding:18px 22px;margin:18px 0 14px;text-align:center}
+.ptc-lbl{font-size:10px;font-family:'Orbitron',monospace;color:var(--gold);letter-spacing:3px;margin-bottom:6px}
+.ptc-num{font-family:'Orbitron',monospace;font-size:42px;font-weight:900;color:var(--gold);line-height:1;text-shadow:0 0 20px rgba(251,191,36,.4)}
+.ptc-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.prize-print-btn{margin-top:13px;padding:7px 16px;border-radius:8px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-family:'Orbitron',monospace;cursor:pointer;letter-spacing:1px;transition:all .15s}
+.prize-print-btn:hover{background:rgba(251,191,36,.12)}
+.prize-staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.prize-staff-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px}
+.psc-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid var(--dim)}
+.psc-name{font-size:13px;font-weight:700;color:var(--text)}
+.psc-total{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:var(--gold)}
+.psc-rows{display:flex;flex-direction:column;gap:7px}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.prow-left{display:flex;flex-direction:column}
+.prow-item{font-size:12px;color:var(--text)}
+.prow-calc{font-size:10px;color:var(--muted);font-family:monospace}
+.prow-sub{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:var(--green);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -348,6 +387,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <button class="stab on" id="stab-item">📦 物品別</button>
       <button class="stab"    id="stab-staff">👤 スタッフ別</button>
       <button class="stab"    id="stab-detail">📋 明細</button>
+      <button class="stab"    id="stab-prize">💰 賞金</button>
     </div>
     <div id="sv-item">
       <div class="sec-label">BREAKDOWN BY ITEM</div>
@@ -368,6 +408,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <tbody id="detail-body"></tbody>
       </table>
     </div>
+    <div id="sv-prize" style="display:none">
+      <div class="sec-label">PRIZE / 賞金計算</div>
+      <div id="prize-panel"></div>
+      <div id="prize-results"></div>
+    </div>
   </div>
 
 </div>
@@ -385,7 +430,7 @@ firebase.initializeApp({
 var db = firebase.database();
 
 // 状態変数
-var allJobs=[], allRecords=[], allItems=[], allItemTargets={};
+var allJobs=[], allRecords=[], allItems=[], allItemTargets={}, allItemPrizes={};
 var currentPage='shaken', currentSTab='item', selMonth='';
 var selTypes={}, fItem=null, fStaff=null;
 
@@ -531,10 +576,13 @@ function renderSales(){
   renderTargetPanel();
   if(currentSTab==='item')renderSalesItem(recs,total);
   else if(currentSTab==='staff')renderSalesStaff(recs);
-  else renderSalesDetail(recs);
+  else if(currentSTab==='detail')renderSalesDetail(recs);
+  else if(currentSTab==='prize')renderPrize();
   setText('scount',selMonth+'　合計 '+total+'点');
 }
 function unescapeKey(k){ return k.replace(/_slash_/g,'/'); }
+function escapeKey(k){ return k.replace(/\//g,'_slash_'); }
+function yen(n){ return '¥'+Math.round(n||0).toLocaleString('ja-JP'); }
 function renderTargetPanel(){
   var monthRecs=getMonthRecs();
   var mc={};monthRecs.forEach(function(r){if(r.item)mc[r.item]=(mc[r.item]||0)+(r.qty||1);});
@@ -658,9 +706,163 @@ function renderSalesDetail(recs){
     tbody.appendChild(tr);
   });
 }
+// ── 賞金計算 ──
+var prizeSaveTimer=null;
+function getPrizeData(){
+  var monthRecs=getMonthRecs();
+  var mc={};monthRecs.forEach(function(r){if(r.item)mc[r.item]=(mc[r.item]||0)+(r.qty||1);});
+  var fixedTargets={};Object.keys(allItemTargets).forEach(function(k){fixedTargets[unescapeKey(k)]=allItemTargets[k];});
+  var fixedPrizes={};Object.keys(allItemPrizes).forEach(function(k){fixedPrizes[unescapeKey(k)]=allItemPrizes[k];});
+  return {monthRecs:monthRecs,mc:mc,fixedTargets:fixedTargets,fixedPrizes:fixedPrizes};
+}
+function isEligible(item,mc,fixedTargets){
+  var tgt=fixedTargets[item]||0,cur=mc[item]||0;
+  return tgt>0&&cur>=tgt;
+}
+function renderPrize(){
+  var D=getPrizeData();
+  var iset={};
+  allItems.forEach(function(it){iset[it]=1;});
+  Object.keys(D.fixedTargets).forEach(function(k){iset[k]=1;});
+  Object.keys(D.mc).forEach(function(k){iset[k]=1;});
+  var items=Object.keys(iset).filter(Boolean);
+  var eligibleItems=[],excludedItems=[];
+  items.forEach(function(it){
+    var tgt=D.fixedTargets[it]||0,cur=D.mc[it]||0;
+    if(tgt>0&&cur>=tgt)eligibleItems.push(it);
+    else excludedItems.push({item:it,tgt:tgt,cur:cur});
+  });
+  eligibleItems.sort(function(a,b){return a.localeCompare(b);});
+  var p=document.getElementById('prize-panel');
+  var html='';
+  html+='<div class="prize-note">■ <b>目標達成</b>した物品のみが賞金対象です。目標未達・目標未設定の物品は自動的に除外されます。<br>■ 物品ごとに「1個あたりの賞金額」を入力すると、各スタッフの賞金合計が自動計算されます（設定額は保存され翌月も使えます）。</div>';
+  html+='<div class="prize-bulk"><span class="prize-bulk-lbl">一括設定</span><span class="yen-pre">¥</span><input type="number" min="0" step="100" id="prize-bulk-input" class="prize-input" placeholder="0"><button class="cbtn gold" id="prize-bulk-btn">対象すべてにセット</button></div>';
+  if(eligibleItems.length){
+    html+='<div class="prize-sub">賞金対象（目標達成 '+eligibleItems.length+'品目）　単価を入力</div>';
+    html+='<div class="prize-grid">';
+    eligibleItems.forEach(function(it){
+      var cur=D.mc[it]||0,tgt=D.fixedTargets[it]||0,unit=D.fixedPrizes[it]||0;
+      html+='<div class="prize-item">'+
+        '<div class="prize-item-top"><span class="prize-item-name">'+it+'</span><span class="badge ok">✓ '+cur+'/'+tgt+'</span></div>'+
+        '<div class="prize-item-set"><span class="yen-pre">¥</span><input type="number" min="0" step="100" class="prize-input" data-item="'+encodeURIComponent(it)+'" value="'+(unit||'')+'" placeholder="0"><span class="prize-unit">／個</span></div>'+
+        '</div>';
+    });
+    html+='</div>';
+  } else {
+    html+='<div class="prize-empty">この月は目標を達成した物品がありません。<br>（賞金対象なし）</div>';
+  }
+  if(excludedItems.length){
+    excludedItems.sort(function(a,b){return a.item.localeCompare(b.item);});
+    html+='<div class="prize-sub dim">賞金対象外（'+excludedItems.length+'品目）</div><div class="prize-excluded">';
+    excludedItems.forEach(function(o){
+      var reason=o.tgt===0?'目標未設定':'未達 あと'+(o.tgt-o.cur)+'個';
+      html+='<span class="exq"><span class="exq-name">'+o.item+'</span><span class="exq-reason">'+reason+'</span></span>';
+    });
+    html+='</div>';
+  }
+  p.innerHTML=html;
+  p.querySelectorAll('.prize-input[data-item]').forEach(function(inp){
+    inp.addEventListener('input',function(){onPrizeInput(decodeURIComponent(inp.getAttribute('data-item')),inp.value);});
+  });
+  var bb=document.getElementById('prize-bulk-btn');
+  if(bb)bb.onclick=function(){applyBulkPrize(eligibleItems,document.getElementById('prize-bulk-input').value);};
+  renderPrizeResults();
+}
+function renderPrizeResults(){
+  var D=getPrizeData();
+  var staffData={};
+  D.monthRecs.forEach(function(r){
+    if(!r.staff||!r.item)return;
+    if(!isEligible(r.item,D.mc,D.fixedTargets))return;
+    if(!staffData[r.staff])staffData[r.staff]={items:{}};
+    staffData[r.staff].items[r.item]=(staffData[r.staff].items[r.item]||0)+(r.qty||1);
+  });
+  var staffList=Object.keys(staffData);
+  var grand=0;
+  staffList.forEach(function(s){
+    var t=0;Object.keys(staffData[s].items).forEach(function(it){t+=(D.fixedPrizes[it]||0)*staffData[s].items[it];});
+    staffData[s].total=t;grand+=t;
+  });
+  staffList.sort(function(a,b){return staffData[b].total-staffData[a].total;});
+  var out=document.getElementById('prize-results');
+  var html='';
+  html+='<div class="prize-total-card"><div class="ptc-lbl">'+selMonth+' 賞金合計</div><div class="ptc-num">'+yen(grand)+'</div><div class="ptc-sub">対象スタッフ '+staffList.length+'名</div>'+
+    (staffList.length?'<button class="prize-print-btn" id="prize-print-btn">🖨 賞金表を印刷</button>':'')+'</div>';
+  if(!staffList.length){
+    html+='<div class="prize-empty">賞金対象の販売記録がありません。<br>（賞金単価が未入力、または目標達成物品の販売がない月です）</div>';
+    out.innerHTML=html;return;
+  }
+  html+='<div class="prize-staff-grid">';
+  staffList.forEach(function(s){
+    var d=staffData[s];
+    var ikeys=Object.keys(d.items).sort(function(a,b){return (D.fixedPrizes[b]||0)*d.items[b]-(D.fixedPrizes[a]||0)*d.items[a];});
+    var rows='';
+    ikeys.forEach(function(it){
+      var qty=d.items[it],unit=D.fixedPrizes[it]||0,sub=unit*qty;
+      rows+='<div class="prow"><span class="prow-left"><span class="prow-item">'+it+'</span><span class="prow-calc">'+qty+'個 × '+yen(unit)+'</span></span><span class="prow-sub">'+yen(sub)+'</span></div>';
+    });
+    html+='<div class="prize-staff-card"><div class="psc-head"><span class="psc-name">👤 '+s+'</span><span class="psc-total">'+yen(d.total)+'</span></div><div class="psc-rows">'+rows+'</div></div>';
+  });
+  html+='</div>';
+  out.innerHTML=html;
+  var pb=document.getElementById('prize-print-btn');
+  if(pb)pb.onclick=function(){printPrize(staffData,staffList,grand,D.fixedPrizes);};
+}
+function onPrizeInput(item,val){
+  var v=parseInt(val)||0;
+  allItemPrizes[escapeKey(item)]=v;
+  renderPrizeResults();
+  clearTimeout(prizeSaveTimer);
+  prizeSaveTimer=setTimeout(savePrizes,500);
+}
+function applyBulkPrize(items,val){
+  var v=parseInt(val)||0;
+  if(!items.length)return;
+  items.forEach(function(it){allItemPrizes[escapeKey(it)]=v;});
+  savePrizes();
+  renderPrize();
+}
+function savePrizes(){
+  try{localStorage.setItem('garage_item_prizes',JSON.stringify(allItemPrizes));}catch(e){}
+  try{db.ref('garage/garage_item_prizes').set(allItemPrizes);}catch(e){console.warn('prize save failed',e);}
+}
+function printPrize(staffData,staffList,grand,fixedPrizes){
+  var rows='';
+  staffList.forEach(function(s){
+    var d=staffData[s];
+    var ikeys=Object.keys(d.items).sort(function(a,b){return a.localeCompare(b);});
+    rows+='<tr class="staffrow"><td colspan="4"><b>👤 '+s+'</b></td><td style="text-align:right"><b>'+yen(d.total)+'</b></td></tr>';
+    ikeys.forEach(function(it){
+      var qty=d.items[it],unit=fixedPrizes[it]||0;
+      rows+='<tr><td></td><td>'+it+'</td><td style="text-align:right">'+qty+'個</td><td style="text-align:right">'+yen(unit)+'</td><td style="text-align:right">'+yen(unit*qty)+'</td></tr>';
+    });
+  });
+  var w=window.open('','_blank');
+  if(!w){alert('印刷用ウィンドウを開けませんでした。ブラウザのポップアップ許可を確認してください。');return;}
+  w.document.write('<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>賞金表 '+selMonth+'</title>'+
+    '<style>body{font-family:sans-serif;padding:26px;color:#111}'+
+    'h1{font-size:20px;border-bottom:3px solid #1e3a5f;padding-bottom:8px;margin:0 0 10px}'+
+    '.grand{font-size:26px;font-weight:900;color:#b45309;margin:10px 0 4px}'+
+    '.note{font-size:11px;color:#666;margin-top:16px}'+
+    'table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}'+
+    'th,td{padding:7px 10px;border-bottom:1px solid #ddd}'+
+    'th{background:#1e3a5f;color:#fff;text-align:left;font-size:11px}'+
+    'th.r{text-align:right}'+
+    '.staffrow td{background:#f1f5f9;border-top:2px solid #1e3a5f}'+
+    '</style></head><body>'+
+    '<h1>🛒 賞金表 — '+selMonth+'</h1>'+
+    '<div class="grand">賞金合計 '+yen(grand)+'</div>'+
+    '<div style="font-size:12px;color:#444">対象スタッフ '+staffList.length+'名</div>'+
+    '<table><thead><tr><th>スタッフ</th><th>物品</th><th class="r">数量</th><th class="r">単価</th><th class="r">賞金</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="note">※ 目標を達成した物品のみ集計しています。目標未達・未設定の物品は賞金対象外です。</div>'+
+    '</body></html>');
+  w.document.close();
+  setTimeout(function(){try{w.print();}catch(e){}},350);
+}
+
 function switchSalesTab(tab){
   currentSTab=tab;
-  ['item','staff','detail'].forEach(function(t){
+  ['item','staff','detail','prize'].forEach(function(t){
     document.getElementById('sv-'+t).style.display=t===tab?'':'none';
     document.getElementById('stab-'+t).className='stab'+(t===tab?' on':'');
   });
@@ -709,6 +911,7 @@ document.getElementById('date-to').onchange=function(){renderShaken();};
 document.getElementById('stab-item').onclick=function(){switchSalesTab('item');};
 document.getElementById('stab-staff').onclick=function(){switchSalesTab('staff');};
 document.getElementById('stab-detail').onclick=function(){switchSalesTab('detail');};
+document.getElementById('stab-prize').onclick=function(){switchSalesTab('prize');};
 document.getElementById('btn-diag').onclick=function(){showDiag();};
 
 // Firebase監視
@@ -740,6 +943,16 @@ db.ref('garage/garage_item_targets').on('value',function(snap){
     catch(e){}
   }
   if(currentPage==='sales')renderSales();
+});
+db.ref('garage/garage_item_prizes').on('value',function(snap){
+  var v=snap.val();
+  if(v&&typeof v==='object'){
+    allItemPrizes=v;
+  } else {
+    try{var ls=localStorage.getItem('garage_item_prizes');if(ls)allItemPrizes=JSON.parse(ls);}
+    catch(e){}
+  }
+  if(currentPage==='sales'&&currentSTab==='prize')renderPrize();
 });
 db.ref('garage/garage_salesrecords').on('value',function(snap){
   var val=snap.val();
