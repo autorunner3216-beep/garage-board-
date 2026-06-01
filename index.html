@@ -230,6 +230,31 @@
     ・allCards構築時にseatDataから優先的に読み取り（j.seatNoにフォールバック）
     ・席番号クリック/担当選択をsetSeatData経由に変更（setJobsを呼ばない）
 
+[BUG-22] 当日入庫パネルの席番号(数字)が勝手に少なくなる（古い値へ巻き戻る）（2026-06-01）
+  症状: テーブルボタン→当日入庫パネルで席番号/担当をクリック変更できるが、
+        操作していないのに数字が勝手に小さい値へ戻る。
+  原因: BUG-21で席をgarage_seat_dataに分離したが、Firebaseへの保存・受信が
+        「オブジェクト全体」単位のままだったため、以下2つの競合が残っていた。
+        ① 複数PC/タブのlast-write-wins: 保存が毎回seatData全体のため、
+           PC-AがジョブXを5→6にした裏でPC-B(まだX=5を保持)が別ジョブYを編集すると、
+           PC-Bの{X:5,Y:…}が後勝ちでXを5へ巻き戻す（BUG-21と同種の競合がseat_data内で再発）
+        ② 単一PCの自己エコー上書き: 受信リスナーがFirebaseイベントごとに
+           setSeatData(val)で無条件全体上書き。_seatFbIncomingガードは保存Effectしか
+           止めず受信上書きは止めないため、6→7と素早く押すと送信済み「6」のエコーが
+           遅れて届き、表示中の7を6へ戻していた
+  修正: ・fbSetChild(key,child,value)を新設。クリック時は該当ジョブの子パス
+          （garage_seat_data/<jobId>）のみ書き込む（全体上書きをやめ①を解消）
+        ・受信リスナーを全体上書き→マージ方式に変更。直前に操作したジョブ
+          （window.__seatPending、1.5秒間保持）はローカル値を優先し②を解消
+        ・seatData保存Effectからオブジェクト全体のfbSetを削除（残すと①が再発）。
+          localStorage同期は維持
+        ・既存データ移行(BUG-21 migration)も子パス書き込みに変更
+        ・席/担当の更新をapplySeatに一元化（席サイクル・担当選択・解除の全クリック箇所を経由）
+  マーカー: コード内 [BUG-22] / [BUG-21/22]
+  残課題(軽微): レガシー移行ジョブで席を「－」にクリアすると、表示が旧j.seatNoへ
+        フォールバックして古い番号が残る可能性あり（新規データでは無害）。
+        必要ならseatDataエントリを表示の唯一の真実とするよう表示ロジックを詰める
+
 [NOTE] 作業上の注意（2026-04-04）
   ・作業は必ず /mnt/user-data/outputs/index.html を引き継ぐこと
   ・アップロードされた元ファイル（/mnt/user-data/uploads/index.html）から
@@ -564,6 +589,13 @@
     };
     window.fbOff = function(key) {
       db.ref('garage/' + key).off();
+    };
+    // [BUG-22] 指定キー配下の「子パスのみ」を書き込む（オブジェクト全体の上書きを避ける）
+    //  例: fbSetChild('garage_seat_data', jobId, {seatNo:5}) → garage/garage_seat_data/<jobId> のみ更新
+    //  これにより別ジョブの編集と競合（last-write-wins）しなくなる
+    window.fbSetChild = function(key, child, value) {
+      if (child == null || child === '') return;
+      try { db.ref('garage/' + key + '/' + child).set(value); } catch (e) { console.warn('[fbSetChild] failed', key, child, e); }
     };
 
     // ── [BUG-20対策] 保護付きFirebase書き込み関数 ──
@@ -7739,12 +7771,22 @@ React.createElement('select', {
           }
         });
         // [BUG-21] seatNo/frontStaff専用リスナー（garage_jobsとは独立）
+        // [BUG-22] 全体上書き(setSeatData(val))をやめ、リモートをマージする。
+        //   直前にユーザーが操作したジョブ(window.__seatPending)はローカル値を保持し、
+        //   自分のエコー/古い受信で番号が巻き戻る(=勝手に少なくなる)のを防ぐ。
         window.fbOn('garage_seat_data', function(val) {
           _seatFirebaseReady.current = true;
           _seatFbIncoming.current = true;
           if (val && typeof val === 'object' && !Array.isArray(val)) {
-            setSeatData(val);
-            try { localStorage.setItem('garage_seat_data', JSON.stringify(val)); } catch {}
+            setSeatData(function(prev) {
+              var merged = Object.assign({}, val);
+              var pend = window.__seatPending || {};
+              Object.keys(pend).forEach(function(id) {
+                if (prev[id] != null) merged[id] = prev[id]; // 操作中ジョブはローカル優先
+              });
+              try { localStorage.setItem('garage_seat_data', JSON.stringify(merged)); } catch (e) {}
+              return merged;
+            });
           }
           setTimeout(function(){ _seatFbIncoming.current = false; }, 200);
         });
@@ -7806,13 +7848,15 @@ React.createElement('select', {
         window.fbSafeWrite('garage_jobs', jobs, 'jobsEffect');
       }, [jobs]);
       // [BUG-21] seatData専用の書き込みEffect
+      // [BUG-22] Firebaseへの「オブジェクト全体書き込み」は廃止（別ジョブ編集との競合で番号が
+      //   巻き戻る原因になっていた）。Firebaseへはクリック時にfbSetChildで該当ジョブの子パスのみ
+      //   書き込む。ここではlocalStorageのバックアップ同期だけ行う。
       const _seatInitialized = React.useRef(false);
       React.useEffect(function() {
         if (!_seatInitialized.current) { _seatInitialized.current = true; return; }
         if (!_seatFirebaseReady.current) return;
         if (_seatFbIncoming.current) return;
         if (Object.keys(seatData).length > 0) {
-          window.fbSet('garage_seat_data', seatData, 200);
           try { localStorage.setItem('garage_seat_data', JSON.stringify(seatData)); } catch(e) {}
         }
       }, [seatData]);
@@ -7840,6 +7884,10 @@ React.createElement('select', {
         if (count > 0) {
           console.info('🔄 [BUG-21 migration] ' + count + ' jobs → seatData');
           setSeatData(function(prev) { return Object.assign({}, prev, migrated); });
+          // [BUG-22] Firebaseへは子パスのみ書き込む（全体上書きしない）
+          Object.keys(migrated).forEach(function(id) {
+            if (typeof window.fbSetChild === 'function') window.fbSetChild('garage_seat_data', id, migrated[id]);
+          });
         }
       }, [jobs, seatData]);
       const _stallsInitialized = React.useRef(false);
@@ -9665,6 +9713,30 @@ React.createElement('select', {
             bpRaw2 = window.loadFromDb('bp_jobs', []);
             bpWkRaw2 = window.loadFromDb('bp_workers', []);
 
+            // [BUG-22] 席番号/担当の更新を一元化。
+            //  ・該当ジョブの子パスのみFirebaseへ書き込む（全体上書きしない＝別ジョブ編集と競合しない）
+            //  ・window.__seatPendingに一時マークし、自分のエコー/古い受信での巻き戻りを防ぐ
+            var applySeat = function(jobId, mutate) {
+              if (!jobId) return;
+              setSeatData(function(prev) {
+                var entry = prev[jobId] || {};
+                var nextEntry = mutate(entry);
+                var updated = Object.assign({}, prev);
+                updated[jobId] = nextEntry;
+                // --- 副作用（冪等）---
+                window.__seatPending = window.__seatPending || {};
+                window.__seatPendingTimers = window.__seatPendingTimers || {};
+                window.__seatPending[jobId] = Date.now();
+                clearTimeout(window.__seatPendingTimers[jobId]);
+                window.__seatPendingTimers[jobId] = setTimeout(function() {
+                  if (window.__seatPending) delete window.__seatPending[jobId];
+                }, 1500);
+                if (typeof window.fbSetChild === 'function') window.fbSetChild('garage_seat_data', jobId, nextEntry);
+                try { localStorage.setItem('garage_seat_data', JSON.stringify(updated)); } catch (e) {}
+                return updated;
+              });
+            };
+
             var todayCards = jobs.filter(function(j){
               var effectiveDate = j.displayDate || j.date;
               return effectiveDate===TODAY_STR
@@ -9798,30 +9870,22 @@ React.createElement('select', {
                     var isBoard = c._type === "board";
                     var j = c.job;
 
-                    // [BUG-21] 席サイクル（seatData経由で保存、garage_jobsに書かない）
+                    // [BUG-21/22] 席サイクル（applySeat経由で子パス書き込み）
                     var cycleSeat = function(){
                       if (!isBoard) return;
-                      var jobId = j.id;
-                      setSeatData(function(prev){
-                        var entry = prev[jobId] || {};
+                      applySeat(j.id, function(entry){
                         var cur = entry.seatNo != null ? entry.seatNo : (j.seatNo||null);
                         var next = cur === null ? 1 : cur >= 7 ? null : cur + 1;
-                        var updated = Object.assign({}, prev);
-                        updated[jobId] = Object.assign({}, entry, { seatNo: next });
-                        return updated;
+                        return Object.assign({}, entry, { seatNo: next });
                       });
                     };
 
-                    // [BUG-21] 担当タブ切替（seatData経由で保存）
+                    // [BUG-21/22] 担当タブ切替（applySeat経由）
                     var setFront = function(name){
                       if (!isBoard) return;
-                      var jobId = j.id;
-                      setSeatData(function(prev){
-                        var entry = prev[jobId] || {};
+                      applySeat(j.id, function(entry){
                         var curFront = entry.frontStaff != null ? entry.frontStaff : (j.frontStaff||"");
-                        var updated = Object.assign({}, prev);
-                        updated[jobId] = Object.assign({}, entry, { frontStaff: curFront===name?"":name });
-                        return updated;
+                        return Object.assign({}, entry, { frontStaff: curFront===name?"":name });
                       });
                     };
 
@@ -9937,15 +10001,7 @@ React.createElement('select', {
                                 transition:"all .15s" },
                                 onClick:function(e){
                                   e.stopPropagation();
-                                  var jobId = j.id;
-                                  setSeatData(function(prev){
-                                    var entry = prev[jobId] || {};
-                                    var cur = entry.seatNo != null ? entry.seatNo : (j.seatNo||null);
-                                    var next = cur === null ? 1 : cur >= 7 ? null : cur + 1;
-                                    var updated = Object.assign({}, prev);
-                                    updated[jobId] = Object.assign({}, entry, { seatNo: next });
-                                    return updated;
-                                  });
+                                  cycleSeat();
                                 }},
                                 React.createElement('span', { style:{
                                   fontSize:22, fontWeight:900, fontFamily:"monospace",
@@ -9989,12 +10045,8 @@ React.createElement('select', {
                               c.frontStaff && React.createElement('button', {
                                 onClick:function(e){
                                   e.stopPropagation();
-                                  var jobId = j.id;
-                                  setSeatData(function(prev){
-                                    var entry = prev[jobId] || {};
-                                    var updated = Object.assign({}, prev);
-                                    updated[jobId] = Object.assign({}, entry, { frontStaff: "" });
-                                    return updated;
+                                  applySeat(j.id, function(entry){
+                                    return Object.assign({}, entry, { frontStaff: "" });
                                   });
                                   setFrontOpenId(null);
                                 },
@@ -10007,12 +10059,8 @@ React.createElement('select', {
                                 return React.createElement('button', { key:name,
                                   onClick:function(e){
                                     e.stopPropagation();
-                                    var jobId = j.id;
-                                    setSeatData(function(prev){
-                                      var entry = prev[jobId] || {};
-                                      var updated = Object.assign({}, prev);
-                                      updated[jobId] = Object.assign({}, entry, { frontStaff: name });
-                                      return updated;
+                                    applySeat(j.id, function(entry){
+                                      return Object.assign({}, entry, { frontStaff: name });
                                     });
                                     setFrontOpenId(null);
                                   },
