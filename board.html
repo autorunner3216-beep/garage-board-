@@ -302,6 +302,37 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .prow-item{font-size:12px;color:var(--text)}
 .prow-calc{font-size:10px;color:var(--muted);font-family:monospace}
 .prow-sub{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:var(--green);white-space:nowrap}
+.psc-foot{margin-top:9px;padding-top:8px;border-top:1px dashed var(--dim);display:flex;flex-direction:column;gap:4px}
+.pscf-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.pscf-row span:last-child{font-family:'Orbitron',monospace;font-weight:700;color:var(--text)}
+.pscf-row.bp span{color:var(--gold)}
+.bp-block{margin-top:18px;background:linear-gradient(135deg,rgba(251,191,36,.07),rgba(7,14,26,.4));border:1px solid rgba(251,191,36,.4);border-radius:11px;padding:14px 16px}
+.bp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.bp-title{font-family:'Orbitron',monospace;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px}
+.bp-toggle{padding:6px 16px;border-radius:8px;border:1px solid var(--gold);background:rgba(251,191,36,.08);color:var(--gold);font-size:12px;font-weight:700;font-family:'Noto Sans JP',sans-serif;cursor:pointer;transition:all .15s}
+.bp-toggle:hover{filter:brightness(1.15)}
+.bp-toggle.on{border-color:var(--green);background:rgba(74,222,128,.15);color:var(--green)}
+.bp-hint{font-size:11px;line-height:1.6;margin:0 0 12px;color:var(--gold)}
+.bp-hint.on{color:var(--green)}
+.bp-warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.45);border-radius:9px;padding:11px 14px;font-size:12px;color:var(--gold);line-height:1.7;margin-bottom:14px}
+.pscf-row.pending span:first-child{color:var(--muted)}
+.pscf-row.pending span:last-child{color:var(--muted);text-decoration:line-through;font-family:'Orbitron',monospace;font-weight:700}
+.pscf-row.pending em{color:var(--gold);font-style:normal;font-size:9px;border:1px solid rgba(251,191,36,.5);border-radius:8px;padding:0 5px;margin-left:5px}
+.bp-row{display:flex;align-items:center;gap:7px;margin-bottom:12px}
+.bp-lbl{font-size:11px;color:var(--muted)}
+.bp-team-amts{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.bp-team-amt{display:flex;align-items:center;gap:5px;background:rgba(7,14,26,.5);border:1px solid var(--border);border-radius:9px;padding:8px 11px}
+.bp-team-name{font-size:11px;font-weight:700;color:var(--text);margin-right:2px}
+.bp-staff-lbl{font-size:10px;font-family:'Orbitron',monospace;color:var(--muted);letter-spacing:1px;margin-bottom:9px}
+.bp-staff-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:7px;margin-bottom:11px}
+.bp-staff-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(7,14,26,.45);border:1px solid var(--dim);border-radius:8px;padding:7px 11px}
+.bp-staff-row.on{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)}
+.bp-staff-name{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bp-team-btns{display:flex;gap:4px;flex-shrink:0}
+.bp-team-btn{padding:4px 9px;border-radius:14px;border:1px solid var(--dim);background:transparent;color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Noto Sans JP',sans-serif;white-space:nowrap}
+.bp-team-btn:hover{border-color:var(--gold);color:var(--gold)}
+.bp-team-btn.on{border-color:var(--gold);background:rgba(251,191,36,.18);color:var(--gold)}
+.bp-note{font-size:10px;color:var(--muted);line-height:1.7}
 </style>
 </head>
 <body>
@@ -430,7 +461,8 @@ firebase.initializeApp({
 var db = firebase.database();
 
 // 状態変数
-var allJobs=[], allRecords=[], allItems=[], allItemTargets={}, allItemPrizes={};
+var allJobs=[], allRecords=[], allItems=[], allItemTargets={}, allItemPrizes={}, allBudgetPrizes={};
+var allRecept=[], allMech=[], allFront=[];
 var currentPage='shaken', currentSTab='item', selMonth='';
 var selTypes={}, fItem=null, fStaff=null;
 
@@ -466,6 +498,11 @@ function toArr(val){
   if(!val)return[];
   if(Array.isArray(val))return val.filter(Boolean);
   return Object.values(val).filter(Boolean);
+}
+function toNameArr(val){
+  if(!val)return[];
+  var arr=Array.isArray(val)?val:Object.values(val);
+  return arr.filter(function(x){return typeof x==='string'&&x.trim();});
 }
 function numAnim(id,target){
   var el=document.getElementById(id);if(!el)return;
@@ -708,6 +745,14 @@ function renderSalesDetail(recs){
 }
 // ── 賞金計算 ──
 var prizeSaveTimer=null;
+var BP_TEAMS=['整備班','板金塗装班','フロント係'];
+function getAllStaff(){
+  var set={};
+  [allRecept,allMech,allFront].forEach(function(list){list.forEach(function(n){if(n&&n.trim())set[n]=1;});});
+  allRecords.forEach(function(r){if(r.staff)set[r.staff]=1;});
+  Object.keys(getBP().staffTeams).forEach(function(s){set[s]=1;});
+  return Object.keys(set).sort();
+}
 function getPrizeData(){
   var monthRecs=getMonthRecs();
   var mc={};monthRecs.forEach(function(r){if(r.item)mc[r.item]=(mc[r.item]||0)+(r.qty||1);});
@@ -760,16 +805,56 @@ function renderPrize(){
     });
     html+='</div>';
   }
+  // 全体予算達成賞金（物品とは別枠・班別金額）
+  var bp=getBP();
+  var poolList=getAllStaff();
+  html+='<div class="bp-block">';
+  html+='<div class="bp-head"><span class="bp-title">🎯 全体予算達成賞金</span>'+
+    '<button class="bp-toggle'+(bp.achieved?' on':'')+'" id="bp-toggle">'+(bp.achieved?'達成 ✓':'未達成（押して達成）')+'</button></div>';
+  html+='<div class="bp-hint '+(bp.achieved?'on':'')+'">'+(bp.achieved?'✓ 達成中：班を選んだスタッフに各班の金額が加算されます':'⚠ 現在「未達成」です。金額と班を設定しても、この状態では合計に加算されません。上の「達成」ボタンを押すと反映されます。')+'</div>';
+  html+='<div class="bp-team-amts">';
+  BP_TEAMS.forEach(function(tm){
+    html+='<div class="bp-team-amt"><span class="bp-team-name">'+tm+'</span><span class="yen-pre">¥</span><input type="number" min="0" step="1000" class="prize-input bp-amt-input" data-team="'+encodeURIComponent(tm)+'" value="'+(bp.teamAmounts[tm]||'')+'" placeholder="0"><span class="prize-unit">／人</span></div>';
+  });
+  html+='</div>';
+  html+='<div class="bp-staff-lbl">対象スタッフと所属班（班ボタンで選択／全スタッフ表示・もう一度押すと解除）</div>';
+  if(poolList.length){
+    html+='<div class="bp-staff-list">';
+    poolList.forEach(function(s){
+      var team=bp.staffTeams[s]||'';
+      html+='<div class="bp-staff-row'+(team?' on':'')+'"><span class="bp-staff-name">'+s+'</span><span class="bp-team-btns">';
+      BP_TEAMS.forEach(function(tm){
+        html+='<button class="bp-team-btn'+(team===tm?' on':'')+'" data-staff="'+encodeURIComponent(s)+'" data-team="'+encodeURIComponent(tm)+'">'+tm+'</button>';
+      });
+      html+='</span></div>';
+    });
+    html+='</div>';
+  } else {
+    html+='<div style="color:var(--dim);font-size:11px">スタッフの記録がまだありません</div>';
+  }
+  html+='<div class="bp-note">「達成」にすると、班を選んだスタッフへ各班の金額が加算されます。月ごとに保存されます。</div>';
+  html+='</div>';
   p.innerHTML=html;
   p.querySelectorAll('.prize-input[data-item]').forEach(function(inp){
     inp.addEventListener('input',function(){onPrizeInput(decodeURIComponent(inp.getAttribute('data-item')),inp.value);});
   });
   var bb=document.getElementById('prize-bulk-btn');
   if(bb)bb.onclick=function(){applyBulkPrize(eligibleItems,document.getElementById('prize-bulk-input').value);};
+  var bt=document.getElementById('bp-toggle');if(bt)bt.onclick=toggleBudgetAchieved;
+  p.querySelectorAll('.bp-amt-input[data-team]').forEach(function(inp){
+    inp.addEventListener('input',function(){onBudgetTeamAmountInput(decodeURIComponent(inp.getAttribute('data-team')),inp.value);});
+  });
+  p.querySelectorAll('.bp-team-btn[data-staff]').forEach(function(b){
+    b.onclick=function(){setBudgetTeam(decodeURIComponent(b.getAttribute('data-staff')),decodeURIComponent(b.getAttribute('data-team')));};
+  });
   renderPrizeResults();
 }
 function renderPrizeResults(){
   var D=getPrizeData();
+  var bp=getBP();
+  var bpAchieved=bp.achieved;
+  function rawBudget(s){var tm=bp.staffTeams[s];if(!tm)return 0;return bp.teamAmounts[tm]||0;}
+  var bpConfigured=Object.keys(bp.staffTeams).some(function(s){return rawBudget(s)>0;});
   var staffData={};
   D.monthRecs.forEach(function(r){
     if(!r.staff||!r.item)return;
@@ -777,17 +862,30 @@ function renderPrizeResults(){
     if(!staffData[r.staff])staffData[r.staff]={items:{}};
     staffData[r.staff].items[r.item]=(staffData[r.staff].items[r.item]||0)+(r.qty||1);
   });
+  // 予算賞金の対象スタッフを表示（達成・未達成どちらでも、設定があれば表示して入力を反映）
+  Object.keys(bp.staffTeams).forEach(function(s){if(rawBudget(s)>0&&!staffData[s])staffData[s]={items:{}};});
   var staffList=Object.keys(staffData);
-  var grand=0;
+  var grand=0,grandBudget=0;
   staffList.forEach(function(s){
-    var t=0;Object.keys(staffData[s].items).forEach(function(it){t+=(D.fixedPrizes[it]||0)*staffData[s].items[it];});
-    staffData[s].total=t;grand+=t;
+    var itemTotal=0;Object.keys(staffData[s].items).forEach(function(it){itemTotal+=(D.fixedPrizes[it]||0)*staffData[s].items[it];});
+    var raw=rawBudget(s);
+    var budget=bpAchieved?raw:0;
+    staffData[s].itemTotal=itemTotal;
+    staffData[s].budget=budget;
+    staffData[s].pendingBudget=bpAchieved?0:raw;
+    staffData[s].budgetTeam=bp.staffTeams[s]||'';
+    staffData[s].total=itemTotal+budget;
+    grand+=staffData[s].total;grandBudget+=budget;
   });
   staffList.sort(function(a,b){return staffData[b].total-staffData[a].total;});
   var out=document.getElementById('prize-results');
   var html='';
-  html+='<div class="prize-total-card"><div class="ptc-lbl">'+selMonth+' 賞金合計</div><div class="ptc-num">'+yen(grand)+'</div><div class="ptc-sub">対象スタッフ '+staffList.length+'名</div>'+
+  html+='<div class="prize-total-card"><div class="ptc-lbl">'+selMonth+' 賞金合計</div><div class="ptc-num">'+yen(grand)+'</div><div class="ptc-sub">対象スタッフ '+staffList.length+'名'+
+    (grandBudget>0?'　／　うち予算達成賞金 '+yen(grandBudget):'')+'</div>'+
     (staffList.length?'<button class="prize-print-btn" id="prize-print-btn">🖨 賞金表を印刷</button>':'')+'</div>';
+  if(!bpAchieved&&bpConfigured){
+    html+='<div class="bp-warn">🎯 全体予算達成賞金が設定されていますが、現在「未達成」のため合計に加算されていません。上の設定欄の「未達成（押して達成）」ボタンを押すと反映されます。</div>';
+  }
   if(!staffList.length){
     html+='<div class="prize-empty">賞金対象の販売記録がありません。<br>（賞金単価が未入力、または目標達成物品の販売がない月です）</div>';
     out.innerHTML=html;return;
@@ -801,12 +899,26 @@ function renderPrizeResults(){
       var qty=d.items[it],unit=D.fixedPrizes[it]||0,sub=unit*qty;
       rows+='<div class="prow"><span class="prow-left"><span class="prow-item">'+it+'</span><span class="prow-calc">'+qty+'個 × '+yen(unit)+'</span></span><span class="prow-sub">'+yen(sub)+'</span></div>';
     });
-    html+='<div class="prize-staff-card"><div class="psc-head"><span class="psc-name">👤 '+s+'</span><span class="psc-total">'+yen(d.total)+'</span></div><div class="psc-rows">'+rows+'</div></div>';
+    if(!ikeys.length)rows+='<div class="prow"><span class="prow-left"><span class="prow-item" style="color:var(--muted)">物品賞金なし</span></span><span class="prow-sub" style="color:var(--muted)">'+yen(0)+'</span></div>';
+    // 内訳フッター（予算賞金がある場合のみ物品小計＋予算を明示）
+    var foot='';
+    if(d.budget>0){
+      foot='<div class="psc-foot">'+
+        '<div class="pscf-row"><span>物品賞金</span><span>'+yen(d.itemTotal)+'</span></div>'+
+        '<div class="pscf-row bp"><span>🎯 全体予算達成賞金'+(d.budgetTeam?'（'+d.budgetTeam+'）':'')+'</span><span>'+yen(d.budget)+'</span></div>'+
+        '</div>';
+    }else if(d.pendingBudget>0){
+      foot='<div class="psc-foot">'+
+        '<div class="pscf-row"><span>物品賞金</span><span>'+yen(d.itemTotal)+'</span></div>'+
+        '<div class="pscf-row pending"><span>🎯 全体予算達成賞金'+(d.budgetTeam?'（'+d.budgetTeam+'）':'')+'<em>未達成</em></span><span>'+yen(d.pendingBudget)+'</span></div>'+
+        '</div>';
+    }
+    html+='<div class="prize-staff-card"><div class="psc-head"><span class="psc-name">👤 '+s+'</span><span class="psc-total">'+yen(d.total)+'</span></div><div class="psc-rows">'+rows+'</div>'+foot+'</div>';
   });
   html+='</div>';
   out.innerHTML=html;
   var pb=document.getElementById('prize-print-btn');
-  if(pb)pb.onclick=function(){printPrize(staffData,staffList,grand,D.fixedPrizes);};
+  if(pb)pb.onclick=function(){printPrize(staffData,staffList,grand,grandBudget,D.fixedPrizes);};
 }
 function onPrizeInput(item,val){
   var v=parseInt(val)||0;
@@ -826,7 +938,41 @@ function savePrizes(){
   try{localStorage.setItem('garage_item_prizes',JSON.stringify(allItemPrizes));}catch(e){}
   try{db.ref('garage/garage_item_prizes').set(allItemPrizes);}catch(e){console.warn('prize save failed',e);}
 }
-function printPrize(staffData,staffList,grand,fixedPrizes){
+function getBP(){
+  var b=allBudgetPrizes[selMonth];
+  var out={achieved:false,teamAmounts:{},staffTeams:{}};
+  if(b&&typeof b==='object'){
+    out.achieved=!!b.achieved;
+    if(b.teamAmounts&&typeof b.teamAmounts==='object')out.teamAmounts=Object.assign({},b.teamAmounts);
+    if(b.staffTeams&&typeof b.staffTeams==='object')out.staffTeams=Object.assign({},b.staffTeams);
+    // 旧形式（amount + staff[]）からの自動移行：旧対象を先頭の班に割り当て
+    if(!b.staffTeams&&Array.isArray(b.staff)&&b.staff.length){
+      out.teamAmounts[BP_TEAMS[0]]=b.amount||0;
+      b.staff.forEach(function(s){out.staffTeams[s]=BP_TEAMS[0];});
+    }
+  }
+  return out;
+}
+function setBP(b){allBudgetPrizes[selMonth]=b;saveBudgetPrizes();}
+function saveBudgetPrizes(){
+  try{localStorage.setItem('garage_budget_prizes',JSON.stringify(allBudgetPrizes));}catch(e){}
+  try{db.ref('garage/garage_budget_prizes').set(allBudgetPrizes);}catch(e){console.warn('budget prize save failed',e);}
+}
+function toggleBudgetAchieved(){var b=getBP();b.achieved=!b.achieved;setBP(b);renderPrize();}
+function setBudgetTeam(staff,team){
+  var b=getBP();
+  if(b.staffTeams[staff]===team)delete b.staffTeams[staff]; // 同じ班を再クリックで解除
+  else b.staffTeams[staff]=team;
+  setBP(b);renderPrize();
+}
+function onBudgetTeamAmountInput(team,val){
+  var b=getBP();b.teamAmounts[team]=parseInt(val)||0;
+  allBudgetPrizes[selMonth]=b;
+  renderPrizeResults();
+  clearTimeout(prizeSaveTimer);
+  prizeSaveTimer=setTimeout(saveBudgetPrizes,500);
+}
+function printPrize(staffData,staffList,grand,grandBudget,fixedPrizes){
   var rows='';
   staffList.forEach(function(s){
     var d=staffData[s];
@@ -836,6 +982,9 @@ function printPrize(staffData,staffList,grand,fixedPrizes){
       var qty=d.items[it],unit=fixedPrizes[it]||0;
       rows+='<tr><td></td><td>'+it+'</td><td style="text-align:right">'+qty+'個</td><td style="text-align:right">'+yen(unit)+'</td><td style="text-align:right">'+yen(unit*qty)+'</td></tr>';
     });
+    if(d.budget>0){
+      rows+='<tr class="bprow"><td></td><td colspan="3">🎯 全体予算達成賞金'+(d.budgetTeam?'（'+d.budgetTeam+'）':'')+'</td><td style="text-align:right">'+yen(d.budget)+'</td></tr>';
+    }
   });
   var w=window.open('','_blank');
   if(!w){alert('印刷用ウィンドウを開けませんでした。ブラウザのポップアップ許可を確認してください。');return;}
@@ -849,12 +998,13 @@ function printPrize(staffData,staffList,grand,fixedPrizes){
     'th{background:#1e3a5f;color:#fff;text-align:left;font-size:11px}'+
     'th.r{text-align:right}'+
     '.staffrow td{background:#f1f5f9;border-top:2px solid #1e3a5f}'+
+    '.bprow td{color:#b45309;font-weight:700}'+
     '</style></head><body>'+
     '<h1>🛒 賞金表 — '+selMonth+'</h1>'+
     '<div class="grand">賞金合計 '+yen(grand)+'</div>'+
-    '<div style="font-size:12px;color:#444">対象スタッフ '+staffList.length+'名</div>'+
+    '<div style="font-size:12px;color:#444">対象スタッフ '+staffList.length+'名'+(grandBudget>0?'　／　うち予算達成賞金 '+yen(grandBudget):'')+'</div>'+
     '<table><thead><tr><th>スタッフ</th><th>物品</th><th class="r">数量</th><th class="r">単価</th><th class="r">賞金</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div class="note">※ 目標を達成した物品のみ集計しています。目標未達・未設定の物品は賞金対象外です。</div>'+
+    '<div class="note">※ 目標を達成した物品のみ集計しています。目標未達・未設定の物品は賞金対象外です。<br>※ 全体予算達成賞金は手動判定で、指定したスタッフのみに加算しています。</div>'+
     '</body></html>');
   w.document.close();
   setTimeout(function(){try{w.print();}catch(e){}},350);
@@ -952,6 +1102,28 @@ db.ref('garage/garage_item_prizes').on('value',function(snap){
     try{var ls=localStorage.getItem('garage_item_prizes');if(ls)allItemPrizes=JSON.parse(ls);}
     catch(e){}
   }
+  if(currentPage==='sales'&&currentSTab==='prize')renderPrize();
+});
+db.ref('garage/garage_budget_prizes').on('value',function(snap){
+  var v=snap.val();
+  if(v&&typeof v==='object'){
+    allBudgetPrizes=v;
+  } else {
+    try{var ls=localStorage.getItem('garage_budget_prizes');if(ls)allBudgetPrizes=JSON.parse(ls);}
+    catch(e){}
+  }
+  if(currentPage==='sales'&&currentSTab==='prize')renderPrize();
+});
+db.ref('garage/garage_recept').on('value',function(snap){
+  allRecept=toNameArr(snap.val());
+  if(currentPage==='sales'&&currentSTab==='prize')renderPrize();
+});
+db.ref('garage/garage_mech').on('value',function(snap){
+  allMech=toNameArr(snap.val());
+  if(currentPage==='sales'&&currentSTab==='prize')renderPrize();
+});
+db.ref('garage/garage_front_staffs').on('value',function(snap){
+  allFront=toNameArr(snap.val());
   if(currentPage==='sales'&&currentSTab==='prize')renderPrize();
 });
 db.ref('garage/garage_salesrecords').on('value',function(snap){
