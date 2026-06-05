@@ -4344,7 +4344,18 @@ React.createElement('select', {
             setLoanModal({ carId:dragState.carId, startDate:s, endDate:e, owner:'', staffName:'', memo:'' });
             setDragState(null);
           }
-          if (resizeDrag) { setResizeDrag(null); }
+          if (resizeDrag) {
+            setResizeDrag(null);
+            // [FIX 2026-06-05] リサイズ確定時に最終値を明示的にDB保存する。
+            //   従来は [lcLoans] 保存Effect 任せだったが、保存Effectは書込み後に
+            //   _lcFbIncoming を 1000ms 立てるため、ドラッグ中の連続 setLcLoans では
+            //   最初の中間値しか保存されず、最終的に延ばした endDate が
+            //   localStorage / Firebase に書き込まれないことがあった。
+            //   その状態で BP / ストールボードへ移動→代車管理へ戻ると、
+            //   再マウント時に古い値を読み直し「延長前に戻る」症状が出ていた（ときがある＝タイミング依存）。
+            //   moveDrag と同じく、確定時に現在の state を直接 saveToDb して保存漏れを防ぐ。
+            setLcLoans(p => { window.saveToDb('loancar_loans', p); return p; });
+          }
         };
         window.addEventListener('mouseup', onUp);
         return () => window.removeEventListener('mouseup', onUp);
