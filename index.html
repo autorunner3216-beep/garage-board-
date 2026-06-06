@@ -356,6 +356,19 @@
         該当: GanttBoard の intakeSelRef まわり（コメント [2026-06-06 新機能]）と
         ストール行タイムラインの onMouseDown、GanttBoard openIntakeSlot プロパティ
 
+[FIX-12] ストールボード: ピット切替バッジのクリックで入庫モーダルも開いてしまう（2026-06-06b）
+  原因: ADD-03（空きドラッグ→入庫登録）で追加したタイムラインの onMouseDown に対し、
+        ジョブ札左端のピットカラーバー（updPit/cyclepit）は onClick でしか stopPropagation して
+        おらず、mousedown が札本体→タイムライン枠へ素通り。結果、ピット切替クリックと同時に
+        入庫ドラッグが起動し入庫登録モーダルが開いていた（バッジ上のドラッグでも同様）。
+  修正(二重対策):
+        ① ピットバッジに onMouseDown: e=>e.stopPropagation() を追加（▶/■ボタンと同方式）。
+        ② 入庫 onMouseDown の冒頭に
+           if (e.target.closest && e.target.closest('[id^="job-bar-"]')) return; を追加し、
+           既存ジョブ札の上で始まった押下では入庫ドラッグを起動しない。
+        いずれも「入庫ドラッグの誤起動を止める」だけで、ピット切替・札ドラッグ・リサイズ・
+        ROLE配置・入庫機能には影響しない。該当コメント [FIX 2026-06-06b]。
+
 ==============================================================
 -->
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -2382,6 +2395,10 @@ react-dom/cjs/react-dom-client.production.js:
                       if (e.button !== 0) return;
                       if (window.__roleDrag || window.__reserveDrag) return;
                       if (dragRef.current || roleCardDragRef.current || reserveCardDragRef.current) return;
+                      // [FIX 2026-06-06b] 既存ジョブ札の上で始まった押下は無視する。
+                      //   ピットバッジ等、mousedownで伝播を止めていない子要素経由で入庫ドラッグが
+                      //   誤起動するのを防ぐ二重対策（札の上は埋まっており入庫枠を作れない領域）。
+                      if (e.target.closest && e.target.closest('[id^="job-bar-"]')) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const sH = snap(clamp(8 + (e.clientX - rect.left) / CELL_W, 8, 24));
                       intakeSelRef.current = { stallId:stall.id, startHour:sH, curEnd:sH, startX:e.clientX, rectLeft:rect.left, moved:false };
@@ -2576,6 +2593,10 @@ react-dom/cjs/react-dom-client.production.js:
                             transition:"opacity .15s, box-shadow .15s", zIndex:isSel?5:2, cursor:"grab" }}
                           /* ピットカラーバー */
                           , React.createElement('div', {
+                              // [FIX 2026-06-06b] mousedownの伝播を止める。これが無いと、ADD-03で追加した
+                              //   タイムラインの onMouseDown（空きドラッグ→入庫登録）まで押下が素通りし、
+                              //   ピット切替クリックと同時に入庫モーダルが開いてしまう（▶/■ボタンと同じ対策）。
+                              onMouseDown: e => e.stopPropagation(),
                               onClick: e => { e.stopPropagation(); updPit(job.id, cyclepit(job.pit||null)); },
                               title: job.pit ? "ピット: "+job.pit+"（クリックで切替）" : "クリックでピット設定",
                               style: { position:"absolute", left:0, top:0, bottom:0, width:11, zIndex:12,
@@ -11608,6 +11629,8 @@ checks = {
     '代車セルstopProp限定(FIX-11)':    "if (dragState.carId===car.id) {" in content,
     'ストール空きドラッグ入庫(ADD-03)': 'intakeSelRef' in content,
     'ストール入庫openIntakeSlot(ADD-03)': 'openIntakeSlot' in content,
+    'ピット誤起動ガード②(FIX-12)':    'e.target.closest && e.target.closest(' in content,
+    'ピット誤起動対策コメント(FIX-12)': '[FIX 2026-06-06b]' in content,
     # ===== BP完了ログ =====
     'BP完了ログ(bpCompletedLog)':      'bpCompletedLog' in content,
     'BP完了ログボタン':                '完了ログ' in content,
