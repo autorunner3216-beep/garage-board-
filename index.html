@@ -330,6 +330,32 @@
         「未割り当て」→「ストール選択」に変更
         BP_STATUS_LISTに「納車済み・計上待ち」（パープル）を追加
 
+[FIX-10] 代車管理: リサイズで延ばした日数が保存されず別ボード往復で戻る（2026-06-05）
+  原因: 貸出バー右端リサイズの確定(mouseup)に保存処理がなく、[lcLoans]保存Effect
+        任せだった。保存Effectは書込み後 _lcFbIncoming を1000ms立てるため、ドラッグ中の
+        連続更新では最初の中間値しか保存されず、最終日数がDB/Firebaseに書かれないことがあった。
+        その状態でBP/ストールボードへ移動→代車管理へ戻ると古い値を読み直し延長前に戻って見えた。
+  修正: リサイズ確定時に moveDrag と同じく現在stateを直接 saveToDb('loancar_loans') で保存。
+        該当: LoanCarBoard の onUp 内 setResizeDrag(null) 直後（コメント [FIX 2026-06-05]）
+
+[FIX-11] 代車管理: moveドラッグがセル上のドロップで掴んだまま固まる（2026-06-06）
+  原因: グリッドセルの onMouseUp が無条件に e.stopPropagation() しており、React19では
+        nativeEvent.stopPropagation() も呼ばれるため、move/リサイズ確定が依存する window の
+        mouseupリスナーまで届かなかった。バーはスナップで動きカーソルが空きセル上に来やすく、
+        セル上で離すと setMoveDrag(null) 等が走らず固まった。
+  修正: セルの stopPropagation を「新規貸出ドラッグ中(dragState有効)のとき」だけに限定。
+        該当: グリッドセル onMouseUp 冒頭の if(!dragState) return;（コメント [FIX 2026-06-06]）
+
+[ADD-03] ストールボード: 空き時間帯ドラッグで入庫登録モーダルを開く機能（2026-06-06）
+  内容: タイムラインの空きスペースを横ドラッグ→青破線プレビュー→離すとそのストール・
+        時間帯を初期値にした入庫登録モーダル(setShowAdd)を開く。代車管理の空きドラッグ→
+        登録と同じ操作感。20分スナップ、クリックのみの時は既定2時間幅。
+  実装: 既存処理(ジョブ移動/リサイズ・ROLE/フリー札・パン)には触れず、専用の
+        intakeSelRef / intakeGhost と専用 window リスナーで独立実装。空きスペースの
+        mousedownのみで起動（既存バー/カードは自前stopPropagationで除外）。
+        該当: GanttBoard の intakeSelRef まわり（コメント [2026-06-06 新機能]）と
+        ストール行タイムラインの onMouseDown、GanttBoard openIntakeSlot プロパティ
+
 ==============================================================
 -->
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -11577,6 +11603,11 @@ checks = {
     'BP上下ドラッグ(stallDelta)':      'stallDelta' in content,
     '代車上下ドラッグ(moveDrag)':      'moveDrag' in content,
     '代車上下ドラッグ(origCarId)':     'origCarId' in content,
+    # ===== 今回追加の対策（2026-06） =====
+    '代車リサイズ確定保存(FIX-10)':    "window.saveToDb('loancar_loans', p)" in content,
+    '代車セルstopProp限定(FIX-11)':    "if (dragState.carId===car.id) {" in content,
+    'ストール空きドラッグ入庫(ADD-03)': 'intakeSelRef' in content,
+    'ストール入庫openIntakeSlot(ADD-03)': 'openIntakeSlot' in content,
     # ===== BP完了ログ =====
     'BP完了ログ(bpCompletedLog)':      'bpCompletedLog' in content,
     'BP完了ログボタン':                '完了ログ' in content,
