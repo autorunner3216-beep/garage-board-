@@ -4743,8 +4743,17 @@ React.createElement('select', {
                           if (dragState && dragState.carId===car.id) setDragState(p => ({...p, endDate:d}));
                         },
                         onMouseUp: e => {
+                          // [FIX 2026-06-06] 伝播停止は「新規貸出のセルドラッグ中(dragState有効)」のみに限定する。
+                          //   従来は無条件に e.stopPropagation() していたため、React19 の合成イベントが
+                          //   nativeEvent.stopPropagation() も呼び、move/リサイズ確定が依存する window の
+                          //   mouseup リスナーまで届かなくなっていた。バーはスナップで動きカーソルが空きセル上に
+                          //   来やすいので、セル上でドロップすると確定処理(setMoveDrag(null)等)が走らず
+                          //   「掴んだまま固まる」症状になっていた。
+                          //   moveドラッグ/リサイズ中は dragState=null なので、ここでは止めず window 側へ通す。
+                          if (!dragState) return;
+                          // 新規貸出ドラッグの確定時のみ、window 側リスナーとの二重確定を防ぐため伝播を止める。
                           e.stopPropagation();
-                          if (dragState && dragState.carId===car.id) {
+                          if (dragState.carId===car.id) {
                             const s2 = dragState.startDate<=dragState.endDate ? dragState.startDate : dragState.endDate;
                             const e2 = dragState.startDate<=dragState.endDate ? dragState.endDate : dragState.startDate;
                             setDragState(null);
