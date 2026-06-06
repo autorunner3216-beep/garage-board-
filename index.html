@@ -1882,7 +1882,7 @@ react-dom/cjs/react-dom-client.production.js:
     };
 
     // ── ガントボード ──
-    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg, reserveCards, setReserveCards, setEditReserveCard, setEditRoleCard }) {
+    function GanttBoard({ jobs, setJobs, sel, setSel, setSelPos, filt, onEndWork, stalls, roleCards, setRoleCards, setEditJob, updStatus, updPit, staffList, blockDays, setShowBlock, boardDate, flashJobId, waitingJobs, openReAssign, removeJob, setDragOverlapMsg, reserveCards, setReserveCards, setEditReserveCard, setEditRoleCard, openIntakeSlot }) {
       const boardRef = useRef(null);
       const dragRef  = useRef(null);
       const panRef   = useRef(null); // {startX, scrollLeft}
@@ -1896,6 +1896,40 @@ react-dom/cjs/react-dom-client.production.js:
       const boardDateRef = useRef(boardDate);
       useEffect(() => { boardDateRef.current = boardDate; }, [boardDate]);
       const [ghost, setGhost] = useState(null);
+      // ── [2026-06-06 新機能] タイムラインの空きスペースをドラッグして入庫登録モーダルを開く ──
+      //   代車管理の「空きマスをドラッグ→予定登録」と同じ操作感をストールボードにも追加する。
+      //   既存の処理（ジョブ移動/リサイズ=dragRef、ROLE/フリー札=roleCardDragRef・reserveCardDragRef・
+      //   window.__roleDrag/__reserveDrag、ヘッダーのパン=panRef）には一切触れず、専用 ref と
+      //   専用の window リスナーだけで完結させる。空きスペースの mousedown のみで起動するため
+      //   （既存バー/カードは自前で stopPropagation 済み）、相互干渉しない。
+      const intakeSelRef = useRef(null);                       // {stallId,startHour,curEnd,startX,rectLeft,moved}
+      const [intakeGhost, setIntakeGhost] = useState(null);    // {stall,start,end}
+      const openIntakeSlotRef = useRef(openIntakeSlot);
+      useEffect(() => { openIntakeSlotRef.current = openIntakeSlot; }, [openIntakeSlot]);
+      useEffect(() => {
+        const onMove = e => {
+          const d = intakeSelRef.current;
+          if (!d) return;
+          if (Math.abs(e.clientX - d.startX) > 4) d.moved = true;
+          const rawHour = 8 + (e.clientX - d.rectLeft) / CELL_W;
+          const cur = snap(clamp(rawHour, 8, 24));
+          d.curEnd = cur;
+          setIntakeGhost({ stall:d.stallId, start:Math.min(d.startHour, cur), end:Math.max(d.startHour, cur) });
+        };
+        const onUp = e => {
+          const d = intakeSelRef.current;
+          if (!d) return;
+          intakeSelRef.current = null;
+          setIntakeGhost(null);
+          document.body.classList.remove("gantt-dragging");
+          if (e && e.button !== 0) return;
+          const a = Math.min(d.startHour, d.curEnd), b = Math.max(d.startHour, d.curEnd);
+          if (typeof openIntakeSlotRef.current === "function") openIntakeSlotRef.current(d.stallId, a, b, d.moved);
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+        return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+      }, []);
       const [showWaiting, setShowWaiting] = useState(false);
       const getNowH = () => new Date().getHours() + new Date().getMinutes() / 60;
       const [nowH, setNowH] = useState(getNowH);
@@ -2315,7 +2349,21 @@ react-dom/cjs/react-dom-client.production.js:
                     , React.createElement('div', { style: { fontSize:11, color:"#94a3b8", fontWeight:600 }}, stall.mechanic)
                     , React.createElement('div', { style: { fontSize:8, color:"#334155", marginTop:2 }}, "🚫 休業設定")
                   )
-                  , React.createElement('div', { style: { position:"relative", flex:1, height:ROW_H }}
+                  , React.createElement('div', {
+                    onMouseDown: e => {
+                      // 空きスペースのみで起動（既存バー/カードは自前で stopPropagation 済みでここへ来ない）。
+                      // ツールバー由来/他ドラッグ中は無視して既存処理を優先。
+                      if (e.button !== 0) return;
+                      if (window.__roleDrag || window.__reserveDrag) return;
+                      if (dragRef.current || roleCardDragRef.current || reserveCardDragRef.current) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const sH = snap(clamp(8 + (e.clientX - rect.left) / CELL_W, 8, 24));
+                      intakeSelRef.current = { stallId:stall.id, startHour:sH, curEnd:sH, startX:e.clientX, rectLeft:rect.left, moved:false };
+                      setIntakeGhost({ stall:stall.id, start:sH, end:sH });
+                      document.body.classList.add("gantt-dragging");
+                      e.preventDefault();
+                    },
+                    style: { position:"relative", flex:1, height:ROW_H }}
                     , blockDays && blockDays.filter(b => b.date === boardDate && b.stallId === stall.id).map(b => {
                         const x = (b.start - 8) * CELL_W;
                         const w = (b.end - b.start) * CELL_W;
@@ -2342,6 +2390,15 @@ react-dom/cjs/react-dom-client.production.js:
                       React.createElement('div', { key: h+"-"+t, style: { position:"absolute", left:(h-8)*CELL_W+t*(CELL_W/3), top:0, bottom:0,
                         width:t===0?1:1, background:t===0?"#1e4080":"#0f2040" }})
                     )))
+                    /* 入庫スロット選択ゴースト（空きスペースのドラッグ） */
+                    , intakeGhost && intakeGhost.stall===stall.id && (
+                      React.createElement('div', { style: { position:"absolute", top:6, height:ROW_H-12,
+                        left:(intakeGhost.start-8)*CELL_W+2, width:Math.max(2,(intakeGhost.end-intakeGhost.start)*CELL_W-4),
+                        background:"#3b82f622", border:"2px dashed #3b82f6", borderRadius:6, zIndex:6,
+                        display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}
+                        , React.createElement('span', { style: { fontSize:10, color:"#93c5fd", fontWeight:700, whiteSpace:"nowrap" }}, "入庫 ", fmtH(intakeGhost.start), "〜", fmtH(intakeGhost.end))
+                      )
+                    )
                     /* ゴースト (jobドラッグ) */
                     , ghostHere && ghost && (
                       React.createElement('div', { className: "ghost-bar", style: { position:"absolute", top:6, height:ROW_H-12,
@@ -9459,7 +9516,14 @@ React.createElement('select', {
                   )
                 )
                 , view==="gantt"
-                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg, reserveCards: reserveCards, setReserveCards: setReserveCards, setEditReserveCard: setEditReserveCard, setEditRoleCard: setEditRoleCard})
+                  ? React.createElement(GanttBoard, { jobs: boardJobs, setJobs: setJobs, sel: sel, setSel: setSel, setSelPos: setSelPos, filt: filt, onEndWork: endWork, stalls: stalls, roleCards: roleCards, setRoleCards: setRoleCards, setEditJob: setEditJob, updStatus: updStatus, updPit: updPit, staffList: staffList, blockDays: blockDays, setShowBlock: setShowBlock, boardDate: boardDate, flashJobId: flashJobId, waitingJobs: waitingJobs, openReAssign: openReAssign, removeJob: removeJob, setDragOverlapMsg: setDragOverlapMsg, reserveCards: reserveCards, setReserveCards: setReserveCards, setEditReserveCard: setEditReserveCard, setEditRoleCard: setEditRoleCard, openIntakeSlot: (stallId, startH, endH, moved) => {
+                      // ドラッグした「ストール・時間帯」で入庫登録モーダルを開く（代車管理の空きドラッグ→登録と同じ操作感）。
+                      // 値は HOURS_20 のスロット文字列に丸めて開始/終了プルダウンに一致させる。
+                      const toSlotStr = (h) => { let best = HOURS_20[0]; for (var i=0;i<HOURS_20.length;i++){ if (Math.abs(HOURS_20[i]-h) < Math.abs(best-h)) best = HOURS_20[i]; } return String(best); };
+                      const e2 = (moved && endH > startH) ? endH : Math.min(24, startH + 2); // 単なるクリック時は既定2時間幅
+                      updateNj(p => ({...p, date:boardDate, receptionDate:TODAY_STR, stall:stallId, start:toSlotStr(startH), end:toSlotStr(e2) }));
+                      setShowAdd(true);
+                    }})
                   : React.createElement(CardView, { jobs: boardJobs})
             ) /* tab===board外div閉じ */
             ) /* tab===board && 閉じ */
