@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>工場ボード — 当日入庫スケジュール</title>
+<!--
+  工場 当日ボード (Daily Bay Board) — 試作版 / ローカル動作
+  ・行の高さは画面に合わせて自動調整（全時間帯がほぼ収まる）
+  ・レーンは固定幅＋中央寄せ。3レーン時は正方形に近い比率。
+  ・スタッフ名は同一サイトの index アプリの localStorage から読込（garage_recept / garage_mech / garage_front_staffs / bp_workers）
+  ・空きマスをドラッグ→範囲作成 / 重複アラート / 複製 / 休業・半休 / 作業内容は手入力可
+  ・データは端末の localStorage に日付ごと保存（クラウド同期なし）
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --slot-h:30px; --lane-w:220px; --time-col:60px;
+    --paper:#f4f1ea; --panel:#ffffff; --ink:#1d1b17; --ink-soft:#6c6557;
+    --line-20:#e2dccf; --line-hr:#b9b1a0; --shade:#f6f3ec;
+    --steel:#2c3742; --steel-2:#3c4956; --amber:#d9742a; --amber-deep:#b65a18; --now:#e23b3b;
+    --shadow-card:0 1px 2px rgba(40,32,18,.18), 0 3px 8px rgba(40,32,18,.10);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{background:radial-gradient(1200px 600px at 80% -10%, #fbf9f4, transparent), var(--paper);
+    color:var(--ink); font-family:"Zen Kaku Gothic New", system-ui, sans-serif; -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;}
+  .mono{font-family:"JetBrains Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums;}
+
+  header.topbar{flex:0 0 auto; background:linear-gradient(180deg, var(--steel-2), var(--steel)); color:#f3efe6;
+    padding:9px 16px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    box-shadow:0 2px 0 rgba(0,0,0,.12), 0 8px 24px rgba(20,26,32,.18); z-index:30;}
+  .brand{display:flex; align-items:center; gap:11px; min-width:0;}
+  .brand .mark{width:32px;height:32px;border-radius:8px;flex:0 0 auto;background:linear-gradient(140deg,var(--amber),var(--amber-deep));
+    display:grid;place-items:center;font-weight:900;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25), 0 2px 6px rgba(0,0,0,.3);font-size:17px;}
+  .brand h1{font-size:16px;margin:0;letter-spacing:.06em;font-weight:900;line-height:1;}
+  .brand .sub{font-size:9px;letter-spacing:.34em;color:#9fb0bd;margin-top:3px;font-family:"JetBrains Mono",monospace;}
+  .datebar{display:flex;align-items:center;gap:6px;}
+  .datebar .dlabel{min-width:166px;text-align:center;font-weight:700;font-size:16px;letter-spacing:.02em;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);padding:5px 12px;border-radius:8px;}
+  .datebar .dlabel .wd{color:var(--amber); margin-left:4px;}
+  .datebar .iso{font-size:10px;color:#9fb0bd;letter-spacing:.1em;display:block;margin-top:1px;}
+  .btn{appearance:none;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#eef2f0;
+    font-family:inherit;font-size:13px;font-weight:700;padding:7px 11px;border-radius:8px;cursor:pointer;transition:transform .08s, background .15s;white-space:nowrap;}
+  .btn:hover{background:rgba(255,255,255,.14);}
+  .btn:active{transform:translateY(1px);}
+  .btn.ghost{background:transparent;}
+  .btn.nav{width:32px;height:32px;display:grid;place-items:center;padding:0;font-size:16px;}
+  .btn.amber{background:linear-gradient(180deg,var(--amber),var(--amber-deep));border-color:var(--amber-deep);color:#fff;}
+  .spacer{flex:1 1 auto;}
+  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+  .board-wrap{flex:1 1 auto;overflow:auto;padding:12px 16px 16px;}
+  .board{width:max-content;margin:0 auto;background:var(--panel);border:1px solid var(--line-hr);border-radius:14px;
+    box-shadow:0 1px 0 #fff inset, 0 10px 30px rgba(40,32,18,.07);overflow:hidden;}
+  .head-row{display:grid;grid-template-columns:var(--time-col) repeat(var(--lane-n), var(--lane-w));position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg,#fbf9f4,#efeadf);border-bottom:2px solid var(--line-hr);}
+  .head-corner{display:grid;place-items:center;font-size:9px;letter-spacing:.18em;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;border-right:1px solid var(--line-hr);}
+  .lane-head{padding:9px 8px;text-align:center;font-weight:900;font-size:16px;letter-spacing:.04em;border-right:1px solid var(--line-20);
+    position:relative;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .lane-head:last-child{border-right:none;}
+  .lane-head .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .lane-head .edit{position:absolute;right:5px;top:50%;transform:translateY(-50%);opacity:0;font-size:11px;color:var(--ink-soft);cursor:pointer;border:none;background:none;transition:opacity .15s;}
+  .lane-head:hover .edit{opacity:.7;}
+
+  .grid{display:grid;grid-template-columns:var(--time-col) repeat(var(--lane-n), var(--lane-w));position:relative;}
+  .time-axis{border-right:1px solid var(--line-hr);background:#faf8f3;}
+  .time-tick{height:var(--slot-h);border-bottom:1px dashed var(--line-20);display:flex;align-items:flex-start;justify-content:flex-end;
+    padding:1px 6px 0 0;font-size:12px;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;}
+  .time-tick.hour-label{color:var(--ink); font-weight:700; font-size:13px;}
+  .time-tick.hour-end{border-bottom:1px solid var(--line-hr);}
+  .lane{position:relative;border-right:1px solid var(--line-20);touch-action:none;}
+  .lane:last-child{border-right:none;}
+  .cell{height:var(--slot-h);border-bottom:1px dashed var(--line-20);}
+  .cell.shade{background:var(--shade);}
+  .cell.hour-end{border-bottom:1px solid var(--line-hr);}
+
+  .nowline{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--now);z-index:8;pointer-events:none;}
+  .nowline::before{content:"";position:absolute;left:-4px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--now);}
+  .create-ghost{position:absolute;left:2px;right:2px;border-radius:6px;background:rgba(217,116,42,.16);border:1.5px dashed var(--amber);
+    pointer-events:none;z-index:10;display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--amber-deep);font-weight:700;}
+
+  .card{position:absolute;left:2px;right:2px;top:0;border-radius:6px;overflow:hidden;cursor:grab;box-shadow:var(--shadow-card);
+    background:var(--c-bg,#eef2f6);border:1px solid var(--c-bd,#c9d3dc);display:flex;flex-direction:column;padding:2px 6px 2px 10px;
+    z-index:5;user-select:none;touch-action:none;transition:box-shadow .12s;}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c-bar,#5b7790);}
+  .card:hover{box-shadow:0 2px 4px rgba(40,32,18,.22), 0 6px 16px rgba(40,32,18,.16);z-index:9;}
+  .card.dragging{cursor:grabbing;opacity:.92;z-index:30;box-shadow:0 8px 24px rgba(40,32,18,.3);}
+  .card.conflict{box-shadow:0 0 0 2px var(--now), 0 3px 8px rgba(40,32,18,.18);}
+  .card .l1{display:flex;align-items:center;gap:5px;line-height:1.12;min-width:0;}
+  .card .cust{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;}
+  .card .plate{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:15px;color:var(--c-bar,#33485a);flex:0 0 auto;}
+  .card .staff{margin-left:auto;flex:0 0 auto;font-size:12px;font-weight:700;background:rgba(0,0,0,.08);border-radius:999px;padding:2px 9px;color:#2b271f;white-space:nowrap;}
+  .card .l2{display:flex;align-items:baseline;gap:6px;line-height:1.2;min-width:0;margin-top:2px;}
+  .card .car{font-weight:700;font-size:13.5px;color:#574f41;flex:0 0 auto;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis;}
+  .card .work{font-size:14px;font-weight:600;color:#33301f;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;word-break:break-word;flex:1 1 auto;}
+  .card .resize{position:absolute;left:0;right:0;bottom:0;height:8px;cursor:ns-resize;z-index:2;}
+  .card .resize::after{content:"";position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:22px;height:3px;border-radius:2px;background:rgba(0,0,0,.18);}
+  .card.closed{background:repeating-linear-gradient(45deg,#ece8df,#ece8df 7px,#e0dbce 7px,#e0dbce 14px);border:1px dashed #a89f8c;padding:2px 6px 3px 10px;justify-content:center;}
+  .card.closed::before{background:#9a917f;}
+  .card.closed .clabel{display:flex;align-items:center;gap:5px;font-weight:800;font-size:14px;color:#5b5446;}
+  .card.closed .ctime{font-size:12px;color:#7a7363;font-family:"JetBrains Mono",monospace;margin-top:1px;}
+
+  .legend{font-size:11px;color:var(--ink-soft);letter-spacing:.02em;display:flex;gap:10px;align-items:center;}
+  .legend .warn{color:#ffd2c2;font-weight:700;}
+
+  .overlay{position:fixed;inset:0;background:rgba(24,22,18,.42);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:100;padding:18px;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--panel);border-radius:16px;width:100%;max-width:440px;box-shadow:0 24px 70px rgba(20,16,8,.4);overflow:hidden;animation:pop .16s ease-out;display:flex;flex-direction:column;max-height:92vh;}
+  @keyframes pop{from{transform:translateY(8px) scale(.98);opacity:0;}to{transform:none;opacity:1;}}
+  .modal h2{margin:0;padding:14px 18px;font-size:15px;letter-spacing:.04em;flex:0 0 auto;background:linear-gradient(180deg,#fbf9f4,#f1ece2);border-bottom:1px solid var(--line-hr);display:flex;align-items:center;gap:8px;}
+  .modal h2 .pin{width:8px;height:18px;border-radius:3px;background:var(--amber);}
+  .mbody{padding:14px 18px;display:flex;flex-direction:column;gap:12px;overflow:auto;}
+  .seg{display:flex;gap:6px;background:#efe9dd;border-radius:10px;padding:4px;}
+  .seg button{flex:1;appearance:none;border:none;background:none;font-family:inherit;font-weight:700;font-size:13px;padding:8px;border-radius:7px;cursor:pointer;color:var(--ink-soft);}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+  .modal[data-mode="job"] .only-closed{display:none;}
+  .modal[data-mode="closed"] .only-job{display:none;}
+  .mwarn{display:none;background:#fbecea;border:1px solid #e6b3ac;color:#a3372b;border-radius:9px;padding:8px 11px;font-size:12px;font-weight:600;line-height:1.45;}
+  .mwarn.show{display:block;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.06em;}
+  .field input, .field select, .field textarea{font-family:inherit;font-size:14px;padding:9px 11px;border-radius:9px;border:1.5px solid #ded7c8;background:#fcfbf8;color:var(--ink);outline:none;transition:border-color .15s, box-shadow .15s;width:100%;}
+  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(217,116,42,.15);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end;}
+  .plate-in{font-family:"JetBrains Mono",monospace;letter-spacing:.18em;text-align:center;font-weight:700;font-size:18px;}
+  .chip-group{font-size:10px;font-weight:700;color:var(--ink-soft);letter-spacing:.08em;margin:7px 0 3px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{appearance:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #ded7c8;background:#fff;color:var(--ink);border-radius:999px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px;transition:all .12s;}
+  .chip:hover{border-color:var(--amber);}
+  .chip.sel{border-color:var(--ink);background:var(--ink);color:#fff;}
+  .chip .cdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .chip.sel .cdot{box-shadow:0 0 0 1px #fff;}
+  .hintmini{font-size:11px;color:#b3aa97;}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap;}
+  .sw{width:28px;height:28px;border-radius:8px;cursor:pointer;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);transition:transform .1s;}
+  .sw:hover{transform:scale(1.08);}
+  .sw.sel{border-color:var(--ink);box-shadow:0 0 0 2px #fff inset, 0 0 0 3px var(--ink);}
+  .mfoot{display:flex;gap:8px;padding:13px 18px;border-top:1px solid var(--line-20);background:#faf8f3;align-items:center;flex:0 0 auto;flex-wrap:wrap;}
+  .mfoot .del{margin-right:auto;color:#b03a2e;background:none;border:1px solid #e3b7b1;}
+  .mfoot .del:hover{background:#fbeceb;}
+  .mbtn{appearance:none;font-family:inherit;font-weight:700;font-size:14px;padding:9px 15px;border-radius:9px;cursor:pointer;border:1px solid transparent;}
+  .mbtn.copy{background:#e7eef5;color:#27496b;border:1px solid #bcd0e2;}
+  .mbtn.save{background:linear-gradient(180deg,var(--amber),var(--amber-deep));color:#fff;}
+  .mbtn.cancel{background:#efe9dd;color:var(--ink);}
+  textarea#s_lanes{resize:vertical;}
+  .hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-size:11px;color:#b3aa97;pointer-events:none;letter-spacing:.04em;z-index:1;text-align:center;width:90%;}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);background:#2c3742;color:#fff;padding:10px 16px;border-radius:10px;
+    font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:200;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.warn{background:#a3372b;}
+
+  /* ── 月ビュー ── */
+  .monthview{flex:1 1 auto;overflow:auto;padding:14px 18px 26px;display:none;flex-direction:column;gap:14px;}
+  .monthview.on{display:flex;}
+  .mv-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .mv-title{font-weight:900;font-size:22px;min-width:150px;text-align:center;}
+  .lbtn{appearance:none;border:1.5px solid #ded7c8;background:#fff;color:var(--ink);font-family:inherit;font-size:15px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;transition:transform .08s,background .12s;}
+  .lbtn:hover{background:#f3efe6;}
+  .lbtn:active{transform:translateY(1px);}
+  .lbtn.nav{width:38px;height:38px;display:grid;place-items:center;padding:0;font-size:18px;}
+  .lbtn.amber{background:linear-gradient(180deg,var(--amber),var(--amber-deep));color:#fff;border-color:var(--amber-deep);}
+  .seg.sm{padding:3px;}
+  .seg.sm button{font-size:14px;padding:7px 12px;}
+  .mv-card{background:#fff;border:1px solid var(--line-hr);border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(40,32,18,.05);}
+  .mv-sub{font-weight:700;font-size:15px;margin-bottom:8px;color:var(--ink);}
+  .mv-legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);justify-content:flex-end;}
+  .mv-legend .bar{height:10px;width:130px;border-radius:5px;background:linear-gradient(90deg, rgba(217,116,42,.1), rgba(217,116,42,.92));}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal .wd{font-size:14px;font-weight:800;text-align:center;color:var(--ink-soft);padding-bottom:3px;}
+  .cal .wd.sun{color:#c0392b;} .cal .wd.sat{color:#2b6cb0;}
+  .day{position:relative;border:1px solid var(--line-20);border-radius:8px;min-height:124px;padding:6px 7px 8px;background:#fff;cursor:pointer;display:flex;flex-direction:column;gap:3px;overflow:hidden;transition:transform .08s,box-shadow .12s;}
+  .day:hover{box-shadow:0 4px 12px rgba(40,32,18,.16);transform:translateY(-1px);}
+  .day.empty{background:transparent;border:none;cursor:default;}
+  .day.today{outline:3px solid var(--amber);outline-offset:-2px;}
+  .day .dnum{font-weight:900;font-size:22px;line-height:1;color:var(--ink);}
+  .day .dnum.sun{color:#c0392b;} .day .dnum.sat{color:#2b6cb0;}
+  .day .dtot{font-weight:800;font-size:16px;color:#3c382f;margin-left:8px;}
+  .day .cms{display:flex;flex-direction:column;gap:3px;margin-top:3px;overflow:hidden;}
+  .day .cm{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;line-height:1.25;color:#26221b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.82);border-radius:6px;padding:3px 8px;}
+  .day .cm i{width:13px;height:13px;border-radius:50%;flex:0 0 auto;}
+  .day .cm b{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:800;}
+  .day .cm.more{background:transparent;color:#7a6f57;font-weight:700;font-size:13px;padding:1px 4px;}
+  .day .cb{position:absolute;top:5px;right:6px;font-size:13px;font-weight:800;color:#8a8170;}
+  .htm-wrap{overflow-x:auto;}
+  .htm{display:grid;gap:2px;}
+  .htm .hcell{height:20px;border-radius:3px;border:1px solid rgba(0,0,0,.04);}
+  .htm.big .hcell{height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#1d1b17;border-radius:4px;}
+  .htm .hlabel{font-size:14px;font-weight:700;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;}
+  .htm .hday{font-size:13px;font-weight:700;color:var(--ink-soft);text-align:center;font-family:"JetBrains Mono",monospace;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;}
+  .tleg{font-weight:400;font-size:13px;color:var(--ink-soft);}
+  .tleg i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin:0 4px 0 12px;}
+  @media print{
+    @page{ size:A4 portrait; margin:8mm; }
+    body{height:auto;overflow:visible;background:#fff;}
+    header.topbar{box-shadow:none;background:#fff;color:#000;border-bottom:2px solid #000;padding:4px 0 8px;}
+    .actions,.btn,.lane-head .edit,.hint{display:none !important;}
+    .board-wrap{overflow:visible;padding:0;}
+    .board{box-shadow:none;border-color:#000;width:max-content;margin:0;}
+    .head-row{position:static !important;}
+    .brand .mark{background:#000;}
+    .card.conflict{box-shadow:none;}
+  }
+  @media (max-width:560px){.brand .sub{display:none;}.datebar .dlabel{min-width:120px;font-size:14px;}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><div class="mark">工</div><div><h1>工場ボード</h1><div class="sub">DAILY&nbsp;BAY&nbsp;BOARD</div></div></div>
+  <div class="datebar">
+    <button class="btn nav" id="prevDay" title="前日">‹</button>
+    <div class="dlabel" id="dateLabel">—</div>
+    <button class="btn nav" id="nextDay" title="翌日">›</button>
+    <button class="btn ghost" id="todayBtn">今日</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="actions">
+    <span class="legend" id="syncDot" style="font-weight:700"></span>
+    <span class="legend" id="countLegend"></span>
+    <button class="btn" id="monthBtn">📅 月ビュー</button>
+    <button class="btn" id="closeBtn">🚫 休業/半休</button>
+    <button class="btn" id="settingsBtn">⚙ レーン設定</button>
+    <button class="btn" id="printBtn">🖨 印刷</button>
+    <button class="btn amber" id="addBtn">＋ 作業を追加</button>
+  </div>
+</header>
+
+<div class="board-wrap" id="boardWrap"><div class="board" id="board"></div></div>
+
+<section class="monthview" id="monthView">
+  <div class="mv-top">
+    <button class="lbtn nav" id="mPrev">‹</button>
+    <div class="mv-title" id="mvTitle"></div>
+    <button class="lbtn nav" id="mNext">›</button>
+    <button class="lbtn" id="mThis">今月</button>
+    <span class="spacer"></span>
+    <button class="lbtn amber" id="mBack">← 日ボードへ</button>
+  </div>
+  <div id="mvBody"></div>
+</section>
+
+<!-- 編集モーダル -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal" data-mode="job" role="dialog" aria-modal="true">
+    <h2><span class="pin"></span><span id="modalTitle">作業を追加</span></h2>
+    <div class="mbody">
+      <div class="seg" id="modeSeg">
+        <button type="button" data-mode="job" class="on">作業</button>
+        <button type="button" data-mode="closed">休業 / 半休</button>
+      </div>
+      <div class="mwarn" id="mwarn"></div>
+      <div class="only-closed field">
+        <label>区分・理由</label>
+        <input id="f_reason" type="text" placeholder="例: 休業 / 半休 / 昼休み" />
+        <div id="reasonChips"></div>
+      </div>
+      <div class="only-job field">
+        <label>作業内容（手入力もできます）</label>
+        <input id="f_work" type="text" placeholder="自由に入力、または下のメニューから選択" />
+        <div id="workChips"></div>
+      </div>
+      <div class="only-job field">
+        <label>お客様名</label>
+        <input id="f_customer" type="text" placeholder="例: 山田 太郎 様" />
+      </div>
+      <div class="only-job row2">
+        <div class="field"><label>車種</label><input id="f_car" type="text" placeholder="例: ハリアー" /></div>
+        <div class="field"><label>ナンバー下4桁</label><input id="f_plate" type="text" class="plate-in" inputmode="numeric" maxlength="4" placeholder="0000" /></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>場所</label><select id="f_lane"></select></div>
+        <div class="field"><label>開始</label><select id="f_start"></select></div>
+        <div class="field"><label>終了</label><select id="f_end"></select></div>
+      </div>
+      <div class="only-job field">
+        <label>担当スタッフ（手入力もできます）</label>
+        <input id="f_staff" type="text" placeholder="自由に入力、または下から選択" />
+        <div id="staffChips"></div>
+      </div>
+      <div class="only-job field"><label>色</label><div class="swatches" id="swatches"></div></div>
+    </div>
+    <div class="mfoot">
+      <button class="mbtn del" id="m_delete">削除</button>
+      <button class="mbtn copy" id="m_copy">複製</button>
+      <button class="mbtn cancel" id="m_cancel">キャンセル</button>
+      <button class="mbtn save" id="m_save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- レーン設定 -->
+<div class="overlay" id="setOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2><span class="pin"></span>レーン設定 / 時間帯</h2>
+    <div class="mbody">
+      <div class="field"><label>場所（レーン）— 1行に1つ</label><textarea id="s_lanes" rows="6"></textarea></div>
+      <div class="row2">
+        <div class="field"><label>開始時刻</label><input id="s_start" type="time" step="600" /></div>
+        <div class="field"><label>終了時刻</label><input id="s_end" type="time" step="600" /></div>
+      </div>
+      <div class="legend">※ 時間は20分刻み。設定はこの端末に保存されます。</div>
+    </div>
+    <div class="mfoot">
+      <button class="mbtn cancel" id="s_cancel" style="margin-right:auto;">キャンセル</button>
+      <button class="mbtn save" id="s_save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const STEP=20, SPH=3;
+const WD=["日","月","火","水","木","金","土"];
+const REASONS=["休業","半休","昼休み","会議","研修","清掃"];
+// index アプリでスタッフを保存している localStorage キー
+// ※ ストールボード(garage_stalls / bp_stalls)はストール名が混ざるため除外
+const INDEX_STAFF_KEYS=["garage_recept","garage_mech","garage_front_staffs","bp_workers"];
+
+const JT_GROUPS=[
+  { label:"車検系", items:[
+    {key:"ホリデー車検",badge:"#f97316"},{key:"ホリデー車検/再入庫",badge:"#22c55e"},
+    {key:"ホリデーはじめてくん",badge:"#fb923c"},{key:"ホリデー/楽天",badge:"#f97316"},
+    {key:"車検後日整備",badge:"#0ea5e9"},{key:"一般車検",badge:"#ef4444"},{key:"中古新規",badge:"#f472b6"} ]},
+  { label:"点検系", items:[
+    {key:"中古12検",badge:"#f472b6"},{key:"12ヶ月点検",badge:"#3b82f6"},{key:"6ヶ月点検",badge:"#3b82f6"},
+    {key:"3ヶ月点検",badge:"#3b82f6"},{key:"ジョイカル30",badge:"#3b82f6"},{key:"ジョイカル24",badge:"#3b82f6"},
+    {key:"ジョイカル18",badge:"#3b82f6"},{key:"ジョイカル12",badge:"#3b82f6"},{key:"ジョイカル6",badge:"#3b82f6"},
+    {key:"新車6",badge:"#3b82f6"},{key:"新車1",badge:"#3b82f6"},{key:"10ポイント点検",badge:"#3b82f6"} ]},
+  { label:"整備系", items:[
+    {key:"オイル交換",badge:"#3b82f6"},{key:"一般整備",badge:"#3b82f6"},{key:"故障診断",badge:"#3b82f6"},
+    {key:"用品取付",badge:"#3b82f6"},{key:"一般整備B",badge:"#eab308"},{key:"納車前/洗車",badge:"#06b6d4"} ]},
+  { label:"タイヤ履き替え系", items:[
+    {key:"預夏",badge:"#a855f7"},{key:"預冬",badge:"#a855f7"},{key:"持夏",badge:"#7c8493"},{key:"持冬",badge:"#7c8493"} ]},
+  { label:"鈑金系", items:[ {key:"BP見積り",badge:"#eab308"} ]},
+];
+const JT=Object.fromEntries(JT_GROUPS.flatMap(g=>g.items.map(i=>[i.key,i])));
+const PALETTE=["#4f6b86","#c9772a","#4f7d4a","#b3566a","#3f8a8a","#7060a8","#6b6457"];
+const laneAccent=li=>PALETTE[((li%PALETTE.length)+PALETTE.length)%PALETTE.length];
+
+const DEFAULTS={ lanes:["P1","P2","P3","鈑金","フロント"], startMin:9*60, endMin:18*60 };
+const STORE_KEY="bayboard_v4";
+const mem={};
+const store={ get(k){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):(mem[k]??null);}catch(e){return mem[k]??null;} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){mem[k]=v;} } };
+function readLS(key){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function loadDB(){ const db=store.get(STORE_KEY); if(db&&db.cfg&&db.days) return db; return {cfg:{...DEFAULTS},days:{}}; }
+let DB=loadDB(), cfg=DB.cfg, curDate=todayStr();
+let view="day", curMetric="count", monthCursor=[new Date().getFullYear(),new Date().getMonth()];
+function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function persistLocal(){ store.set(STORE_KEY,DB); }
+function saveDB(){ persistLocal(); if(fbReady && !applyingRemote){ fbWriteDay(curDate); fbWriteCfg(); } }
+
+/* ===== Firebase リアルタイム同期（元 index アプリと同じプロジェクト / 専用パス garage/cross_board）===== */
+const firebaseConfig={
+  apiKey:"AIzaSyDAyqKSD4oxh3PqZW1UIjuqL73Ejp33_E0",
+  authDomain:"garage-armb-board.firebaseapp.com",
+  databaseURL:"https://garage-armb-board-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"garage-armb-board",
+  storageBucket:"garage-armb-board.firebasestorage.app",
+  messagingSenderId:"430667841584",
+  appId:"1:430667841584:web:81c17b57d4c6493875edf5"
+};
+const ROOT="garage/cross_board";
+let fbReady=false, applyingRemote=false, _fbdb=null;
+const _fbT={};
+function fbWrite(path,value,delay){ if(!fbReady) return; clearTimeout(_fbT[path]); _fbT[path]=setTimeout(()=>{ try{_fbdb.ref(path).set(value);}catch(e){console.warn("fb write",e);} }, delay||250); }
+function fbWriteDay(date){ const a=DB.days[date]; fbWrite(ROOT+"/days/"+date, (a&&a.length)?a:null); }
+function fbWriteCfg(){ fbWrite(ROOT+"/cfg", cfg); }
+function normArr(a){ return Array.isArray(a)?a:(a?Object.values(a):[]); }
+function setSync(on,msg){ const el=document.getElementById("syncDot"); if(!el) return; el.textContent= on?"🟢 同期中":(msg?("🔴 "+msg):"🔴 オフライン"); }
+function remoteRefresh(){ if(drag||createDrag) return; if(view==="month") renderMonth(); else { renderDateBar(); render(); } }
+function fbInit(){
+  if(typeof firebase==="undefined"){ setSync(false,"未接続(ローカルのみ)"); return; }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    _fbdb=firebase.database(); fbReady=true; setSync(false,"接続中…");
+    _fbdb.ref(".info/connected").on("value",s=>setSync(!!s.val()));
+    _fbdb.ref(ROOT+"/cfg").on("value",s=>{ const v=s.val(); if(v&&Array.isArray(v.lanes)){ applyingRemote=true; cfg={lanes:v.lanes,startMin:v.startMin??DEFAULTS.startMin,endMin:v.endMin??DEFAULTS.endMin}; DB.cfg=cfg; persistLocal(); remoteRefresh(); applyingRemote=false; } });
+    _fbdb.ref(ROOT+"/days").on("value",s=>{ const v=s.val()||{}; applyingRemote=true; const days={}; Object.keys(v).forEach(d=>{ days[d]=normArr(v[d]); }); DB.days=days; persistLocal(); remoteRefresh(); applyingRemote=false; });
+  }catch(e){ console.warn("firebase init failed",e); setSync(false,"接続失敗"); }
+}
+
+function todayStr(){ return dateToStr(new Date()); }
+function dateToStr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function strToDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function shiftDate(s,delta){ const d=strToDate(s); d.setDate(d.getDate()+delta); return dateToStr(d); }
+function minToHM(m){ return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+function slotCount(){ return Math.round((cfg.endMin-cfg.startMin)/STEP); }
+function idxToMin(i){ return cfg.startMin+i*STEP; }
+function clampIdx(i){ return Math.max(0,Math.min(slotCount()-1,i)); }
+function jobsFor(date){ if(!DB.days[date]) DB.days[date]=[]; return DB.days[date]; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function intersects(aS,aSp,bS,bSp){ return aS<bS+bSp && bS<aS+aSp; }
+function findConflicts(date,lane,start,span,exceptId){ return jobsFor(date).filter(j=>j.id!==exceptId && j.lane===lane && intersects(start,span,j.start,j.span)); }
+function labelOf(j){ return j.type==="closed" ? (j.reason||"休業") : ([j.car,j.plate].filter(Boolean).join(" ")||j.work||"予定"); }
+
+// index アプリ＋本アプリ蓄積から、スタッフ名候補を集める（同一サイトなら localStorage 共有）
+function collectStaff(){
+  const set=new Set();
+  const pushNames=arr=>{ if(!Array.isArray(arr)) return; arr.forEach(x=>{
+    if(typeof x==="string"){ if(x.trim()) set.add(x.trim()); }
+    else if(x&&typeof x==="object"){ const nm=x.name||x.mechanic||x.worker; if(nm&&String(nm).trim()) set.add(String(nm).trim()); }
+  }); };
+  INDEX_STAFF_KEYS.forEach(k=>pushNames(readLS(k)));
+  Object.values(DB.days).forEach(list=>list.forEach(j=>{ if(j.staff) set.add(j.staff); }));
+  return [...set].sort((a,b)=>a.localeCompare(b,"ja"));
+}
+
+/* レイアウト＆重複マーク */
+function layoutLane(items){
+  const arr=items.slice().sort((a,b)=>a.start-b.start||b.span-a.span);
+  const colsEnd=[];
+  arr.forEach(it=>{ let placed=false;
+    for(let c=0;c<colsEnd.length;c++){ if(colsEnd[c]<=it.start){ it._col=c; colsEnd[c]=it.start+it.span; placed=true; break; } }
+    if(!placed){ it._col=colsEnd.length; colsEnd.push(it.start+it.span); } });
+  const sorted=arr.slice().sort((a,b)=>a.start-b.start); let clusterEnd=-1,cluster=[];
+  const flush=()=>{ const max=Math.max(...cluster.map(x=>x._col))+1; cluster.forEach(x=>x._cols=max); cluster=[]; };
+  sorted.forEach(it=>{ if(cluster.length&&it.start>=clusterEnd){ flush(); clusterEnd=-1; } cluster.push(it); clusterEnd=Math.max(clusterEnd,it.start+it.span); });
+  if(cluster.length) flush();
+  arr.forEach(a=>a._conflict=false);
+  for(let i=0;i<arr.length;i++) for(let k=i+1;k<arr.length;k++) if(intersects(arr[i].start,arr[i].span,arr[k].start,arr[k].span)){ arr[i]._conflict=true; arr[k]._conflict=true; }
+  return arr;
+}
+
+/* サイズ自動調整：画面高さに行を合わせ、レーンは固定幅＋中央寄せで正方形寄りに */
+let slotH=30, laneW=220;
+function computeSizes(){
+  const wrap=document.getElementById("boardWrap");
+  const sc=slotCount(), n=Math.max(1,cfg.lanes.length);
+  const availH=Math.max(120, (wrap.clientHeight||600) - 28 /*余白*/ - 42 /*列ヘッダー*/ - 6);
+  // 文字を大きくしたため、20分(1枠)でも2行収まるよう最小46px。画面に収まらない場合はスクロール。
+  slotH=Math.max(46, Math.min(60, Math.floor(availH/sc)));
+  const boardH=sc*slotH;
+  laneW=Math.max(170, Math.min(300, Math.round(boardH/n)));
+  const r=document.documentElement.style;
+  r.setProperty("--slot-h",slotH+"px"); r.setProperty("--lane-w",laneW+"px"); r.setProperty("--lane-n",n);
+}
+
+/* 描画 */
+const board=document.getElementById("board");
+let laneEls=[];
+function render(){
+  computeSizes();
+  const n=cfg.lanes.length, sc=slotCount(), jobs=jobsFor(curDate);
+  let html='<div class="head-row"><div class="head-corner">TIME</div>';
+  cfg.lanes.forEach((name,i)=>{ html+=`<div class="lane-head" data-lane="${i}"><span class="dot" style="background:${laneAccent(i)}"></span>${escapeHtml(name)}<button class="edit" data-editlane="${i}" title="名前を変更">✎</button></div>`; });
+  html+='</div><div class="grid"><div class="time-axis">';
+  for(let i=0;i<sc;i++){ const m=idxToMin(i); html+=`<div class="time-tick ${m%60===0?'hour-label':''} ${i%SPH===SPH-1?'hour-end':''}">${minToHM(m)}</div>`; }
+  html+='</div>';
+  cfg.lanes.forEach((name,li)=>{ html+=`<div class="lane" data-lane="${li}" id="lane-${li}">`;
+    for(let i=0;i<sc;i++){ const shade=Math.floor(i/SPH)%2===1; html+=`<div class="cell ${shade?'shade':''} ${i%SPH===SPH-1?'hour-end':''}"></div>`; }
+    if(jobs.length===0 && li===0) html+='<div class="hint">空きマスをドラッグして範囲を選択 → 作業を追加</div>';
+    html+='</div>'; });
+  html+='</div>';
+  board.innerHTML=html;
+  laneEls=cfg.lanes.map((_,i)=>document.getElementById("lane-"+i));
+  const byLane=cfg.lanes.map(()=>[]);
+  jobs.forEach(j=>{ if(j.lane>=0&&j.lane<n) byLane[j.lane].push(j); });
+  byLane.forEach((items,li)=>{ layoutLane(items).forEach(j=>laneEls[li].appendChild(buildCard(j))); });
+  drawNowLine(); updateLegend();
+}
+function applyAccent(el,acc){ el.style.setProperty("--c-bar",acc); el.style.setProperty("--c-bg",acc+"1f"); el.style.setProperty("--c-bd",acc+"66"); }
+function buildCard(j){
+  const el=document.createElement("div"); el.className="card"+(j._conflict?" conflict":""); el.dataset.id=j.id;
+  el.style.top=(j.start*slotH)+"px"; el.style.height=(j.span*slotH-2)+"px";
+  const cols=j._cols||1, col=j._col||0, w=100/cols;
+  el.style.left=`calc(${col*w}% + 2px)`; el.style.width=`calc(${w}% - 4px)`;
+  const t=minToHM(idxToMin(j.start))+"–"+minToHM(idxToMin(j.start+j.span));
+  if(j.type==="closed"){
+    el.classList.add("closed");
+    el.innerHTML=`<div class="l1"><span class="clabel">🚫 ${escapeHtml(j.reason||"休業")}</span></div><div class="ctime">${t}</div><div class="resize" data-resize="1"></div>`;
+  }else{
+    applyAccent(el, j.accent||laneAccent(j.lane));
+    const primary=j.customer||j.car||"", carL2=j.customer?j.car:"";
+    el.innerHTML=`<div class="l1"><span class="cust">${escapeHtml(primary||"（お客様名）")}</span><span class="plate mono">${j.plate?escapeHtml(j.plate):""}</span>${j.staff?`<span class="staff">${escapeHtml(j.staff)}</span>`:""}</div><div class="l2">${carL2?`<span class="car">${escapeHtml(carL2)}</span>`:""}<span class="work">${escapeHtml(j.work||"")}</span></div><div class="resize" data-resize="1"></div>`;
+    el.querySelector(".work").style.webkitLineClamp=String(Math.max(1,j.span*2-1));
+  }
+  return el;
+}
+function drawNowLine(){
+  if(curDate!==todayStr()) return;
+  const now=new Date(), m=now.getHours()*60+now.getMinutes(); if(m<cfg.startMin||m>cfg.endMin) return;
+  const top=((m-cfg.startMin)/STEP)*slotH;
+  laneEls.forEach(le=>{ const l=document.createElement("div"); l.className="nowline"; l.style.top=top+"px"; le.appendChild(l); });
+}
+function updateLegend(){
+  const jobs=jobsFor(curDate);
+  const work=jobs.filter(j=>j.type!=="closed").length, conf=jobs.filter(j=>j._conflict).length;
+  document.getElementById("countLegend").innerHTML=(work?`本日 ${work} 件`:"")+(conf?`<span class="warn">⚠ 重複 ${conf}件</span>`:"");
+}
+function renderDateBar(){ const d=strToDate(curDate);
+  document.getElementById("dateLabel").innerHTML=`${d.getMonth()+1}月${d.getDate()}日<span class="wd">(${WD[d.getDay()]})</span><span class="iso mono">${curDate}</span>`; }
+
+/* トースト */
+let toastT=null;
+function toast(msg,kind){ let el=document.getElementById("toast");
+  if(!el){ el=document.createElement("div"); el.id="toast"; el.className="toast"; document.body.appendChild(el); }
+  el.className="toast"+(kind?" "+kind:""); el.textContent=msg;
+  requestAnimationFrame(()=>el.classList.add("show"));
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2200);
+}
+
+/* モーダル */
+const overlay=document.getElementById("overlay");
+const modal=document.getElementById("modal");
+const modeSeg=document.getElementById("modeSeg");
+let editingId=null, draftAccent=PALETTE[0], draftType="job";
+const $=id=>document.getElementById(id);
+
+function fillTimeSelect(sel,includeEnd){ const sc=slotCount(); sel.innerHTML="";
+  const lo=includeEnd?1:0, hi=includeEnd?sc:sc-1;
+  for(let i=lo;i<=hi;i++){ const o=document.createElement("option"); o.value=i; o.textContent=minToHM(idxToMin(i)); sel.appendChild(o); } }
+function fillLaneSelect(includeAll){ const sel=$("f_lane"); const prev=sel.value; sel.innerHTML="";
+  if(includeAll){ const o=document.createElement("option"); o.value="ALL"; o.textContent="全レーン（全体）"; sel.appendChild(o); }
+  cfg.lanes.forEach((nm,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=nm; sel.appendChild(o); });
+  if(prev) sel.value=prev; }
+
+function renderWorkChips(){
+  const box=$("workChips"); const cur=$("f_work").value; box.innerHTML="";
+  JT_GROUPS.forEach(g=>{ const lab=document.createElement("div"); lab.className="chip-group"; lab.textContent=g.label; box.appendChild(lab);
+    const wrap=document.createElement("div"); wrap.className="chips";
+    g.items.forEach(it=>{ const c=document.createElement("button"); c.type="button"; c.className="chip"+(cur===it.key?" sel":"");
+      c.innerHTML=`<span class="cdot" style="background:${it.badge}"></span>${it.key}`;
+      c.onclick=()=>{ $("f_work").value=it.key; draftAccent=it.badge; renderWorkChips(); renderSwatches(); }; wrap.appendChild(c); });
+    box.appendChild(wrap); });
+}
+function renderStaffChips(){
+  const box=$("staffChips"); const cur=$("f_staff").value; const names=collectStaff(); box.innerHTML="";
+  if(!names.length){ box.innerHTML='<div class="hintmini">index アプリのスタッフ、または入力した名前がここに表示されます（同じサイトで開いた場合）</div>'; return; }
+  const wrap=document.createElement("div"); wrap.className="chips";
+  names.forEach(nm=>{ const c=document.createElement("button"); c.type="button"; c.className="chip"+(cur===nm?" sel":""); c.textContent=nm;
+    c.onclick=()=>{ $("f_staff").value=nm; renderStaffChips(); }; wrap.appendChild(c); }); box.appendChild(wrap);
+}
+function renderReasonChips(){
+  const box=$("reasonChips"); const cur=$("f_reason").value; box.innerHTML="";
+  const wrap=document.createElement("div"); wrap.className="chips";
+  REASONS.forEach(r=>{ const c=document.createElement("button"); c.type="button"; c.className="chip"+(cur===r?" sel":""); c.textContent=r;
+    c.onclick=()=>{ $("f_reason").value=r; renderReasonChips(); checkOverlap(); }; wrap.appendChild(c); }); box.appendChild(wrap);
+}
+function renderSwatches(){ const box=$("swatches"); box.innerHTML="";
+  PALETTE.forEach(hex=>{ const d=document.createElement("div"); d.className="sw"+(hex===draftAccent?" sel":""); d.style.background=hex;
+    d.onclick=()=>{ draftAccent=hex; renderSwatches(); }; box.appendChild(d); }); }
+
+function targetLanes(){ const v=$("f_lane").value; if(draftType==="closed"&&v==="ALL") return cfg.lanes.map((_,i)=>i); return [Number(v)]; }
+function checkOverlap(){
+  const st=+$("f_start").value, en=+$("f_end").value; const span=Math.max(1,en-st);
+  let conf=[]; targetLanes().forEach(li=>{ conf=conf.concat(findConflicts(curDate,li,st,span,editingId)); });
+  const w=$("mwarn");
+  if(conf.length){
+    const names=conf.slice(0,3).map(c=>`${cfg.lanes[c.lane]||""} ${minToHM(idxToMin(c.start))}–${minToHM(idxToMin(c.start+c.span))}（${escapeHtml(labelOf(c))}）`);
+    w.innerHTML=`⚠ 時間が重複しています：<br>${names.join("<br>")}${conf.length>3?`<br>ほか ${conf.length-3} 件`:""}`;
+    w.classList.add("show");
+  } else w.classList.remove("show");
+  return conf.length>0;
+}
+
+function setMode(mode){
+  draftType=mode; modal.dataset.mode=mode;
+  [...modeSeg.children].forEach(b=>b.classList.toggle("on",b.dataset.mode===mode));
+  const cur=$("f_lane").value;
+  fillLaneSelect(mode==="closed");
+  if(mode==="closed"){ $("f_lane").value=(cur&&cur!=="")?cur:"ALL"; if(![...$("f_lane").options].some(o=>o.value===$("f_lane").value)) $("f_lane").value="ALL"; }
+  else { $("f_lane").value=(cur==="ALL")?"0":(cur||"0"); }
+  checkOverlap();
+}
+
+function openEditor(job,presets){
+  fillTimeSelect($("f_start"),false); fillTimeSelect($("f_end"),true);
+  if(job){
+    editingId=job.id; const isClosed=job.type==="closed";
+    $("modalTitle").textContent=isClosed?"休業/半休を編集":"作業を編集";
+    $("m_delete").style.display=""; $("m_copy").style.display="";
+    fillLaneSelect(isClosed);
+    $("f_lane").value=job.lane; $("f_start").value=job.start; $("f_end").value=job.start+job.span;
+    $("f_reason").value=job.reason||""; $("f_work").value=job.work||""; $("f_customer").value=job.customer||""; $("f_car").value=job.car||""; $("f_plate").value=job.plate||""; $("f_staff").value=job.staff||"";
+    draftAccent=job.accent||laneAccent(job.lane);
+    setMode(isClosed?"closed":"job"); $("f_lane").value=job.lane;
+  }else{
+    editingId=null; const p=presets||{}; const isClosed=p.type==="closed";
+    $("modalTitle").textContent=isClosed?"休業/半休を追加":"作業を追加";
+    $("m_delete").style.display="none"; $("m_copy").style.display="none";
+    $("f_reason").value=""; $("f_work").value=""; $("f_customer").value=""; $("f_car").value=""; $("f_plate").value=""; $("f_staff").value="";
+    const st=p.start??0, sp=p.span??SPH; fillLaneSelect(isClosed);
+    $("f_start").value=st; $("f_end").value=Math.min(slotCount(),st+sp);
+    draftAccent=laneAccent(typeof p.lane==="number"?p.lane:0);
+    setMode(isClosed?"closed":"job");
+    $("f_lane").value=(p.lane!=null)?p.lane:(isClosed?"ALL":"0");
+  }
+  renderWorkChips(); renderStaffChips(); renderReasonChips(); renderSwatches(); checkOverlap();
+  overlay.classList.add("open");
+  setTimeout(()=>$(draftType==="closed"?"f_reason":"f_work").focus(),30);
+}
+function closeEditor(){ overlay.classList.remove("open"); editingId=null; }
+
+function buildFromForm(){
+  let st=+$("f_start").value, en=+$("f_end").value; if(en<=st) en=st+1;
+  if(draftType==="closed") return { type:"closed", start:st, span:en-st, reason:$("f_reason").value.trim()||"休業" };
+  return { type:"job", start:st, span:en-st, accent:draftAccent, work:$("f_work").value.trim(),
+    customer:$("f_customer").value.trim(), car:$("f_car").value.trim(), plate:$("f_plate").value.replace(/[^0-9]/g,"").slice(0,4), staff:$("f_staff").value.trim() };
+}
+
+$("m_save").onclick=()=>{
+  if(checkOverlap() && !confirm("他の予定と時間が重複しています。このまま保存しますか？")) return;
+  const base=buildFromForm(); const list=jobsFor(curDate);
+  if(editingId){ const i=list.findIndex(x=>String(x.id)===String(editingId)); if(i>=0) list[i]={...list[i],...base,lane:Number($("f_lane").value)}; }
+  else targetLanes().forEach(li=>list.push({...base, id:genId(), lane:li}));
+  saveDB(); render(); closeEditor();
+};
+$("m_delete").onclick=()=>{ if(!editingId) return;
+  const list=jobsFor(curDate); const i=list.findIndex(x=>String(x.id)===String(editingId)); if(i>=0) list.splice(i,1);
+  saveDB(); render(); closeEditor(); };
+$("m_copy").onclick=()=>{
+  const base=buildFromForm(); const lane=Number($("f_lane").value)||0; const sc=slotCount();
+  let ns=base.start+base.span; if(ns+base.span>sc) ns=Math.max(0,sc-base.span);
+  const copy={...base, id:genId(), lane, start:ns};
+  jobsFor(curDate).push(copy); saveDB(); render(); toast("複製しました"); openEditor(copy);
+};
+$("m_cancel").onclick=closeEditor;
+overlay.addEventListener("click",e=>{ if(e.target===overlay) closeEditor(); });
+modeSeg.addEventListener("click",e=>{ const b=e.target.closest("[data-mode]"); if(b) setMode(b.dataset.mode); });
+["f_lane","f_start","f_end"].forEach(id=>$(id).addEventListener("change",checkOverlap));
+$("f_work").addEventListener("input",renderWorkChips);
+$("f_staff").addEventListener("input",renderStaffChips);
+$("f_reason").addEventListener("input",renderReasonChips);
+$("f_plate").addEventListener("input",e=>{ e.target.value=e.target.value.replace(/[^0-9]/g,"").slice(0,4); });
+
+/* ボード操作 */
+let drag=null, createDrag=null;
+board.addEventListener("pointerdown",e=>{
+  const resize=e.target.closest(".resize"), card=e.target.closest(".card"), lane=e.target.closest(".lane");
+  if(card){
+    e.preventDefault();
+    const id=card.dataset.id; const job=jobsFor(curDate).find(x=>String(x.id)===id); if(!job) return;
+    drag={mode:resize?"resize":"move", job, card, laneRects:laneEls.map(le=>le.getBoundingClientRect()),
+      startY:e.clientY, startX:e.clientX, origStart:job.start, origSpan:job.span, origLane:job.lane, moved:false};
+    card.setPointerCapture(e.pointerId); card.classList.add("dragging");
+  } else if(lane){
+    e.preventDefault();
+    const li=+lane.dataset.lane, rect=lane.getBoundingClientRect();
+    const idx=clampIdx(Math.floor((e.clientY-rect.top)/slotH));
+    const ghost=document.createElement("div"); ghost.className="create-ghost"; lane.appendChild(ghost);
+    createDrag={laneEl:lane, li, rect, startIdx:idx, curIdx:idx, ghost, moved:false};
+    positionGhost(); lane.setPointerCapture(e.pointerId);
+  }
+});
+function positionGhost(){ if(!createDrag) return;
+  const a=Math.min(createDrag.startIdx,createDrag.curIdx), b=Math.max(createDrag.startIdx,createDrag.curIdx)+1;
+  createDrag.ghost.style.top=(a*slotH)+"px"; createDrag.ghost.style.height=(Math.max(1,b-a)*slotH-2)+"px";
+  createDrag.ghost.textContent=`${minToHM(idxToMin(a))} – ${minToHM(idxToMin(b))}`; }
+board.addEventListener("pointermove",e=>{
+  if(createDrag){ const idx=clampIdx(Math.floor((e.clientY-createDrag.rect.top)/slotH));
+    if(idx!==createDrag.curIdx) createDrag.moved=true; createDrag.curIdx=idx; positionGhost(); return; }
+  if(!drag) return;
+  const dy=Math.round((e.clientY-drag.startY)/slotH), sc=slotCount();
+  if(Math.abs(e.clientY-drag.startY)>4||Math.abs(e.clientX-drag.startX)>4) drag.moved=true;
+  if(drag.mode==="move"){
+    const ns=Math.max(0,Math.min(sc-drag.origSpan,drag.origStart+dy)); drag.job.start=ns;
+    let nl=drag.origLane; drag.laneRects.forEach((r,i)=>{ if(e.clientX>=r.left&&e.clientX<r.right) nl=i; });
+    if(nl!==drag.job.lane){ drag.job.lane=nl; laneEls.forEach((le,i)=>le.classList.toggle("dragover",i===nl)); laneEls[nl].appendChild(drag.card); }
+    drag.card.style.top=(ns*slotH)+"px"; drag.card.style.left="2px"; drag.card.style.width="calc(100% - 4px)";
+  }else{
+    const nsp=Math.max(1,Math.min(sc-drag.job.start,drag.origSpan+dy)); drag.job.span=nsp;
+    drag.card.style.height=(nsp*slotH-2)+"px"; const wk=drag.card.querySelector(".work"); if(wk) wk.style.webkitLineClamp=String(Math.max(1,nsp*2-1));
+  }
+});
+function endPointer(){
+  if(createDrag){ const a=Math.min(createDrag.startIdx,createDrag.curIdx), b=Math.max(createDrag.startIdx,createDrag.curIdx)+1;
+    const li=createDrag.li; createDrag.ghost.remove(); createDrag=null;
+    openEditor(null,{lane:li, start:a, span: Math.max(1, b-a)}); return; }
+  if(drag){ drag.card.classList.remove("dragging"); laneEls.forEach(le=>le.classList.remove("dragover"));
+    const moved=drag.moved, job=drag.job; drag=null;
+    if(moved){ saveDB(); render(); if(findConflicts(curDate,job.lane,job.start,job.span,job.id).length) toast("⚠ 他の予定と重複しています","warn"); }
+    else openEditor(job);
+  }
+}
+board.addEventListener("pointerup",endPointer);
+board.addEventListener("pointercancel",endPointer);
+board.addEventListener("click",e=>{ const b=e.target.closest("[data-editlane]"); if(!b) return;
+  const i=+b.dataset.editlane; const nv=prompt("場所の名前",cfg.lanes[i]); if(nv!==null&&nv.trim()){ cfg.lanes[i]=nv.trim(); saveDB(); render(); } });
+
+/* ヘッダー */
+$("prevDay").onclick=()=>{ curDate=shiftDate(curDate,-1); refresh(); };
+$("nextDay").onclick=()=>{ curDate=shiftDate(curDate,1); refresh(); };
+$("todayBtn").onclick=()=>{ curDate=todayStr(); refresh(); };
+$("addBtn").onclick=()=>openEditor(null,{lane:0,start:0,span:SPH});
+$("closeBtn").onclick=()=>openEditor(null,{type:"closed",lane:"ALL",start:0,span:SPH});
+$("printBtn").onclick=()=>window.print();
+// 印刷時：ボード全体をA4横(余白8mm)に収まるよう自動縮小
+window.addEventListener("beforeprint",()=>{ try{
+  const bw=board.scrollWidth||1, bh=board.scrollHeight||1;
+  const pageW=720, pageH=1000; // A4縦 印刷可能域(おおよそ・ヘッダー分を確保)
+  const sc=Math.min(1, pageW/bw, pageH/bh);
+  board.style.zoom=sc;
+}catch(e){} });
+window.addEventListener("afterprint",()=>{ board.style.zoom=""; });
+
+const setOverlay=document.getElementById("setOverlay");
+$("settingsBtn").onclick=()=>{ $("s_lanes").value=cfg.lanes.join("\n"); $("s_start").value=minToHM(cfg.startMin); $("s_end").value=minToHM(cfg.endMin); setOverlay.classList.add("open"); };
+$("s_cancel").onclick=()=>setOverlay.classList.remove("open");
+setOverlay.addEventListener("click",e=>{ if(e.target===setOverlay) setOverlay.classList.remove("open"); });
+$("s_save").onclick=()=>{
+  const lanes=$("s_lanes").value.split("\n").map(s=>s.trim()).filter(Boolean); if(lanes.length) cfg.lanes=lanes;
+  const toMin=v=>{ const [h,m]=v.split(":").map(Number); return h*60+Math.round(m/STEP)*STEP; };
+  let s=toMin($("s_start").value||"09:00"), en=toMin($("s_end").value||"18:00"); if(en<=s) en=s+STEP*SPH;
+  cfg.startMin=s; cfg.endMin=en; saveDB(); setOverlay.classList.remove("open"); render();
+};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){ overlay.classList.remove("open"); setOverlay.classList.remove("open"); }
+  if(e.key==="Enter"&&overlay.classList.contains("open")&&e.target.tagName!=="TEXTAREA"&&!["f_work","f_staff","f_reason"].includes(e.target.id)) $("m_save").click();
+});
+let rzT=null;
+window.addEventListener("resize",()=>{ clearTimeout(rzT); rzT=setTimeout(render,120); });
+function refresh(){ renderDateBar(); render(); }
+
+/* ===== 月ビュー（混雑度の俯瞰） ===== */
+function dayStats(ds){
+  const list=DB.days[ds]||[]; const sc=slotCount(), lanes=cfg.lanes.length;
+  let booked=0,count=0,closure=0; const bandOcc=new Array(sc).fill(0);
+  list.forEach(j=>{ const s=Math.max(0,j.start|0), e=Math.min(sc,(j.start|0)+(j.span|0)); if(e<=s) return;
+    if(j.type==="closed"){ closure+=(e-s); }
+    else { count++; booked+=(e-s); for(let i=s;i<e;i++) bandOcc[i]++; } });
+  const cap=Math.max(1, lanes*sc - closure);
+  return {count, booked, closure, util:booked/cap, bandOcc};
+}
+function heatColor(t){ t=t<=0?0:Math.min(1,t); return `rgba(217,116,42,${(t<=0?0:0.08+t*0.52).toFixed(3)})`; }
+// 同時に埋まっている数で色分け：1=青 / 2=黄 / 3以上=赤
+function concColor(c){ if(c<=0) return "rgba(0,0,0,.03)"; if(c===1) return "rgba(59,130,246,.55)"; if(c===2) return "rgba(234,179,8,.72)"; return "rgba(239,68,68,.72)"; }
+function setView(v){
+  view=v;
+  document.getElementById("monthView").classList.toggle("on",v==="month");
+  document.getElementById("boardWrap").style.display=(v==="month")?"none":"";
+  document.getElementById("monthBtn").textContent=(v==="month")?"← 日ボード":"📅 月ビュー";
+  if(v==="month"){ renderMonth(); } else { refresh(); }
+}
+function shiftMonth(delta){ const dt=new Date(monthCursor[0],monthCursor[1]+delta,1); monthCursor=[dt.getFullYear(),dt.getMonth()]; renderMonth(); }
+function workCounts(ds){
+  const list=DB.days[ds]||[]; const m=new Map(); let closed=0;
+  list.forEach(j=>{ if(j.type==="closed"){ closed++; return; } const k=j.work||"(未設定)";
+    const cur=m.get(k)||{n:0,color:(JT[k]&&JT[k].badge)||j.accent||"#8a8170"}; cur.n++; m.set(k,cur); });
+  const arr=[...m.entries()].map(([k,v])=>({work:k,n:v.n,color:v.color})).sort((a,b)=>b.n-a.n);
+  return {arr, closed, total:arr.reduce((s,x)=>s+x.n,0)};
+}
+function renderMonth(){
+  const Y=monthCursor[0], Mo=monthCursor[1];
+  document.getElementById("mvTitle").textContent=`${Y}年 ${Mo+1}月`;
+  const dim=new Date(Y,Mo+1,0).getDate(), startWd=new Date(Y,Mo,1).getDay();
+  const sc=slotCount(), lanes=cfg.lanes.length, hours=Math.ceil(sc/SPH), todayS=todayStr();
+  const stats={}; let maxCount=1,maxHours=0.1;
+  for(let d=1;d<=dim;d++){ const ds=dateToStr(new Date(Y,Mo,d)); const st=dayStats(ds); st.wc=workCounts(ds); stats[d]=st;
+    maxCount=Math.max(maxCount,st.count); maxHours=Math.max(maxHours,st.booked*STEP/60); }
+  const dayT=st=> curMetric==="util"?Math.min(1,st.util) : curMetric==="count"?st.count/maxCount : (st.booked*STEP/60)/maxHours;
+
+  // カレンダー（作業項目別の件数を表示）
+  let cal='<div class="cal">';
+  ["日","月","火","水","木","金","土"].forEach((w,i)=>{ cal+=`<div class="wd ${i===0?'sun':i===6?'sat':''}">${w}</div>`; });
+  for(let i=0;i<startWd;i++) cal+='<div class="day empty"></div>';
+  for(let d=1;d<=dim;d++){ const ds=dateToStr(new Date(Y,Mo,d)); const st=stats[d]; const wd=new Date(Y,Mo,d).getDay();
+    const has=st.count>0||st.closure>0; const over=curMetric==="util"&&st.util>1;
+    const top=st.wc.arr.slice(0,4); const more=st.wc.arr.length-top.length;
+    let chips=top.map(x=>`<span class="cm"><i style="background:${x.color}"></i>${escapeHtml(x.work)}<b>${x.n}</b></span>`).join("");
+    if(more>0) chips+=`<span class="cm more">＋${more}種</span>`;
+    cal+=`<div class="day${ds===todayS?' today':''}" data-date="${ds}" style="background:${heatColor(has?dayT(st):0)}${over?';outline:2px solid #e23b3b':''}">
+      <div style="display:flex;align-items:baseline">
+        <span class="dnum ${wd===0?'sun':wd===6?'sat':''}">${d}</span>
+        ${st.count?`<span class="dtot">${st.count}件</span>`:""}
+      </div>
+      ${st.closure?'<div class="cb">休</div>':''}
+      <div class="cms">${chips}</div></div>`;
+  }
+  cal+='</div>';
+  const legend='<div class="mv-legend"><span>少</span><span class="bar"></span><span>多</span></div>';
+
+  // 時間帯×日 ヒートマップ（同時に埋まっている数で色分け＋数字表示）
+  let htm=`<div class="mv-sub">時間帯の混雑（縦＝時間／横＝日）<span class="tleg"><i style="background:rgba(59,130,246,.55)"></i>1台<i style="background:rgba(234,179,8,.72)"></i>2台<i style="background:rgba(239,68,68,.72)"></i>3台〜</span></div><div class="htm-wrap"><div class="htm big" style="grid-template-columns:66px repeat(${dim},34px)"><div></div>`;
+  for(let d=1;d<=dim;d++){ const wd=new Date(Y,Mo,d).getDay(); htm+=`<div class="hday" style="color:${wd===0?'#c0392b':wd===6?'#2b6cb0':'#9a917f'}">${d}</div>`; }
+  for(let h=0;h<hours;h++){ const hm=minToHM(cfg.startMin+h*SPH*STEP); htm+=`<div class="hlabel">${hm}</div>`;
+    for(let d=1;d<=dim;d++){ const st=stats[d]; let peak=0; for(let k=h*SPH;k<Math.min(sc,h*SPH+SPH);k++) peak=Math.max(peak, st.bandOcc[k]||0);
+      htm+=`<div class="hcell" title="${dateToStr(new Date(Y,Mo,d))} ${hm}　同時 ${peak}台" style="background:${concColor(peak)}">${peak>0?peak:""}</div>`; }
+  }
+  htm+='</div></div>';
+
+  document.getElementById("mvBody").innerHTML=`<div class="mv-card">${cal}${legend}</div><div class="mv-card">${htm}</div>`;
+}
+document.getElementById("monthBtn").onclick=()=>setView(view==="month"?"day":"month");
+document.getElementById("mBack").onclick=()=>setView("day");
+document.getElementById("mPrev").onclick=()=>shiftMonth(-1);
+document.getElementById("mNext").onclick=()=>shiftMonth(1);
+document.getElementById("mThis").onclick=()=>{ monthCursor=[new Date().getFullYear(),new Date().getMonth()]; renderMonth(); };
+document.getElementById("mvBody").addEventListener("click",e=>{ const c=e.target.closest("[data-date]"); if(c){ curDate=c.dataset.date; setView("day"); } });
+
+refresh();
+fbInit();
+setInterval(()=>{ if(curDate===todayStr()) render(); },60000);
+(function scrollToNow(){ if(curDate!==todayStr()) return;
+  const now=new Date(), m=now.getHours()*60+now.getMinutes(); if(m<cfg.startMin||m>cfg.endMin) return;
+  document.getElementById("boardWrap").scrollTop=Math.max(0,((m-cfg.startMin)/STEP)*slotH-120);
+})();
+</script>
+</body>
+</html>
