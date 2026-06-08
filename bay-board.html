@@ -190,6 +190,10 @@
   .day .cm i{width:13px;height:13px;border-radius:50%;flex:0 0 auto;}
   .day .cm b{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:800;}
   .day .cm.more{background:transparent;color:#7a6f57;font-weight:700;font-size:13px;padding:1px 4px;}
+  .day .cm.rest{background:#6b6457;color:#fff;font-weight:800;}
+  .day .cm.rest i{display:none;}
+  .day.dayoff{background:repeating-linear-gradient(45deg,#e8e4da,#e8e4da 8px,#ddd7c9 8px,#ddd7c9 16px);border-color:#b9b1a0;}
+  .day .dayoff-label{font-weight:900;font-size:18px;color:#5b5446;letter-spacing:.06em;margin-top:6px;}
   .day .cb{position:absolute;top:5px;right:6px;font-size:13px;font-weight:800;color:#8a8170;}
   .htm-wrap{overflow-x:auto;}
   .htm{display:grid;gap:2px;}
@@ -755,13 +759,20 @@ function workCounts(ds){
   const arr=[...m.entries()].map(([k,v])=>({work:k,n:v.n,color:v.color})).sort((a,b)=>b.n-a.n);
   return {arr, closed, total:arr.reduce((s,x)=>s+x.n,0)};
 }
+function closureInfo(ds){
+  const list=DB.days[ds]||[]; const sc=slotCount(), lanes=cfg.lanes.length; let slots=0; const m=new Map();
+  list.forEach(j=>{ if(j.type!=="closed") return; const s=Math.max(0,j.start), e=Math.min(sc,j.start+j.span); if(e<=s) return;
+    slots+=(e-s); const r=j.reason||"休業"; m.set(r,(m.get(r)||0)+1); });
+  const reasons=[...m.entries()].map(([reason,n])=>({reason,n}));
+  return {slots, reasons, full: lanes>0 && slots>=lanes*sc};
+}
 function renderMonth(){
   const Y=monthCursor[0], Mo=monthCursor[1];
   document.getElementById("mvTitle").textContent=`${Y}年 ${Mo+1}月`;
   const dim=new Date(Y,Mo+1,0).getDate(), startWd=new Date(Y,Mo,1).getDay();
   const sc=slotCount(), lanes=cfg.lanes.length, hours=Math.ceil(sc/SPH), todayS=todayStr();
   const stats={}; let maxCount=1,maxHours=0.1;
-  for(let d=1;d<=dim;d++){ const ds=dateToStr(new Date(Y,Mo,d)); const st=dayStats(ds); st.wc=workCounts(ds); stats[d]=st;
+  for(let d=1;d<=dim;d++){ const ds=dateToStr(new Date(Y,Mo,d)); const st=dayStats(ds); st.wc=workCounts(ds); st.cl=closureInfo(ds); stats[d]=st;
     maxCount=Math.max(maxCount,st.count); maxHours=Math.max(maxHours,st.booked*STEP/60); }
   const dayT=st=> curMetric==="util"?Math.min(1,st.util) : curMetric==="count"?st.count/maxCount : (st.booked*STEP/60)/maxHours;
 
@@ -770,16 +781,19 @@ function renderMonth(){
   ["日","月","火","水","木","金","土"].forEach((w,i)=>{ cal+=`<div class="wd ${i===0?'sun':i===6?'sat':''}">${w}</div>`; });
   for(let i=0;i<startWd;i++) cal+='<div class="day empty"></div>';
   for(let d=1;d<=dim;d++){ const ds=dateToStr(new Date(Y,Mo,d)); const st=stats[d]; const wd=new Date(Y,Mo,d).getDay();
-    const has=st.count>0||st.closure>0; const over=curMetric==="util"&&st.util>1;
+    const has=st.count>0; const over=curMetric==="util"&&st.util>1; const cl=st.cl; const dayoff=cl.full;
     const top=st.wc.arr.slice(0,4); const more=st.wc.arr.length-top.length;
-    let chips=top.map(x=>`<span class="cm"><i style="background:${x.color}"></i>${escapeHtml(x.work)}<b>${x.n}</b></span>`).join("");
+    let chips="";
+    if(!dayoff) cl.reasons.forEach(r=>{ chips+=`<span class="cm rest">🚫 ${escapeHtml(r.reason)}${r.n>1?` ×${r.n}`:""}</span>`; });
+    chips+=top.map(x=>`<span class="cm"><i style="background:${x.color}"></i>${escapeHtml(x.work)}<b>${x.n}</b></span>`).join("");
     if(more>0) chips+=`<span class="cm more">＋${more}種</span>`;
-    cal+=`<div class="day${ds===todayS?' today':''}" data-date="${ds}" style="background:${heatColor(has?dayT(st):0)}${over?';outline:2px solid #e23b3b':''}">
+    const label = dayoff ? (cl.reasons[0]?cl.reasons[0].reason:"休業") : "";
+    cal+=`<div class="day${dayoff?' dayoff':''}${ds===todayS?' today':''}" data-date="${ds}" style="${dayoff?'':'background:'+heatColor(has?dayT(st):0)}${over?';outline:3px solid #e23b3b':''}">
       <div style="display:flex;align-items:baseline">
         <span class="dnum ${wd===0?'sun':wd===6?'sat':''}">${d}</span>
         ${st.count?`<span class="dtot">${st.count}件</span>`:""}
       </div>
-      ${st.closure?'<div class="cb">休</div>':''}
+      ${dayoff?`<div class="dayoff-label">🚫 ${escapeHtml(label)}</div>`:""}
       <div class="cms">${chips}</div></div>`;
   }
   cal+='</div>';
