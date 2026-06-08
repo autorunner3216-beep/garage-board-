@@ -127,6 +127,8 @@
   .field label{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.06em;}
   .field input, .field select, .field textarea{font-family:inherit;font-size:14px;padding:9px 11px;border-radius:9px;border:1.5px solid #ded7c8;background:#fcfbf8;color:var(--ink);outline:none;transition:border-color .15s, box-shadow .15s;width:100%;}
   .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(217,116,42,.15);}
+  .field input:not([inputmode]), .field textarea{ime-mode:active;}
+  .plate-in{ime-mode:disabled;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end;}
   .plate-in{font-family:"JetBrains Mono",monospace;letter-spacing:.18em;text-align:center;font-weight:700;font-size:18px;}
@@ -216,9 +218,11 @@
 <header class="topbar">
   <div class="brand"><div class="mark">工</div><div><h1>工場ボード</h1><div class="sub">DAILY&nbsp;BAY&nbsp;BOARD</div></div></div>
   <div class="datebar">
+    <button class="btn nav" id="prevMon" title="前の月">«</button>
     <button class="btn nav" id="prevDay" title="前日">‹</button>
     <div class="dlabel" id="dateLabel">—</div>
     <button class="btn nav" id="nextDay" title="翌日">›</button>
+    <button class="btn nav" id="nextMon" title="次の月">»</button>
     <button class="btn ghost" id="todayBtn">今日</button>
   </div>
   <div class="spacer"></div>
@@ -259,20 +263,20 @@
       <div class="mwarn" id="mwarn"></div>
       <div class="only-closed field">
         <label>区分・理由</label>
-        <input id="f_reason" type="text" placeholder="例: 休業 / 半休 / 昼休み" />
+        <input id="f_reason" type="text" lang="ja" placeholder="例: 休業 / 半休 / 昼休み" />
         <div id="reasonChips"></div>
       </div>
       <div class="only-job field">
         <label>作業内容（手入力もできます）</label>
-        <input id="f_work" type="text" placeholder="自由に入力、または下のメニューから選択" />
+        <input id="f_work" type="text" lang="ja" placeholder="自由に入力、または下のメニューから選択" />
         <div id="workChips"></div>
       </div>
       <div class="only-job field">
         <label>お客様名</label>
-        <input id="f_customer" type="text" placeholder="例: 山田 太郎 様" />
+        <input id="f_customer" type="text" lang="ja" placeholder="例: 山田 太郎 様" />
       </div>
       <div class="only-job row2">
-        <div class="field"><label>車種</label><input id="f_car" type="text" placeholder="例: ハリアー" /></div>
+        <div class="field"><label>車種</label><input id="f_car" type="text" lang="ja" placeholder="例: ハリアー" /></div>
         <div class="field"><label>ナンバー下4桁</label><input id="f_plate" type="text" class="plate-in" inputmode="numeric" maxlength="4" placeholder="0000" /></div>
       </div>
       <div class="row3">
@@ -282,7 +286,7 @@
       </div>
       <div class="only-job field">
         <label>担当スタッフ（手入力もできます）</label>
-        <input id="f_staff" type="text" placeholder="自由に入力、または下から選択" />
+        <input id="f_staff" type="text" lang="ja" placeholder="自由に入力、または下から選択" />
         <div id="staffChips"></div>
       </div>
       <div class="only-job field"><label>色</label><div class="swatches" id="swatches"></div></div>
@@ -392,6 +396,7 @@ function todayStr(){ return dateToStr(new Date()); }
 function dateToStr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function strToDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
 function shiftDate(s,delta){ const d=strToDate(s); d.setDate(d.getDate()+delta); return dateToStr(d); }
+function addMonths(s,delta){ const d=strToDate(s); const tY=d.getFullYear(), tM=d.getMonth()+delta; const last=new Date(tY,tM+1,0).getDate(); return dateToStr(new Date(tY,tM,Math.min(d.getDate(),last))); }
 function minToHM(m){ return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
 function slotCount(){ return Math.round((cfg.endMin-cfg.startMin)/STEP); }
 function idxToMin(i){ return cfg.startMin+i*STEP; }
@@ -689,6 +694,8 @@ board.addEventListener("click",e=>{ const b=e.target.closest("[data-editlane]");
 /* ヘッダー */
 $("prevDay").onclick=()=>{ curDate=shiftDate(curDate,-1); refresh(); };
 $("nextDay").onclick=()=>{ curDate=shiftDate(curDate,1); refresh(); };
+$("prevMon").onclick=()=>{ curDate=addMonths(curDate,-1); refresh(); };
+$("nextMon").onclick=()=>{ curDate=addMonths(curDate,1); refresh(); };
 $("todayBtn").onclick=()=>{ curDate=todayStr(); refresh(); };
 $("addBtn").onclick=()=>openEditor(null,{lane:0,start:0,span:SPH});
 $("closeBtn").onclick=()=>openEditor(null,{type:"closed",lane:"ALL",start:0,span:SPH});
@@ -738,7 +745,7 @@ function setView(v){
   document.getElementById("monthView").classList.toggle("on",v==="month");
   document.getElementById("boardWrap").style.display=(v==="month")?"none":"";
   document.getElementById("monthBtn").textContent=(v==="month")?"← 日ボード":"📅 月ビュー";
-  if(v==="month"){ renderMonth(); } else { refresh(); }
+  if(v==="month"){ const d=strToDate(curDate); monthCursor=[d.getFullYear(),d.getMonth()]; renderMonth(); } else { refresh(); }
 }
 function shiftMonth(delta){ const dt=new Date(monthCursor[0],monthCursor[1]+delta,1); monthCursor=[dt.getFullYear(),dt.getMonth()]; renderMonth(); }
 function workCounts(ds){
