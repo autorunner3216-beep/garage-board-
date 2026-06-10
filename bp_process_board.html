@@ -57,7 +57,9 @@
   .hint{font-size:11px; color:var(--ink3); margin-top:6px;}
   .hint b{color:var(--ink2); font-weight:700;}
 
-  .board{flex:1 1 auto; display:flex; gap:13px; padding:16px 22px 24px; overflow-x:auto; overflow-y:hidden;}
+  .board{flex:1 1 auto; display:flex; gap:13px; padding:16px 22px 24px; overflow-x:auto; overflow-y:hidden; cursor:grab;}
+  .board.panning{cursor:grabbing; user-select:none;}
+  .board.panning .card{pointer-events:none;}
   .board::-webkit-scrollbar{height:12px;} .board::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px;border:3px solid var(--bg);}
   .col{flex:0 0 var(--col-w); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:14px; max-height:100%; box-shadow:var(--shadow);}
   .col-head{padding:12px 14px 11px; border-bottom:1px solid var(--line);}
@@ -657,6 +659,45 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal
   }
   document.querySelectorAll('#fontseg button').forEach(function(b){ b.onclick=function(){ applyScale(b.dataset.sc); }; });
   applyScale(saved);
+})();
+
+/* ── 横スクロール強化（①ホイール ②背景ドラッグでパン）── */
+(function(){
+  var board = document.getElementById('board');
+  if(!board) return;
+
+  // ① 縦ホイール → 横スクロール。列内（.col-body）がまだ縦に動けるときは列を優先
+  board.addEventListener('wheel', function(e){
+    if(e.deltaY === 0) return;
+    var body = e.target.closest && e.target.closest('.col-body');
+    if(body){
+      var down = e.deltaY > 0 && body.scrollTop + body.clientHeight < body.scrollHeight - 1;
+      var up   = e.deltaY < 0 && body.scrollTop > 0;
+      if(down || up) return;
+    }
+    board.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, {passive:false});
+
+  // ② 背景ドラッグでパン。カード・ボタン等の操作要素の上では発動しない（カードのD&Dと非干渉）
+  var dn=false, startX=0, startLeft=0, moved=false;
+  var NO_PAN = '.card, button, input, select, textarea, a, label, .chk, .pop, .overlay';
+
+  board.addEventListener('mousedown', function(e){
+    if(e.button !== 0) return;
+    if(e.target.closest && e.target.closest(NO_PAN)) return;
+    dn=true; moved=false; startX=e.pageX; startLeft=board.scrollLeft;
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!dn) return;
+    var dx = e.pageX - startX;
+    if(!moved && Math.abs(dx) > 4){ moved=true; board.classList.add('panning'); }
+    if(moved){ board.scrollLeft = startLeft - dx; e.preventDefault(); }
+  });
+  window.addEventListener('mouseup', function(){
+    dn=false;
+    if(moved) board.classList.remove('panning');
+  });
 })();
 </script>
 </body>
