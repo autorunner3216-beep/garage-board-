@@ -6,6 +6,49 @@
   BUGFIX LOG - Garage SMB Board
 ==============================================================
 
+[FEAT-01] お客様フォロー機能を追加（2026-07-19）
+  追加: ステータス「ホリデー不合格」を新設（保留系・全SHELVE_SET/EXCLUDE_STATUSESに追加）
+        「部品待ち」「ホリデー不合格」にサブステップ（FU_STEPS）を導入
+          部品待ち: 発注済み→入荷した→お客様連絡済み
+          ホリデー不合格: 説明済み→見積・提案済み→返事もらった→再入庫登録 or 辞退
+        ステップはチップをワンタップで完了⇔取消トグル、日時自動記録（job.fu.s）
+        メモは任意（job.fu.memo）、結果はjob.fu.outcome（再入庫/辞退）
+        ヘッダーに📞フォローボタン＋バッジ、右側にフォロー管理パネルを追加
+        パネルは放置日数（最終アクション日からの経過）降順、3日以上は赤表示
+        「再入庫登録」は既存onReEntryを利用し入庫登録モーダルへ接続（元札は削除）
+        「辞退」はoutcome記録後にremoveJob（完了扱い）
+        updStatus系にstatusChangedDate(YYYY-MM-DD)を追加（放置日数計算用）
+  実装: FU_STEPS/fuNowStr/fuElapsedDays/FuChips（SC定義直後）、updFu（useAppState）
+
+[FEAT-02] フォロー項目を紙の管理表の列に合わせて拡張（2026-07-19）
+  追加: FU_FIELDS（詳細/見積依頼/お客様へ連絡/予定組込）を定義
+        フォローパネルのメモ1欄を廃止し、紙と同じ4項目のラベル付き入力欄に変更
+        （job.fu.memo=詳細 / quote=見積依頼 / contact=連絡 / plan=予定組込）
+        ステータス一覧のカードにも記入済み項目を表示
+        受付日/お客様/車種/ナンバー/主要件/整備/フロントは既存ジョブ項目をそのまま利用
+
+[FEAT-03] フォローリストタブを追加（2026-07-19）
+  追加: メインタブに「📞 フォローリスト」を新設（予約一覧の横・件数バッジ付き）
+        紙の管理表と同じ列構成の全画面テーブル（FollowListView）
+        状態/受付/お客様/車種/No./主要件/進捗ステップ/詳細/見積依頼/連絡/予定組込/担当/操作
+        入力欄はその場で編集可（欄の外タップで保存）、行ダブルクリックで編集モーダル
+        不合格行: 再入庫登録/辞退ボタン、部品待ち行: 再配置ボタン
+        3日以上動きなしの行は赤表示、セクション別（不合格→部品待ち）に放置日数降順
+        右サイドの📞フォローパネルも併存（ボードを見ながら使う用）
+
+[FEAT-04] 終了処理3択・終了済み一覧・部品発注依頼先を追加（2026-07-19）
+  追加: 終了処理を「辞退/他社入庫/一旦終了」の3択セレクトに変更（fu.outcomeに記録）
+        フォローリストタブ下部に「辞退・終了済み」折りたたみ一覧を追加
+        終了日/結果/車両情報/記入内容を表示、「↩復活」で完了扱いを解除して一覧へ戻す
+        （restoreFollowJob: completed解除+outcomeクリア。データは削除せず保持）
+        部品発注依頼先セレクト（fu.vendor: 京葉部品/日産部品/ケーワン/その他）を
+        フォローリスト・サイドパネル・ステータス一覧カード表示に追加
+
+[FEAT-05] 進捗ステップを5段階の共通フローに変更（2026-07-19）
+  変更: FU_STEP_FLOW（部品待ち/ホリデー不合格 共通）
+        ①見積り連絡 → ②見積り連絡済み（保留） → ③発注中 → ④部品入庫済 → ⑤入庫日相談中
+        （fu.sはステップ番号indexで保存のため、旧3段階時代の記録はチップ位置が新定義で読み替わる）
+
 [BUG-01] 出庫ボタンにカードが表示されない
   原因: App側にloancar_loansのFirebaseリスナーがなく、
         localStorageが更新されず出庫パネルが空になっていた
@@ -947,7 +990,7 @@ react-dom/cjs/react-dom-client.production.js:
     ];
 
     // ── ステータス一覧 ──
-    const STATUSES = ["作業待ち","当日来店/預かり","連絡待ち","部品待ち","一時中断","検査・保適待ち","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
+    const STATUSES = ["作業待ち","当日来店/預かり","連絡待ち","部品待ち","ホリデー不合格","一時中断","検査・保適待ち","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","完成"];
     const PITS = [null,"P1","P2","P3","P4","P5","P6","板金"];
     const PITS_LABELS = ["P1","P2","P3","P4","P5","P6","板金"];
     const PIT_COLORS = {
@@ -970,6 +1013,7 @@ react-dom/cjs/react-dom-client.production.js:
       "当日来店/預かり":{bg:"#0e1a2e",accent:"#38bdf8",text:"#7dd3fc",glow:"rgba(56,189,248,.4)"},
       "連絡待ち":    {bg:"#0e2444",accent:"#3b82f6",text:"#93c5fd",glow:"rgba(59,130,246,.35)"},
       "部品待ち":    {bg:"#2a1a08",accent:"#f59e0b",text:"#fcd34d",glow:"rgba(245,158,11,.35)"},
+      "ホリデー不合格":{bg:"#2a0a14",accent:"#f43f5e",text:"#fda4af",glow:"rgba(244,63,94,.4)"},
       "一時中断":    {bg:"#2a0a0a",accent:"#ef4444",text:"#fca5a5",glow:"rgba(239,68,68,.35)"},
       "検査・保適待ち":{bg:"#1a0e2a",accent:"#a855f7",text:"#d8b4fe",glow:"rgba(168,85,247,.35)"},
       "車検証/来店": {bg:"#0a1e2a",accent:"#06b6d4",text:"#a5f3fc",glow:"rgba(6,182,212,.35)"},
@@ -978,6 +1022,71 @@ react-dom/cjs/react-dom-client.production.js:
       "引き渡し準備/完了":{bg:"#1a1a0a",accent:"#eab308",text:"#fef08a",glow:"rgba(234,179,8,.35)"},
       "完成":        {bg:"#0a1e10",accent:"#22c55e",text:"#86efac",glow:"rgba(34,197,94,.35)"},
     };
+
+    // ── フォローステップ定義（FU）──
+    // 「部品待ち」「ホリデー不合格」のみサブステップを持つ。
+    // タップで完了⇔取消をトグル。日時は自動記録。
+    const FU_STEP_FLOW = [
+      { key:"quote_call", label:"見積り連絡",             short:"見積連絡" },
+      { key:"quote_hold", label:"見積り連絡済み（保留）", short:"見積済(保留)" },
+      { key:"order",      label:"発注中",                 short:"発注中" },
+      { key:"arrived",    label:"部品入庫済",             short:"部品入庫済" },
+      { key:"sched_call", label:"入庫日相談中",           short:"入庫相談中" },
+    ];
+    const FU_STEPS = {
+      "部品待ち":      FU_STEP_FLOW,
+      "ホリデー不合格": FU_STEP_FLOW,
+    };
+    // 紙の管理表の列に対応する入力項目（job.fuに保存）
+    // memo=詳細, quote=見積依頼, contact=お客様へご連絡, plan=予定組込
+    const FU_FIELDS = [
+      { key:"memo",    label:"詳細",       icon:"🔧", ph:"例）Fブレーキローター、右H/Lバルブ等", color:"#fcd34d" },
+      { key:"quote",   label:"見積依頼",   icon:"💰", ph:"例）京葉部品へFax済 / ディーラー行く", color:"#93c5fd" },
+      { key:"contact", label:"お客様へ連絡", icon:"📞", ph:"例）7/9見積り済み・返事待ち",         color:"#86efac" },
+      { key:"plan",    label:"予定組込",   icon:"📅", ph:"例）7/22 13:00預かり / 代車あり",     color:"#d8b4fe" },
+    ];
+    // 部品発注依頼先（job.fu.vendorに保存）
+    const FU_VENDORS = ["京葉部品","日産部品","ケーワン","その他"];
+    // 終了理由（job.fu.outcomeに保存して完了扱いにする）
+    const FU_OUTCOMES = ["辞退","他社入庫","一旦終了"];
+    const fuNowStr = () => {
+      const d = new Date(); const p = n => String(n).padStart(2,"0");
+      return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+    };
+    // 最後の動き（ステータス変更 or ステップ記録）からの経過日数
+    const fuElapsedDays = (job) => {
+      const fu = job.fu || {};
+      let last = job.statusChangedDate || job.checkinDate || job.date || TODAY_STR;
+      Object.values(fu.s || {}).forEach(v => { const d = String(v||"").slice(0,10); if (d > last) last = d; });
+      const diff = Math.round((new Date(TODAY_STR+"T00:00:00") - new Date(last+"T00:00:00")) / 86400000);
+      return isNaN(diff) ? 0 : Math.max(0, diff);
+    };
+    // ステップチップ（size:"big"でパネル用の大きい表示）
+    function FuChips({ job, updFu, size }) {
+      const steps = FU_STEPS[job.status];
+      if (!steps) return null;
+      const done = (job.fu && job.fu.s) || {};
+      const sc = SC[job.status] || SC["作業待ち"];
+      const big = size === "big";
+      return React.createElement('div', { style:{ display:"flex", gap: big?6:4, flexWrap:"wrap" }},
+        steps.map((st, i) => {
+          const isDone = !!done[i];
+          return React.createElement('button', { key: st.key,
+            onClick: (e) => { e.stopPropagation(); updFu && updFu(job.id, i); },
+            onDoubleClick: (e) => e.stopPropagation(),
+            title: isDone ? st.label+"（"+done[i]+"）タップで取消" : st.label+" → タップで記録",
+            style:{ cursor:"pointer",
+              background: isDone ? sc.accent : "#0d1525",
+              border: "1px solid " + (isDone ? sc.accent : "#2a3a52"),
+              color: isDone ? "#0a0a0a" : "#64748b",
+              borderRadius: 999, padding: big ? "6px 12px" : "2px 8px",
+              fontSize: big ? 12 : 9, fontWeight: 800, letterSpacing: .5,
+              boxShadow: isDone ? "0 0 8px "+sc.glow : "none",
+              transition: "all .15s" }},
+            (isDone ? "✓ " : "") + (big ? st.label : st.short));
+        })
+      );
+    }
 
     // ── 作業タイプ定義（JT）──
     // badge=バッジ色, short=短縮表示名
@@ -1101,6 +1210,7 @@ react-dom/cjs/react-dom-client.production.js:
       { label:"保留系", icon:"⏸", items:[
         { s:"連絡待ち",      desc:"お客様への連絡待ち",   parked:true },
         { s:"部品待ち",      desc:"部品入荷待ち",         parked:true },
+        { s:"ホリデー不合格", desc:"車検不合格・要フォロー", parked:true },
         { s:"一時中断",      desc:"作業を一時停止",       parked:true },
         { s:"作業待ち",      desc:"次の作業担当者待ち",   parked:true },
       ]},
@@ -1439,14 +1549,215 @@ react-dom/cjs/react-dom-client.production.js:
     }
 
 
+    // ── フォローリスト（紙の管理表と同じ列構成の全画面一覧） ──
+    function FollowListView({ jobs, updFu, onReEntry, removeJob, restoreFollowJob, setEditJob, openReAssign }) {
+      const fuJobs = jobs.filter(j => !j.completed && FU_STEPS[j.status]);
+      const bySt = (a,b) => fuElapsedDays(b) - fuElapsedDays(a);
+      const failJobs = fuJobs.filter(j => j.status==="ホリデー不合格").sort(bySt);
+      const partJobs = fuJobs.filter(j => j.status==="部品待ち").sort(bySt);
+      const stagCnt = fuJobs.filter(j => fuElapsedDays(j) >= 3).length;
+      const GRID = "100px 62px minmax(110px,1.1fr) 96px 66px 100px 230px minmax(160px,1.5fr) 100px minmax(140px,1.3fr) minmax(140px,1.3fr) minmax(140px,1.3fr) 92px 120px";
+      const HEADERS = ["状態","受付","お客様","車種","No.","主要件","進捗ステップ","🔧 詳細","🏭 発注先","💰 見積依頼","📞 お客様へ連絡","📅 予定組込","担当","操作"];
+      const [showEnded, setShowEnded] = React.useState(false);
+      const endedJobs = jobs.filter(j => j.completed && FU_STEPS[j.status] && j.fu && j.fu.outcome && j.fu.outcome !== "再入庫")
+        .sort((a,b) => (b.completedAt||"") > (a.completedAt||"") ? 1 : -1);
+      const cellBase = { padding:"9px 8px", fontSize:12, display:"flex", flexDirection:"column", justifyContent:"center", gap:3, minWidth:0 };
+
+      const row = (j) => {
+        const sc = SC[j.status] || SC["作業待ち"];
+        const jt = JT[j.type] || JT["一般整備"];
+        const fu = j.fu || {};
+        const days = fuElapsedDays(j);
+        const stag = days >= 3;
+        return React.createElement('div', { key:j.id,
+          onDoubleClick: () => setEditJob(j),
+          title:"ダブルクリックで編集",
+          style:{ display:"grid", gridTemplateColumns:GRID, alignItems:"stretch",
+            borderBottom:"1px solid #101a2c",
+            borderLeft:"4px solid "+(stag ? "#ef4444" : sc.accent),
+            background: stag ? "#160a0d" : "#0a1120" }},
+          /* 状態 */
+          React.createElement('div', { style:{...cellBase, alignItems:"flex-start"}},
+            React.createElement('span', { style:{ fontSize:10, fontWeight:800, color:sc.text, background:sc.bg,
+              border:"1px solid "+sc.accent, borderRadius:5, padding:"2px 7px", whiteSpace:"nowrap" }}, j.status),
+            React.createElement('span', { style:{ fontSize:9, fontWeight:800, whiteSpace:"nowrap",
+              color: stag ? "#fff" : "#64748b", background: stag ? "#ef4444" : "transparent",
+              borderRadius:4, padding: stag ? "1px 6px" : 0 }}, days===0 ? "本日動きあり" : "動きなし"+days+"日"),
+            fu.outcome && React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:"#0a0a0a", background:"#94a3b8", borderRadius:4, padding:"1px 6px" }}, fu.outcome)
+          ),
+          /* 受付 */
+          React.createElement('div', { style:{...cellBase, fontFamily:"monospace", fontSize:11, color:"#94a3b8" }},
+            String(j.receptionDate||j.checkinDate||j.date||"").slice(5)),
+          /* お客様 */
+          React.createElement('div', { style:{...cellBase }},
+            React.createElement('span', { style:{ fontSize:13, fontWeight:800, color:"#f1f5f9", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, (j.owner||"(名前なし)")+" 様")),
+          /* 車種 */
+          React.createElement('div', { style:{...cellBase, color:"#94a3b8", fontSize:11 }},
+            React.createElement('span', { style:{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, j.model||"")),
+          /* ナンバー */
+          React.createElement('div', { style:{...cellBase, fontFamily:"monospace", fontSize:12, fontWeight:700, color:"#7dd3fc" }}, j.plate||""),
+          /* 主要件 */
+          React.createElement('div', { style:{...cellBase }},
+            React.createElement('span', { style:{ fontSize:10, fontWeight:700, color:jt.badge, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, j.type||"")),
+          /* 進捗ステップ */
+          React.createElement('div', { style:{...cellBase }},
+            React.createElement(FuChips, { job:j, updFu:updFu })),
+          /* 詳細 → 発注先 → 見積依頼/連絡/予定組込 */
+          ...[FU_FIELDS[0]].map(f =>
+            React.createElement('div', { key:f.key, style:{...cellBase }},
+              React.createElement('input', { type:"text",
+                defaultValue: fu[f.key]||"",
+                placeholder:"（"+f.label+"）",
+                onBlur: (e) => { if((fu[f.key]||"") !== e.target.value){ const patch={}; patch[f.key]=e.target.value; updFu(j.id, null, patch); } },
+                onKeyDown: (e) => { if(e.key==="Enter") e.target.blur(); },
+                style:{ width:"100%", boxSizing:"border-box",
+                  background:"#070c14", border:"1px solid "+(fu[f.key] ? f.color+"55" : "#1e293b"),
+                  borderRadius:6, color:f.color, fontSize:12, padding:"7px 8px", outline:"none" }})
+            )),
+          /* 発注先 */
+          React.createElement('div', { style:{...cellBase }},
+            React.createElement('select', {
+              value: fu.vendor||"",
+              onChange: (e) => updFu(j.id, null, { vendor: e.target.value }),
+              style:{ width:"100%", boxSizing:"border-box",
+                background:"#070c14", border:"1px solid "+(fu.vendor ? "#fb923c88" : "#1e293b"),
+                borderRadius:6, color: fu.vendor ? "#fdba74" : "#475569",
+                fontSize:11, fontWeight:700, padding:"6px 4px", outline:"none", cursor:"pointer" }},
+              React.createElement('option', { value:"" }, "未選択"),
+              ...FU_VENDORS.map(v => React.createElement('option', { key:v, value:v }, v))
+            )),
+          ...FU_FIELDS.slice(1).map(f =>
+            React.createElement('div', { key:f.key, style:{...cellBase }},
+              React.createElement('input', { type:"text",
+                defaultValue: fu[f.key]||"",
+                placeholder:"（"+f.label+"）",
+                onBlur: (e) => { if((fu[f.key]||"") !== e.target.value){ const patch={}; patch[f.key]=e.target.value; updFu(j.id, null, patch); } },
+                onKeyDown: (e) => { if(e.key==="Enter") e.target.blur(); },
+                style:{ width:"100%", boxSizing:"border-box",
+                  background:"#070c14", border:"1px solid "+(fu[f.key] ? f.color+"55" : "#1e293b"),
+                  borderRadius:6, color:f.color, fontSize:12, padding:"7px 8px", outline:"none" }})
+            )),
+          /* 担当 */
+          React.createElement('div', { style:{...cellBase, fontSize:10, fontWeight:700 }},
+            j.mechanic && React.createElement('span', { style:{ color:"#10b981", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}, "🔧 "+j.mechanic),
+            j.receptionist && React.createElement('span', { style:{ color:"#06b6d4", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}, "📋 "+j.receptionist)
+          ),
+          /* 操作 */
+          React.createElement('div', { style:{...cellBase }},
+            j.status==="ホリデー不合格" && React.createElement('button', {
+              onClick: () => {
+                if(!confirm((j.owner||"")+"様を「ホリデー/再入庫」として入庫登録します。\nこの札は削除され、登録画面が開きます。よろしいですか？")) return;
+                updFu(j.id, null, { outcome:"再入庫" });
+                onReEntry(j, { date:TODAY_STR, mechanic:j.mechanic||"", deliveryDate:"", deliveryTime:"" });
+              },
+              style:{ background:"linear-gradient(135deg,#22c55e,#15803d)", border:"none", borderRadius:6,
+                color:"#fff", padding:"6px 0", fontSize:11, fontWeight:800, cursor:"pointer", width:"100%" }}, "🔄 再入庫登録"),
+            j.status==="ホリデー不合格" && React.createElement('select', {
+              value: "",
+              onChange: (e) => {
+                const v = e.target.value; e.target.value = "";
+                if (!v) return;
+                if(!confirm((j.owner||"")+"様を「"+v+"」で終了します。\n一覧下の「終了済み」からいつでも復活できます。よろしいですか？")) return;
+                updFu(j.id, null, { outcome: v });
+                removeJob(j.id);
+              },
+              style:{ width:"100%", boxSizing:"border-box", background:"#1a1220", border:"1px solid #47334f",
+                borderRadius:6, color:"#94a3b8", padding:"5px 2px", fontSize:10, fontWeight:700, cursor:"pointer", outline:"none" }},
+              React.createElement('option', { value:"" }, "終了処理…"),
+              ...FU_OUTCOMES.map(v => React.createElement('option', { key:v, value:v }, v))
+            ),
+            j.status==="部品待ち" && openReAssign && React.createElement('button', {
+              onClick: () => openReAssign(j),
+              style:{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", border:"none", borderRadius:6,
+                color:"#fff", padding:"6px 0", fontSize:11, fontWeight:700, cursor:"pointer", width:"100%" }}, "↩ 再配置")
+          )
+        );
+      };
+
+      const section = (title, color, list) => list.length>0 && React.createElement(React.Fragment, { key:title },
+        React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:8, padding:"14px 4px 8px" }},
+          React.createElement('span', { style:{ fontSize:13, fontWeight:900, color:color, letterSpacing:1 }}, title),
+          React.createElement('span', { style:{ fontSize:10, fontWeight:800, color:"#fff", background:color, borderRadius:10, padding:"1px 9px" }}, list.length+"台")
+        ),
+        React.createElement('div', { style:{ border:"1px solid #1e293b", borderRadius:10, overflow:"hidden", background:"#0a1120" }},
+          /* ヘッダー行 */
+          React.createElement('div', { style:{ display:"grid", gridTemplateColumns:GRID,
+            background:"#0d1830", borderBottom:"1px solid #1e3a5f", borderLeft:"4px solid transparent" }},
+            HEADERS.map(h => React.createElement('div', { key:h, style:{ padding:"8px 8px", fontSize:10, fontWeight:800, color:"#64748b", letterSpacing:.5, whiteSpace:"nowrap" }}, h))
+          ),
+          ...list.map(row)
+        )
+      );
+
+      return React.createElement('div', null,
+        React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }},
+          React.createElement('div', { style:{ fontSize:15, fontWeight:700 }}, "📞 フォローリスト"),
+          React.createElement('span', { style:{ fontSize:11, color:"#64748b" }}, "ステップはタップで記録／入力欄は書いたあと欄の外をタップで保存／行ダブルクリックで編集"),
+          stagCnt>0 && React.createElement('span', { style:{ fontSize:10, fontWeight:800, color:"#fff", background:"#ef4444", borderRadius:10, padding:"2px 10px", marginLeft:"auto", boxShadow:"0 0 8px #ef444488" }}, "⚠ 3日以上動きなし "+stagCnt+"台")
+        ),
+        fuJobs.length===0
+          ? React.createElement('div', { style:{ textAlign:"center", padding:"60px 0", fontSize:13, color:"#334155" }},
+              "フォロー中のお客様はいません（「ホリデー不合格」「部品待ち」のお客様がここに表示されます）")
+          : React.createElement('div', { style:{ overflowX:"auto", paddingBottom:8 }},
+              React.createElement('div', { style:{ minWidth:1620 }},
+                section("▼ ホリデー不合格", "#f43f5e", failJobs),
+                section("▼ 部品待ち", "#f59e0b", partJobs)
+              )),
+        /* 終了済みセクション（辞退・他社入庫・一旦終了） */
+        React.createElement('div', { style:{ marginTop:18 }},
+          React.createElement('button', {
+            onClick: () => setShowEnded(v => !v),
+            style:{ background:"#0d1424", border:"1px solid #1e293b", borderRadius:8,
+              color:"#64748b", padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }},
+            (showEnded ? "▼" : "▶") + " 辞退・終了済み（" + endedJobs.length + "件）"),
+          showEnded && (endedJobs.length===0
+            ? React.createElement('div', { style:{ fontSize:11, color:"#334155", padding:"14px 6px" }}, "終了済みの案件はありません")
+            : React.createElement('div', { style:{ overflowX:"auto", marginTop:8 }},
+                React.createElement('div', { style:{ minWidth:1200, border:"1px solid #1e293b", borderRadius:10, overflow:"hidden", background:"#080d18" }},
+                  endedJobs.map(j => {
+                    const fu = j.fu || {};
+                    const endDate = (j.completedAt||"").slice(0,10);
+                    const info = [];
+                    if (fu.memo)    info.push("🔧"+fu.memo);
+                    if (fu.vendor)  info.push("🏭"+fu.vendor);
+                    if (fu.quote)   info.push("💰"+fu.quote);
+                    if (fu.contact) info.push("📞"+fu.contact);
+                    if (fu.plan)    info.push("📅"+fu.plan);
+                    return React.createElement('div', { key:j.id,
+                      onDoubleClick: () => setEditJob(j),
+                      style:{ display:"grid", gridTemplateColumns:"84px 84px minmax(110px,1fr) 96px 66px 100px minmax(260px,2.4fr) 96px",
+                        alignItems:"center", borderBottom:"1px solid #101a2c", padding:"0 0" }},
+                      React.createElement('div', { style:{ padding:"8px", fontSize:10, fontFamily:"monospace", color:"#475569" }}, endDate.slice(5)),
+                      React.createElement('div', { style:{ padding:"8px" }},
+                        React.createElement('span', { style:{ fontSize:10, fontWeight:800, color:"#0a0a0a", background:"#94a3b8", borderRadius:4, padding:"2px 8px", whiteSpace:"nowrap" }}, fu.outcome)),
+                      React.createElement('div', { style:{ padding:"8px", fontSize:12, fontWeight:800, color:"#cbd5e1", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, (j.owner||"(名前なし)")+" 様"),
+                      React.createElement('div', { style:{ padding:"8px", fontSize:11, color:"#64748b", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, j.model||""),
+                      React.createElement('div', { style:{ padding:"8px", fontSize:11, fontFamily:"monospace", fontWeight:700, color:"#38bdf8" }}, j.plate||""),
+                      React.createElement('div', { style:{ padding:"8px", fontSize:10, color:(JT[j.type]||JT["一般整備"]).badge, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}, j.type||""),
+                      React.createElement('div', { style:{ padding:"8px", fontSize:10, color:"#64748b", lineHeight:1.6, wordBreak:"break-all" }}, info.join("　") || "—"),
+                      React.createElement('div', { style:{ padding:"6px 8px" }},
+                        React.createElement('button', {
+                          onClick: () => {
+                            if(!confirm((j.owner||"")+"様をフォローリストに復活させますか？")) return;
+                            restoreFollowJob(j.id);
+                          },
+                          style:{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", border:"none", borderRadius:6,
+                            color:"#fff", padding:"6px 12px", fontSize:11, fontWeight:800, cursor:"pointer", width:"100%" }}, "↩ 復活"))
+                    );
+                  })
+                )))
+        )
+      );
+    }
+
     // ── ステータス一覧 ──
-    function ShelvedList({ shelvedJobs, allJobs, stalls, openReAssign, removeJob, setEditJob, updStatus, flashJobId }) {
+    function ShelvedList({ shelvedJobs, allJobs, stalls, openReAssign, removeJob, setEditJob, updStatus, updFu, flashJobId }) {
       const [filt, setFilt] = useState("すべて");
       const [sortOrder, setSortOrder] = useState("new");
       const [groupMode, setGroupMode] = useState("none"); // "none" | "mechanic" | "receptionist"
       const [staffSearch, setStaffSearch] = useState("");
       const [collapsedGroups, setCollapsedGroups] = useState({});
-      const SHELVE_SET = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+      const SHELVE_SET = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断"]);
       const onBoard = new Set((allJobs||[]).filter(j => !SHELVE_SET.has(j.status) && j.workState!=="shelved" && j.status!=="当日来店/預かり" && !j.completed).map(j => j.id));
       const waitingJobs = (allJobs||[]).filter(j => j.status==="作業待ち" && !j.completed && !onBoard.has(j.id));
       const listJobs = [...waitingJobs, ...shelvedJobs.filter(j => !waitingJobs.find(w => w.id===j.id))];
@@ -1512,6 +1823,25 @@ react-dom/cjs/react-dom-client.production.js:
                 , React.createElement('div', { style: { fontSize:13, fontWeight:800, color:"#38bdf8", fontFamily:"monospace", letterSpacing:1 }}, job.plate)
                 , React.createElement('span', { style: { background:sc.bg, border:`1px solid ${sc.accent}`, color:sc.text,
                   fontSize:10, fontWeight:700, borderRadius:5, padding:"3px 8px", whiteSpace:"nowrap", flexShrink:0 }}, job.workState==="working" ? "作業中" : job.status)
+              )
+              /* フォローステップチップ（部品待ち・ホリデー不合格のみ） */
+              , FU_STEPS[job.status] && React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}
+                , React.createElement(FuChips, { job: job, updFu: updFu })
+                , fuElapsedDays(job) >= 3 && React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:"#fff", background:"#ef4444", borderRadius:4, padding:"1px 6px", boxShadow:"0 0 6px #ef444488" }}, "放置"+fuElapsedDays(job)+"日")
+                , job.fu && job.fu.outcome && React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:"#0a0a0a", background:"#94a3b8", borderRadius:4, padding:"1px 6px" }}, job.fu.outcome)
+              )
+              /* 管理表項目の記入済み内容（詳細/見積依頼/連絡/予定） */
+              , FU_STEPS[job.status] && job.fu && (job.fu.vendor || FU_FIELDS.some(f => job.fu[f.key])) && React.createElement('div', { style:{ display:"flex", flexDirection:"column", gap:2, background:"#070c14", borderRadius:6, padding:"6px 8px" }}
+                , job.fu.vendor && React.createElement('div', { style:{ display:"flex", gap:5, fontSize:10, lineHeight:1.5 }}
+                  , React.createElement('span', { style:{ color:"#fdba74", fontWeight:800, flexShrink:0 }}, "🏭発注先")
+                  , React.createElement('span', { style:{ color:"#cbd5e1" }}, job.fu.vendor)
+                )
+                , FU_FIELDS.filter(f => job.fu[f.key]).map(f =>
+                  React.createElement('div', { key:f.key, style:{ display:"flex", gap:5, fontSize:10, lineHeight:1.5 }}
+                    , React.createElement('span', { style:{ color:f.color, fontWeight:800, flexShrink:0 }}, f.icon+f.label)
+                    , React.createElement('span', { style:{ color:"#cbd5e1", wordBreak:"break-all" }}, job.fu[f.key])
+                  )
+                )
               )
               , React.createElement('div', { style: { fontSize:11, color:"#94a3b8", lineHeight:1.5, fontWeight:500 }}, job.owner, " / ", job.model)
               , React.createElement('div', { style: { display:"flex", alignItems:"center", gap:6 }}
@@ -7720,6 +8050,7 @@ React.createElement('select', {
       const [showTodayDelivery, setShowTodayDelivery] = useState(false);
       const [showLoanTomorrow, setShowLoanTomorrow] = useState(false);
       const [showDeadline, setShowDeadline] = useState(false);
+      const [showFollow, setShowFollow] = useState(false);
       const [showMemo, setShowMemo] = useState(false);
       const [showTodayLog, setShowTodayLog] = useState(false);
       const [showUnhandledAlert, setShowUnhandledAlert] = useState(false);
@@ -8296,10 +8627,26 @@ React.createElement('select', {
         setTab("board");
         setTimeout(() => setShowAdd(true), 100);
       };
-      const SHELVE_ON_STATUS = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+      const SHELVE_ON_STATUS = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断"]);
       const updPit = useCallback((id, pit) => {
         setJobs(p => p.map(j => j.id===id ? {...j, pit: j.pit===pit ? null : pit} : j));
         setSel(p => p && p.id===id ? {...p, pit: p.pit===pit ? null : pit} : p);
+      }, []);
+      // ── フォローステップ更新 ──
+      // stepIdx指定: そのステップの完了⇔取消をトグル（日時自動記録）
+      // patch指定: fuオブジェクトにマージ（memo, outcome等）
+      const updFu = useCallback((id, stepIdx, patch) => {
+        setJobs(p => p.map(j => {
+          if (j.id !== id) return j;
+          const fu = {...(j.fu || {})};
+          if (stepIdx !== null && stepIdx !== undefined) {
+            const s = {...(fu.s || {})};
+            if (s[stepIdx]) { delete s[stepIdx]; } else { s[stepIdx] = fuNowStr(); }
+            fu.s = s;
+          }
+          if (patch) Object.assign(fu, patch);
+          return {...j, fu};
+        }));
       }, []);
       const updStatus = useCallback((id, s, forceShelve) => {
         // ── 担当メカニック必須チェック ──
@@ -8316,7 +8663,7 @@ React.createElement('select', {
             return {
               ...j,
               status: s,
-              statusChangedAt: t,
+              statusChangedAt: t, statusChangedDate: TODAY_STR,
               ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
               ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
             };
@@ -8428,7 +8775,7 @@ React.createElement('select', {
         setJobs(p => {
           const next = p.map(j => j.id===reAssign.jobId ? {
             ...j, date:ra.date, stall:ra.stall, start:parseFloat(ra.start),
-            end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t,
+            end:parseFloat(ra.end), status:"作業待ち", statusChangedAt:t, statusChangedDate:TODAY_STR,
             workState:"idle", startedAt:null, endedAt:null, displayDate:null
           } : j);
           try { localStorage.setItem('garage_board_jobs', JSON.stringify(next)); } catch(e) {}
@@ -8450,7 +8797,7 @@ React.createElement('select', {
             return {
               ...j,
               status: ra.status,
-              statusChangedAt: t,
+              statusChangedAt: t, statusChangedDate: TODAY_STR,
               ...(goShelved ? { workState:"shelved", endedAt: j.endedAt || t } : {}),
               ...(goBoard   ? { workState:"idle", startedAt:null, endedAt:null } : {}),
             };
@@ -8468,6 +8815,10 @@ React.createElement('select', {
         const now = new Date().toISOString();
         setJobs(p => p.map(j => j.id === id ? {...j, completed: true, completedAt: now} : j));
         setSel(p => _optionalChain([p, 'optionalAccess', _27 => _27.id])===id ? null : p);
+      }, []);
+      // フォロー終了案件の復活（完了扱いを解除して一覧に戻す）
+      const restoreFollowJob = useCallback((id) => {
+        setJobs(p => p.map(j => j.id === id ? {...j, completed:false, completedAt:null, fu:{...(j.fu||{}), outcome:""}} : j));
       }, []);
 
       const boardJobs   = useMemo(() => jobs.filter(j => !SHELVE_ON_STATUS.has(j.status) && j.workState!=="shelved" && (j.displayDate||j.date)===boardDate && !j.completed && j.status!=="当日来店/預かり"), [jobs, boardDate, SHELVE_ON_STATUS]);
@@ -8821,7 +9172,7 @@ React.createElement('select', {
         seatData, setSeatData, frontOpenId, setFrontOpenId,
         showTodayDelivery, setShowTodayDelivery,
         showLoanTomorrow, setShowLoanTomorrow,
-        showDeadline, setShowDeadline,
+        showDeadline, setShowDeadline, showFollow, setShowFollow,
         showMemo, setShowMemo,
         showTodayLog, setShowTodayLog,
         showUnhandledAlert, setShowUnhandledAlert,
@@ -8855,8 +9206,8 @@ React.createElement('select', {
         loanTomorrowTick,
         // アクション
         startWork, endWork, confirmEndWork, rolloverWork, onReEntry,
-        updPit, updStatus, addJob, saveEditJob,
-        openReAssign, confirmReAssign, confirmStatusOnly, removeJob,
+        updPit, updFu, updStatus, addJob, saveEditJob,
+        openReAssign, confirmReAssign, confirmStatusOnly, removeJob, restoreFollowJob,
         // 派生データ
         boardJobs, waitingJobs, shelvedJobs, cnt,
         statsCounters, yearlyLog,
@@ -8890,7 +9241,7 @@ React.createElement('select', {
         boardDate, setBoardDate, showCal, setShowCal, calPos, setCalPos,
         showAdd, setShowAdd, addError, setAddError, dragOverlapMsg, setDragOverlapMsg,
         showTomorrow, setShowTomorrow, frontStaffList, setFrontStaffList, showFrontStaffEdit, setShowFrontStaffEdit, frontStaffInput, setFrontStaffInput, saveFrontStaffList, seatData, setSeatData, frontOpenId, setFrontOpenId, showTodayDelivery, setShowTodayDelivery,
-        showLoanTomorrow, setShowLoanTomorrow, showDeadline, setShowDeadline,
+        showLoanTomorrow, setShowLoanTomorrow, showDeadline, setShowDeadline, showFollow, setShowFollow,
         showMemo, setShowMemo, showTodayLog, setShowTodayLog,
         showUnhandledAlert, setShowUnhandledAlert,
         showStaff, setShowStaff, showBlock, setShowBlock,
@@ -8911,8 +9262,8 @@ React.createElement('select', {
         showSearchResults, setShowSearchResults, flashJobId, setFlashJobId,
         loanTomorrowTick,
         startWork, endWork, confirmEndWork, rolloverWork, onReEntry,
-        updPit, updStatus, addJob, saveEditJob,
-        openReAssign, confirmReAssign, confirmStatusOnly, removeJob,
+        updPit, updFu, updStatus, addJob, saveEditJob,
+        openReAssign, confirmReAssign, confirmStatusOnly, removeJob, restoreFollowJob,
         boardJobs, waitingJobs, shelvedJobs, cnt,
         statsCounters, yearlyLog,
         SHELVE_ON_STATUS, FIELD_ERROR_MAP,
@@ -9029,7 +9380,7 @@ React.createElement('select', {
                       return (
                         React.createElement('div', { key: job.id,
                           onClick: () => {
-                            const SHELVE_ON = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+                            const SHELVE_ON = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断"]);
                             const isShelved = SHELVE_ON.has(job.status) || job.workState === "shelved";
                             setShowSearchResults(false); setSearchQuery(""); setSearchResults([]);
                             setFlashJobId(job.id);
@@ -9228,7 +9579,7 @@ React.createElement('select', {
 
             )
             , React.createElement('div', { style: { display:"flex", padding:"0 16px", borderTop:"1px solid #1e3a5f" }}
-              , [{key:"board",label:"📊 ストールボード"},{key:"shelved",label:`📋 ステータス一覧 (${shelvedJobs.length})`},{key:"bp",label:"🔧 BPボード"},{key:"loancar",label:"🚗 代車管理"},{key:"reservation",label:"📅 予約一覧"}].map(t => (
+              , [{key:"board",label:"📊 ストールボード"},{key:"shelved",label:`📋 ステータス一覧 (${shelvedJobs.length})`},{key:"bp",label:"🔧 BPボード"},{key:"loancar",label:"🚗 代車管理"},{key:"reservation",label:"📅 予約一覧"},{key:"follow",label:`📞 フォローリスト (${jobs.filter(j=>!j.completed&&FU_STEPS[j.status]).length})`}].map(t => (
                 React.createElement('button', { key: t.key, onClick: () => setTab(t.key), style: { background:"none", border:"none", cursor:"pointer",
                   padding:"10px 20px", fontSize:13, color:tab===t.key?"#60a5fa":"#475569",
                   borderBottom:tab===t.key?"2px solid #3b82f6":"2px solid transparent",
@@ -9331,7 +9682,7 @@ React.createElement('select', {
                   , (()=>{
                     var bpRaw=[];
                     bpRaw = window.loadFromDb('bp_jobs', []);
-                    const SHELVE_SET_TM = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+                    const SHELVE_SET_TM = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断"]);
                     const cnt = jobs.filter(j=>
                       (j.displayDate||j.date)===TODAY_STR
                       && !j.completed
@@ -9339,7 +9690,7 @@ React.createElement('select', {
                     ).length
                               + bpRaw.filter(j=>j.inDate===TODAY_STR&&!j.confirmed).length;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showTomorrow; setShowTomorrow(next); setShowTodayDelivery(false); if(next){ setShowLoanTomorrow(false); setShowDeadline(false); setShowMemo(false); } },
+                      onClick:()=>{ var next=!showTomorrow; setShowTomorrow(next); setShowTodayDelivery(false); if(next){ setShowLoanTomorrow(false); setShowDeadline(false); setShowFollow(false); setShowMemo(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showTomorrow
                           ? "linear-gradient(135deg,#1e3a8a,#2563eb)"
@@ -9382,7 +9733,7 @@ React.createElement('select', {
                     lcCarsRaw  = window.loadFromDb('loancar_cars', []);
                     var loanCnt = lcLoansRaw.filter(function(l){ return l.startDate===nextBizDay && !l.returnedDate; }).length;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showLoanTomorrow; setShowLoanTomorrow(next); setShowTodayDelivery(false); if(next){ setShowTomorrow(false); setShowDeadline(false); setShowMemo(false); } },
+                      onClick:()=>{ var next=!showLoanTomorrow; setShowLoanTomorrow(next); setShowTodayDelivery(false); if(next){ setShowTomorrow(false); setShowDeadline(false); setShowFollow(false); setShowMemo(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showLoanTomorrow
                           ? "linear-gradient(135deg,#064e3b,#059669)"
@@ -9412,7 +9763,7 @@ React.createElement('select', {
                     });
                     var cnt = todayDeliveryJobs.length;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showTodayDelivery; setShowTodayDelivery(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); } },
+                      onClick:()=>{ var next=!showTodayDelivery; setShowTodayDelivery(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); setShowFollow(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showTodayDelivery
                           ? "linear-gradient(135deg,#78350f,#d97706)"
@@ -9452,7 +9803,7 @@ React.createElement('select', {
                     var tmrw    = alertJobs.filter(function(j){ return j.deliveryDate > TODAY_STR; }).length;
                     var badgeColor = overdue>0 ? "#ef4444" : today>0 ? "#f97316" : "#eab308";
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showDeadline; setShowDeadline(next); setShowTodayDelivery(false); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowMemo(false); } },
+                      onClick:()=>{ var next=!showDeadline; setShowDeadline(next); setShowTodayDelivery(false); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowMemo(false); setShowFollow(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showDeadline ? "linear-gradient(135deg,#450a0a,#7f1d1d)" : "linear-gradient(135deg,#0d0505,#1a0808)",
                         border: showDeadline ? "1px solid #ef444488" : "1px solid #3a1a1a55",
@@ -9472,11 +9823,37 @@ React.createElement('select', {
                         lineHeight:"14px", boxShadow:"0 0 6px "+badgeColor+"88" }}, alertJobs.length)
                     );
                   })()
+                  /* フォロー管理ボタン（部品待ち・ホリデー不合格） */
+                  , (()=>{
+                    var fuJobs = jobs.filter(function(j){ return !j.completed && FU_STEPS[j.status]; });
+                    var stag = fuJobs.filter(function(j){ return fuElapsedDays(j) >= 3; }).length;
+                    var badgeColor = stag>0 ? "#ef4444" : "#f43f5e";
+                    return React.createElement('button', {
+                      onClick:()=>{ var next=!showFollow; setShowFollow(next); if(next){ setShowDeadline(false); setShowTomorrow(false); setShowLoanTomorrow(false); setShowMemo(false); setShowTodayDelivery(false); setShowTodayLog(false); } },
+                      style:{ position:"relative", flexShrink:0,
+                        background: showFollow ? "linear-gradient(135deg,#3f0a1a,#7f1d3a)" : "linear-gradient(135deg,#150508,#24080f)",
+                        border: showFollow ? "1px solid #f43f5e88" : "1px solid #3a1a2555",
+                        borderRadius:5, color: showFollow ? "#fda4af" : "#fb7185",
+                        fontSize:11, fontWeight:700, cursor:"pointer",
+                        width:42, height:42, display:"flex", flexDirection:"column",
+                        alignItems:"center", justifyContent:"center",
+                        gap:1, padding:0, lineHeight:1.1,
+                        boxShadow: showFollow ? "0 0 10px #f43f5e44" : "none" }},
+                      "📞",
+                      React.createElement('span', { style:{ fontSize:8, fontWeight:800, whiteSpace:"nowrap" }}, "フォロー"),
+                      fuJobs.length > 0 && React.createElement('span', { style:{
+                        position:"absolute", top:-5, right:-5,
+                        background: badgeColor, color:"#fff", borderRadius:"50%",
+                        width:14, height:14, fontSize:8, fontWeight:700,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        lineHeight:"14px", boxShadow:"0 0 6px "+badgeColor+"88" }}, fuJobs.length)
+                    );
+                  })()
                   /* 予約ログボタン */
                   , (()=>{
                     const todayCount = todayLog.filter(l => l.registeredAt === TODAY_STR).length;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showTodayLog; setShowTodayLog(next); if(next){ setShowMemo(false); setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); } },
+                      onClick:()=>{ var next=!showTodayLog; setShowTodayLog(next); if(next){ setShowMemo(false); setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); setShowFollow(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showTodayLog ? "linear-gradient(135deg,#0c2a3a,#0e4d6e)" : "linear-gradient(135deg,#06111e,#0a1a2e)",
                         border: showTodayLog ? "1px solid #38bdf888" : "1px solid #1e3a5f55",
@@ -9501,7 +9878,7 @@ React.createElement('select', {
                   , (()=>{
                     var hasMemo = memoText.trim().length > 0;
                     return React.createElement('button', {
-                      onClick:()=>{ var next=!showMemo; setShowMemo(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); setShowTodayLog(false); } },
+                      onClick:()=>{ var next=!showMemo; setShowMemo(next); if(next){ setShowTomorrow(false); setShowLoanTomorrow(false); setShowDeadline(false); setShowFollow(false); setShowTodayLog(false); } },
                       style:{ position:"relative", flexShrink:0,
                         background: showMemo ? "linear-gradient(135deg,#3b2a00,#78350f)" : "linear-gradient(135deg,#0d0a00,#1a1000)",
                         border: showMemo ? "1px solid #f59e0b88" : "1px solid #3a2a0055",
@@ -9577,7 +9954,7 @@ React.createElement('select', {
 
             /* ステータス一覧 */
             , tab==="shelved" && (
-              React.createElement(ShelvedList, { shelvedJobs: shelvedJobs, allJobs: jobs, stalls: stalls, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob, updStatus: updStatus, flashJobId: flashJobId})
+              React.createElement(ShelvedList, { shelvedJobs: shelvedJobs, allJobs: jobs, stalls: stalls, openReAssign: openReAssign, removeJob: removeJob, setEditJob: setEditJob, updStatus: updStatus, updFu: updFu, flashJobId: flashJobId})
             )
 
             , tab==="bp" && (
@@ -9586,6 +9963,11 @@ React.createElement('select', {
 
             , tab==="loancar" && (
               React.createElement(LoanCarBoard, null)
+            )
+
+            /* フォローリスト */
+            , tab==="follow" && (
+              React.createElement(FollowListView, { jobs: jobs, updFu: updFu, onReEntry: onReEntry, removeJob: removeJob, restoreFollowJob: restoreFollowJob, setEditJob: setEditJob, openReAssign: openReAssign })
             )
 
             /* 予約一覧 */
@@ -9629,7 +10011,7 @@ React.createElement('select', {
               // 行クリック共通処理
               const onRowClick = (j) => {
                 const d = j.displayDate || j.date;
-                const SHELVE_SET = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+                const SHELVE_SET = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断"]);
                 const isShelved = SHELVE_SET.has(j.status) || j.workState === "shelved";
                 setFlashJobId(j.id);
                 if (isShelved) {
@@ -9839,7 +10221,7 @@ React.createElement('select', {
           // ─────────────────────────────────────────────
           /* 当日入庫サイドパネル（fixed右端） */
           , showTomorrow && (()=>{
-            var SHELVE_SET_TI = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","一時中断"]);
+            var SHELVE_SET_TI = new Set(["完成","洗車待ち","車検証/来店","車検証/郵送","引き渡し準備/完了","検査・保適待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断"]);
             var bpRaw2=[], bpWkRaw2=[];
             bpRaw2 = window.loadFromDb('bp_jobs', []);
             bpWkRaw2 = window.loadFromDb('bp_workers', []);
@@ -10522,6 +10904,153 @@ React.createElement('select', {
                     ...today.map(function(j){ return alertCard(j,"today"); }),
                     tmrw.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#eab308", fontWeight:800, letterSpacing:2, marginBottom:4, marginTop:(overdue.length||today.length)?8:0 }}, "▼ 3日以内納期"),
                     ...tmrw.map(function(j){ return alertCard(j,"tmrw"); })
+                  )
+              )
+            );
+          })()
+
+          /* フォロー管理パネル（部品待ち・ホリデー不合格） */
+          , showFollow && (()=>{
+            var fuJobs = jobs.filter(function(j){ return !j.completed && FU_STEPS[j.status]; });
+            var sortByStag = function(a,b){ return fuElapsedDays(b) - fuElapsedDays(a); };
+            var failJobs = fuJobs.filter(function(j){ return j.status==="ホリデー不合格"; }).sort(sortByStag);
+            var partJobs = fuJobs.filter(function(j){ return j.status==="部品待ち"; }).sort(sortByStag);
+            var stagCnt = fuJobs.filter(function(j){ return fuElapsedDays(j) >= 3; }).length;
+            function fuCard(j) {
+              var sc = SC[j.status] || SC["作業待ち"];
+              var jt = JT[j.type] || JT["一般整備"];
+              var days = fuElapsedDays(j);
+              var stag = days >= 3;
+              var fu = j.fu || {};
+              var doneCnt = Object.keys(fu.s||{}).length;
+              var allDone = doneCnt >= (FU_STEPS[j.status]||[]).length;
+              return React.createElement('div', { key:j.id,
+                onDoubleClick: function(){ setEditJob(j); },
+                title: "ダブルクリックで編集",
+                style:{
+                  background:"#0a0810", border:"1px solid "+(stag ? "#ef4444aa" : sc.accent+"55"),
+                  borderLeft:"4px solid "+(stag ? "#ef4444" : sc.accent),
+                  borderRadius:10, padding:"10px 11px", marginBottom:8,
+                  boxShadow: stag ? "0 0 14px #ef444433" : "0 2px 10px "+sc.glow }},
+                /* 上段: 経過日数・入庫日 */
+                React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5, marginBottom:5 }},
+                  React.createElement('span', { style:{ fontSize:9, fontWeight:900,
+                    color: stag ? "#fff" : "#94a3b8",
+                    background: stag ? "#ef4444" : "#1a2235",
+                    border:"1px solid "+(stag ? "#ef4444" : "#334155"),
+                    borderRadius:4, padding:"1px 7px",
+                    boxShadow: stag ? "0 0 8px #ef444488" : "none" }},
+                    days===0 ? "本日動きあり" : "動きなし "+days+"日"),
+                  fu.outcome && React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:"#0a0a0a", background:"#94a3b8", borderRadius:4, padding:"1px 7px" }}, fu.outcome),
+                  React.createElement('span', { style:{ fontSize:9, color:"#64748b", marginLeft:"auto", fontFamily:"monospace" }}, "受付 "+String(j.receptionDate||j.checkinDate||j.date||"").slice(5))
+                ),
+                /* 車両情報 */
+                React.createElement('div', { style:{ fontSize:14, fontWeight:900, color:"#f1f5f9", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}, (j.owner||"(名前なし)")+" 様"),
+                React.createElement('div', { style:{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8 }},
+                  j.plate && React.createElement('span', { style:{ fontSize:10, fontWeight:700, color:"#cbd5e1", background:"#0f1e30", border:"1px solid #1e3a5f", borderRadius:4, padding:"1px 6px", fontFamily:"monospace" }}, j.plate),
+                  j.model && React.createElement('span', { style:{ fontSize:9, color:"#94a3b8", background:"#0d1525", border:"1px solid #1e293b", borderRadius:4, padding:"1px 6px" }}, j.model),
+                  React.createElement('span', { style:{ fontSize:8, color:jt.badge, background:"#0d1525", border:"1px solid #1e293b", borderRadius:4, padding:"1px 5px" }}, j.type||""),
+                  j.mechanic && React.createElement('span', { style:{ fontSize:9, fontWeight:600, color:"#10b981" }}, "🔧"+j.mechanic),
+                  j.receptionist && React.createElement('span', { style:{ fontSize:9, fontWeight:600, color:"#06b6d4" }}, "📋"+j.receptionist)
+                ),
+                /* ステップ（タップで記録⇔取消） */
+                React.createElement(FuChips, { job:j, updFu:updFu, size:"big" }),
+                /* 完了済みステップの日時 */
+                (function(){
+                  var steps = FU_STEPS[j.status]||[];
+                  var lines = steps.map(function(st,i){ return (fu.s&&fu.s[i]) ? st.label+" "+fu.s[i].slice(5) : null; }).filter(Boolean);
+                  return lines.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#475569", marginTop:5, lineHeight:1.7, fontFamily:"monospace" }}, lines.join(" ／ "));
+                })(),
+                /* 管理表項目（詳細/見積依頼/お客様へ連絡/予定組込・フォーカスを外すと保存） */
+                React.createElement('div', { style:{ display:"flex", flexDirection:"column", gap:4, marginTop:7 }},
+                  React.createElement('div', { style:{ display:"flex", alignItems:"center", gap:5 }},
+                    React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:"#fdba74",
+                      width:58, flexShrink:0, textAlign:"right", letterSpacing:.5 }}, "🏭発注先"),
+                    React.createElement('select', {
+                      value: fu.vendor||"",
+                      onChange: function(e){ updFu(j.id, null, { vendor: e.target.value }); },
+                      style:{ flex:1, minWidth:0, boxSizing:"border-box",
+                        background:"#070c14", border:"1px solid "+(fu.vendor ? "#fb923c88" : "#1e293b"),
+                        borderRadius:6, color: fu.vendor ? "#fdba74" : "#475569",
+                        fontSize:11, fontWeight:700, padding:"5px 4px", outline:"none", cursor:"pointer" }},
+                      React.createElement('option', { value:"" }, "未選択"),
+                      ...FU_VENDORS.map(function(v){ return React.createElement('option', { key:v, value:v }, v); })
+                    )
+                  ),
+                  FU_FIELDS.map(function(f){
+                    return React.createElement('div', { key:f.key, style:{ display:"flex", alignItems:"center", gap:5 }},
+                      React.createElement('span', { style:{ fontSize:9, fontWeight:800, color:f.color,
+                        width:58, flexShrink:0, textAlign:"right", letterSpacing:.5 }}, f.icon+f.label),
+                      React.createElement('input', { type:"text",
+                        defaultValue: fu[f.key]||"",
+                        placeholder: f.ph,
+                        onBlur: function(e){ if((fu[f.key]||"") !== e.target.value){ var patch={}; patch[f.key]=e.target.value; updFu(j.id, null, patch); } },
+                        onKeyDown: function(e){ if(e.key==="Enter") e.target.blur(); },
+                        style:{ flex:1, minWidth:0, boxSizing:"border-box",
+                          background:"#070c14", border:"1px solid "+(fu[f.key] ? f.color+"55" : "#1e293b"), borderRadius:6,
+                          color:f.color, fontSize:11, padding:"5px 7px", outline:"none" }})
+                    );
+                  })
+                ),
+                /* ホリデー不合格: 再入庫 / 辞退 */
+                j.status==="ホリデー不合格" && React.createElement('div', { style:{ display:"flex", gap:5, marginTop:7 }},
+                  React.createElement('button', {
+                    onClick: function(){
+                      if(!confirm((j.owner||"")+"様を「ホリデー/再入庫」として入庫登録します。\nこの札は削除され、登録画面が開きます。よろしいですか？")) return;
+                      updFu(j.id, null, { outcome:"再入庫" });
+                      onReEntry(j, { date:TODAY_STR, mechanic:j.mechanic||"", deliveryDate:"", deliveryTime:"" });
+                      setShowFollow(false);
+                    },
+                    style:{ flex:1, background:"linear-gradient(135deg,#22c55e,#15803d)", border:"none", borderRadius:6,
+                      color:"#fff", padding:"8px 0", fontSize:11, fontWeight:800, cursor:"pointer",
+                      boxShadow: allDone ? "0 0 10px rgba(34,197,94,.5)" : "none", letterSpacing:.5 }}, "🔄 再入庫登録"),
+                  React.createElement('select', {
+                    value: "",
+                    onChange: function(e){
+                      var v = e.target.value; e.target.value = "";
+                      if (!v) return;
+                      if(!confirm((j.owner||"")+"様を「"+v+"」で終了します。\nフォローリストタブ下部の「終了済み」からいつでも復活できます。よろしいですか？")) return;
+                      updFu(j.id, null, { outcome: v });
+                      removeJob(j.id);
+                    },
+                    style:{ width:88, background:"#1a1220", border:"1px solid #47334f", borderRadius:6,
+                      color:"#94a3b8", padding:"8px 2px", fontSize:10, fontWeight:700, cursor:"pointer", outline:"none" }},
+                    React.createElement('option', { value:"" }, "終了処理…"),
+                    ...FU_OUTCOMES.map(function(v){ return React.createElement('option', { key:v, value:v }, v); })
+                  )
+                )
+              );
+            }
+            return React.createElement('div', { style:{
+              position:"fixed", top:108, right:0, bottom:0, width:270, zIndex:198,
+              background:"#0a0508", borderLeft:"2px solid #3f0a1a88",
+              display:"flex", flexDirection:"column",
+              boxShadow:"-4px 0 20px rgba(0,0,0,0.6)" }},
+              /* ヘッダー */
+              React.createElement('div', { style:{
+                padding:"8px 10px",
+                background:"linear-gradient(135deg,#1a0510,#2a0818)",
+                borderBottom:"1px solid #3f0a1a55", flexShrink:0 }},
+                React.createElement('div', { style:{ display:"flex", alignItems:"center", marginBottom:5 }},
+                  React.createElement('span', { style:{ fontSize:12, fontWeight:900, color:"#fb7185", flex:1, letterSpacing:"0.05em" }}, "📞 お客様フォロー"),
+                  React.createElement('button', { onClick:function(){setShowFollow(false);},
+                    style:{ background:"none", border:"none", color:"#475569", fontSize:14, cursor:"pointer", padding:"0 2px" }}, "✕")
+                ),
+                React.createElement('div', { style:{ display:"flex", gap:5, flexWrap:"wrap" }},
+                  failJobs.length>0 && React.createElement('span', { style:{ fontSize:9, color:"#fff", background:"#f43f5e", borderRadius:10, padding:"1px 8px", fontWeight:700 }}, "不合格 "+failJobs.length),
+                  partJobs.length>0 && React.createElement('span', { style:{ fontSize:9, color:"#1a1000", background:"#f59e0b", borderRadius:10, padding:"1px 8px", fontWeight:700 }}, "部品待ち "+partJobs.length),
+                  stagCnt>0 && React.createElement('span', { style:{ fontSize:9, color:"#fff", background:"#ef4444", borderRadius:10, padding:"1px 8px", fontWeight:700, boxShadow:"0 0 6px #ef444488" }}, "⚠ 3日以上放置 "+stagCnt)
+                )
+              ),
+              /* リスト */
+              React.createElement('div', { style:{ flex:1, overflowY:"auto", padding:"8px" }},
+                fuJobs.length===0
+                  ? React.createElement('div', { style:{ textAlign:"center", padding:"30px 0", fontSize:11, color:"#3a1a25" }}, "フォロー中のお客様はいません")
+                  : React.createElement(React.Fragment, null,
+                    failJobs.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#f43f5e", fontWeight:800, letterSpacing:2, marginBottom:4 }}, "▼ ホリデー不合格"),
+                    ...failJobs.map(fuCard),
+                    partJobs.length>0 && React.createElement('div', { style:{ fontSize:8, color:"#f59e0b", fontWeight:800, letterSpacing:2, marginBottom:4, marginTop:failJobs.length?8:0 }}, "▼ 部品待ち"),
+                    ...partJobs.map(fuCard)
                   )
               )
             );
@@ -11255,7 +11784,7 @@ React.createElement('select', {
           /* ストール設定モーダル */
           /* 未対応ジョブ アラートモーダル */
           , showUnhandledAlert && (() => {
-            const EXCLUDE_STATUSES = new Set(["完成","車検証/来店","車検証/郵送","引き渡し準備/完了","洗車待ち","連絡待ち","部品待ち","一時中断","検査・保適待ち"]);
+            const EXCLUDE_STATUSES = new Set(["完成","車検証/来店","車検証/郵送","引き渡し準備/完了","洗車待ち","連絡待ち","部品待ち","ホリデー不合格","一時中断","検査・保適待ち"]);
             const unhandledJobs = jobs.filter(j => {
               if (j.completed) return false;
               if (EXCLUDE_STATUSES.has(j.status)) return false;
